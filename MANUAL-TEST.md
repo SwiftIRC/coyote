@@ -203,10 +203,14 @@ becomes op, or open `/<room>#t=<token>` from a `!vc` invite whose token carries
       console says `[grid] <id> is publishing video while the room still says their
       camera is off — uncovering`. Remove the override afterwards.
 - [ ] **The heal never uncovers a peer who is genuinely off** — have a peer turn their
-      camera OFF properly (the camera button). Their tile must stay covered and stay
-      covered: this app stops the track on camera-off, so no frames play and nothing
-      can trigger the heal. A tile that uncovers itself here is a real bug — it would
-      be showing a black rectangle instead of their avatar.
+      camera OFF with the camera button, and **watch their tile for a good five
+      seconds afterwards**. It must show the avatar and keep showing it. This is the
+      regression that shipped once: stopping the sender does not stop the receiving
+      `<video>` immediately, so for a few hundred milliseconds it plays out frames
+      already decoded, the position keeps advancing, and the heal read that as "still
+      live" and uncovered the tile — leaving their last frame frozen on screen instead
+      of their Gravatar. Glancing at it for a second is not enough to catch it; the
+      cover goes up first and only then gets pulled off.
 - [ ] **The heal is one-way** — with a peer on camera, pull their network (or have
       them sleep the machine) so frames stop. Their tile keeps showing the last frame
       and must NOT flip to the avatar on its own; only a real camera-off broadcast
