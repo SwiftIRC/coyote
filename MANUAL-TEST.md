@@ -225,6 +225,14 @@ becomes op, or open `/<room>#t=<token>` from a `!vc` invite whose token carries
       back. The receiving browser's console names it —
       `[grid] camera media arrived for <id> while the camera-off placeholder is still
       showing`.
+- [ ] **The control-bar popovers are centred on a phone** — narrow the window below
+      480px (or use a real phone) until the control bar wraps onto two rows, then open
+      ☰, the Share menu and a caret device menu in turn. Each must sit centred in the
+      viewport, wholly on screen, clear above the whole bar — not hanging off an edge
+      with its labels clipped, which is what a 240px menu anchored to a button the wrap
+      has moved does. Then widen back past 480px and confirm the desktop anchoring
+      returns: the ☰ menu right-aligned under ☰, the Share menu left-aligned under
+      Share.
 
 ## Synced countdown sound
 

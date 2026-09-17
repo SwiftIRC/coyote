@@ -1330,3 +1330,36 @@ body.ui-idle .controls {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* --- narrow viewports: centre the control-bar popovers ---------------------------
+   Every popover above anchors to its own button (.share-menu/.device-menu grow right
+   from left:0; .settings-menu grows left from right:0, on the assumption that ☰ sits
+   near the right end of the bar). That assumption only holds while the bar is one row.
+   .controls is flex-wrap:wrap + justify-content:center, so on a phone it wraps and the
+   buttons land wherever the rows fall — a 240px menu hung off one of them ends up
+   visibly off-centre, and can run past the viewport edge.
+
+   So on a phone, stop anchoring to the button. Making the wrappers position:static
+   hands the containing block to .controls itself, which spans left:0/right:0 — hence
+   left:50% + translateX(-50%) centres each popover in the VIEWPORT, and bottom:100%
+   now measures from the top of the whole bar, clearing every wrapped row instead of
+   overlapping the buttons.
+
+   This block must stay after the .settings-menu rules above: it matches at the same
+   specificity, so only source order lets it win. */
+@media (max-width: 30rem) {
+  .controls .share-wrap,
+  .controls .split-ctl {
+    position: static;
+  }
+
+  .controls .share-menu,
+  .controls .device-menu,
+  .controls .settings-menu {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: calc(100% + 0.3rem);
+    max-width: calc(100vw - 1rem);
+  }
+}
