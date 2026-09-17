@@ -107,7 +107,7 @@ is UDP sent directly to the SFU and does **not** flow through nginx, so
 ```bash
 go test -race ./...                         # Go: unit + Pion synthetic-client media integration
 go vet ./...
-nvm use && node --test internal/web/test/   # client pure-logic unit tests (Node 22; .nvmrc)
+nvm use && node --test 'internal/web/test/*.test.js'   # client pure-logic unit tests (Node 22; .nvmrc)
 make -C anope/m_webrtc_chat/tests test      # Anope module core (C++; no Anope SDK needed)
 ```
 
