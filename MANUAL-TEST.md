@@ -225,6 +225,17 @@ becomes op, or open `/<room>#t=<token>` from a `!vc` invite whose token carries
       back. The receiving browser's console names it —
       `[grid] camera media arrived for <id> while the camera-off placeholder is still
       showing`.
+- [ ] **Full screen fills the display, and the button tracks reality** — in-call, click
+      the ⛶ button beside ☰. The page fills the screen, the glyph becomes ⤡ and the
+      tooltip reads "Exit full screen"; clicking again comes back. Now go full screen
+      and leave with **Esc** (or the OS gesture) rather than the button: the glyph must
+      return to ⛶ by itself. The button is painted from the document's
+      `fullscreenchange` event and never from the click, precisely so this path cannot
+      strand it claiming you are full screen when you are not.
+- [ ] **No dead full-screen button where the API is absent** — open the call in iOS
+      Safari. There must be NO ⛶ button in the control bar at all. iOS exposes
+      fullscreen on `<video>` only, not on the root element, so the control is never
+      built rather than built and inert.
 - [ ] **The control-bar popovers are centred on a phone** — narrow the window below
       480px (or use a real phone) until the control bar wraps onto two rows, then open
       ☰, the Share menu and a caret device menu in turn. Each must sit centred in the

@@ -28,6 +28,7 @@ import { QUALITY_TIERS } from "../lib/quality.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS, EYE_PATHS, EYE_OFF_PATHS, SPEAKER_PATHS, SPEAKER_OFF_PATHS } from "../lib/icons.js";
 import { confirmDialog } from "../lib/confirm.js";
 import { primeAudio, unlockSounds } from "../lib/sounds.js";
+import { fullscreenSupported, isFullscreen, toggleFullscreen } from "../lib/fullscreen.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
 import { BackgroundPicker } from "./background.js";
 
@@ -196,6 +197,10 @@ export class Controls {
       }
     };
     document.addEventListener("pointerdown", this._onDocPointer);
+    // Fullscreen can also be left with Esc or a system gesture, with no click through us,
+    // so the button's state follows the document's event rather than its own handler.
+    this._onFullscreenChange = () => this._setFullscreenButton();
+    document.addEventListener("fullscreenchange", this._onFullscreenChange);
     this._revealControls(); // start visible, then arm the idle timer
   }
 
@@ -365,6 +370,15 @@ export class Controls {
       el("span", { class: "glyph", text: "🚀" }),
     );
 
+    // Full screen: hands the whole page to the browser, which on a phone also reclaims
+    // the space the URL bar and chrome occupy. Feature-detected, and simply absent where
+    // the root element cannot go fullscreen (notably iOS Safari), so the bar never
+    // carries a control that does nothing.
+    this.fullscreenBtn = fullscreenSupported()
+      ? el("button", { type: "button", class: "ctl fullscreen icon", onClick: () => this._toggleFullscreen() })
+      : null;
+    this._setFullscreenButton();
+
     // Low-bandwidth (data saver): a per-user switch that asks the SFU to stop
     // forwarding ALL inbound video to us (audio only). Available to everyone and
     // affects only our own downlink; the grid collapses to audio-only on its own as
@@ -429,7 +443,9 @@ export class Controls {
 
     // Lock indicator (everyone) + lock toggle (op only).
     this.lockStatus = el("span", { class: "lock-status", hidden: true, text: "Room locked" });
-    const children = [this.micWrap, this.cameraWrap, this.deafenBtn, this.shareWrap, this.countdownBtn, this.chatBtn, this.settingsWrap, this.lockStatus, leaveBtn];
+    const children = [this.micWrap, this.cameraWrap, this.deafenBtn, this.shareWrap, this.countdownBtn, this.chatBtn];
+    if (this.fullscreenBtn) children.push(this.fullscreenBtn);
+    children.push(this.settingsWrap, this.lockStatus, leaveBtn);
     this.el = el("div", { class: "controls" }, ...children);
     if (this.isOp) this._ensureOpSettingsRows(); // append Lock + Quality rows to the ☰ menu
   }
@@ -659,6 +675,26 @@ export class Controls {
     this._deafened = !this._deafened;
     this._setDeafenButton();
     if (this.grid) this.grid.setDeafened(this._deafened);
+  }
+
+  // Paint the fullscreen button from the document's actual state. Called on build and
+  // from every `fullscreenchange`, so Esc and system gestures keep it honest too.
+  _setFullscreenButton() {
+    if (!this.fullscreenBtn) return;
+    const on = isFullscreen();
+    this.fullscreenBtn.replaceChildren(el("span", { class: "glyph", text: on ? "⤡" : "⛶" }));
+    this.fullscreenBtn.classList.toggle("active", on);
+    const label = on ? "Exit full screen" : "Full screen";
+    this.fullscreenBtn.title = label;
+    this.fullscreenBtn.setAttribute("aria-label", label); // keep the AT label in step with state
+    this.fullscreenBtn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  _toggleFullscreen() {
+    // Fire and forget: a refusal resolves false and leaves the button alone, which is
+    // right because nothing changed. A success comes back through `fullscreenchange`.
+    toggleFullscreen();
+    this.fullscreenBtn.blur(); // drop focus so a following Space is push-to-talk
   }
 
   // Toggle a device menu; populate it from a fresh enumerate each open so late-granted
@@ -1217,6 +1253,7 @@ export class Controls {
     window.removeEventListener("keyup", this._onKeyUp);
     window.removeEventListener("blur", this._onWinBlur);
     document.removeEventListener("pointerdown", this._onDocPointer);
+    document.removeEventListener("fullscreenchange", this._onFullscreenChange);
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
