@@ -7,6 +7,7 @@
 // server-restarting it does NOT stop, so the socket simply drops and reconnects.
 import { encode, decode } from "../lib/protocol.js";
 import { backoffDelay } from "../lib/backoff.js";
+import { log } from "../lib/log.js";
 
 // Small extra randomness on top of the deterministic backoff so a herd of clients
 // reconnecting after the same server event does not stampede in lockstep.
@@ -58,6 +59,15 @@ export class Signaling {
     this.ws = ws;
 
     ws.addEventListener("open", () => {
+      // The whole lifecycle is logged because none of it used to be. A socket that
+      // dropped and reconnect-looped through an entire session left no console trace
+      // at all, which made "the server never answered our offer" and "our socket was
+      // replaced under us mid-negotiation" indistinguishable from a browser log.
+      const queued = this.queue.length;
+      log.info(
+        `[signaling] open${this.attempt ? ` (after ${this.attempt} failed attempt(s))` : ""}` +
+          (queued ? ` — flushing ${queued} queued frame(s)` : ""),
+      );
       this.attempt = 0; // successful connection: forget past failures
       const pending = this.queue;
       this.queue = [];
@@ -74,14 +84,28 @@ export class Signaling {
       this._dispatch(msg);
     });
 
-    ws.addEventListener("close", () => {
+    // `ev` is optional on purpose: a real browser always supplies a CloseEvent, but
+    // nothing here may depend on it — dereferencing it unguarded would throw inside
+    // the one handler that drives reconnection, turning a dropped socket into a
+    // permanently dead one.
+    ws.addEventListener("close", (ev) => {
       if (this.ws === ws) this.ws = null;
-      if (this.stopped) return; // stop() suppresses reconnect
+      const code = ev && ev.code != null ? ev.code : "?";
+      if (this.stopped) {
+        log.info(`[signaling] closed deliberately (code=${code}) — not reconnecting`);
+        return; // stop() suppresses reconnect
+      }
+      const reason = ev && ev.reason ? ` reason="${ev.reason}"` : "";
+      const clean = ev && ev.wasClean != null ? ev.wasClean : "?";
+      log.warn(`[signaling] closed unexpectedly code=${code} clean=${clean}${reason} — will reconnect`);
       this._scheduleReconnect();
     });
 
-    // Errors precede a close event; let the close handler drive reconnect.
-    ws.addEventListener("error", () => {});
+    // Errors precede a close event; let the close handler drive reconnect. This used
+    // to be an empty handler, which is why a failing socket produced no output at all.
+    ws.addEventListener("error", () => {
+      log.warn("[signaling] socket error (a close, and a reconnect, follow)");
+    });
   }
 
   // Encode and send a frame. If the socket is not open yet, queue it so a join
@@ -119,6 +143,7 @@ export class Signaling {
     if (this.reconnectTimer !== null) return; // one pending reconnect at a time
     const delay = backoffDelay(this.attempt) + Math.floor(Math.random() * JITTER_MS);
     this.attempt += 1;
+    log.info(`[signaling] reconnecting in ${delay}ms (attempt ${this.attempt})`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();

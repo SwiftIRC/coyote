@@ -64,11 +64,13 @@ function install(t, { protocol = "http:", host = "example.com" } = {}) {
     setTimeout: globalThis.setTimeout,
     clearTimeout: globalThis.clearTimeout,
     random: Math.random,
+    console: globalThis.console,
   };
 
   MockWebSocket.instances = [];
   const instances = MockWebSocket.instances;
   const timers = [];
+  const logged = []; // every line signaling.js logged, so lifecycle is assertable
   let nextId = 1;
 
   globalThis.WebSocket = MockWebSocket;
@@ -85,6 +87,11 @@ function install(t, { protocol = "http:", host = "example.com" } = {}) {
   };
   // Deterministic jitter: 0, so a reconnect delay equals the pure backoff.
   Math.random = () => 0;
+  // Capture signaling's socket-lifecycle logging rather than letting it print. Keeps
+  // the suite's output clean AND makes the lifecycle assertable — the reason those
+  // lines exist is that a silent socket was undiagnosable, so it is worth pinning.
+  const capture = (level) => (...args) => logged.push(`${level} ${args.slice(1).join(" ")}`);
+  globalThis.console = { info: capture("info"), warn: capture("warn"), error: capture("error"), debug: capture("debug") };
 
   t.after(() => {
     globalThis.WebSocket = saved.WebSocket;
@@ -92,9 +99,10 @@ function install(t, { protocol = "http:", host = "example.com" } = {}) {
     globalThis.setTimeout = saved.setTimeout;
     globalThis.clearTimeout = saved.clearTimeout;
     Math.random = saved.random;
+    globalThis.console = saved.console;
   });
 
-  return { instances, timers };
+  return { instances, timers, logged };
 }
 
 test("send before open queues frames and flushes them FIFO on open", (t) => {
@@ -263,4 +271,61 @@ test("an already-absolute ws(s) URL is left unchanged", (t) => {
   const { instances } = install(t, { protocol: "http:", host: "ignored" });
   new Signaling("wss://other.example/ws/x").connect();
   assert.equal(instances[0].url, "wss://other.example/ws/x");
+});
+
+// The socket lifecycle used to be entirely silent — the "error" handler was an empty
+// function and a close only scheduled a reconnect — so a socket that dropped and
+// reconnect-looped through a whole session left no console trace. That made a browser
+// log unable to distinguish "the server never answered us" from "our socket was
+// replaced under us". These tests pin each transition as observable.
+
+test("an unexpected drop names the close and the scheduled reconnect", (t) => {
+  const { instances, timers, logged } = install(t);
+  const sig = new Signaling("/ws/room1");
+  sig.connect();
+  instances[0].fireOpen();
+  instances[0].fireClose(); // unexpected drop
+
+  assert.ok(logged.some((l) => l.startsWith("info [signaling] open")), `an open line: ${JSON.stringify(logged)}`);
+  assert.ok(logged.some((l) => l.includes("closed unexpectedly")), `a close line: ${JSON.stringify(logged)}`);
+  assert.ok(logged.some((l) => /reconnecting in \d+ms \(attempt 1\)/.test(l)), `a reconnect line: ${JSON.stringify(logged)}`);
+  // And the drop must still actually schedule the reconnect.
+  assert.equal(timers.length, 1);
+});
+
+test("a close carrying no event still reconnects", (t) => {
+  // fireClose() dispatches with no CloseEvent, exactly as the mock does and as a
+  // defensive handler must tolerate. Reading .code off that event unguarded would
+  // throw inside the only handler that drives reconnection, turning a dropped socket
+  // into a permanently dead one — the socket would never come back.
+  const { instances, timers, logged } = install(t);
+  const sig = new Signaling("/ws/room1");
+  sig.connect();
+  instances[0].fireOpen();
+  instances[0].fireClose();
+
+  assert.equal(timers.length, 1, "reconnect scheduled despite the absent event");
+  assert.ok(logged.some((l) => l.includes("code=?")), `unknown code rendered, not thrown: ${JSON.stringify(logged)}`);
+});
+
+test("a deliberate stop says it is not reconnecting", (t) => {
+  const { instances, timers, logged } = install(t);
+  const sig = new Signaling("/ws/room1");
+  sig.connect();
+  instances[0].fireOpen();
+  sig.stop();
+  instances[0].fireClose(); // the browser's close follows stop()'s ws.close()
+
+  assert.ok(logged.some((l) => l.includes("closed deliberately")), `a deliberate-close line: ${JSON.stringify(logged)}`);
+  assert.ok(!logged.some((l) => l.includes("reconnecting in")), "no reconnect announced after stop()");
+  assert.equal(timers.length, 0, "stop() schedules no reconnect");
+});
+
+test("a socket error leaves a mark", (t) => {
+  const { instances, logged } = install(t);
+  const sig = new Signaling("/ws/room1");
+  sig.connect();
+  instances[0]._fire("error");
+
+  assert.ok(logged.some((l) => l.includes("socket error")), `an error line: ${JSON.stringify(logged)}`);
 });

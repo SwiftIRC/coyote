@@ -335,6 +335,12 @@ export class Peer extends EventTarget {
         sdp: this.pc.localDescription.sdp,
         kinds: Object.fromEntries(this._kindByStreamId),
       });
+      // The SFU only answers, so this offer is what brings the connection up and an
+      // unanswered one is a dead call. Say it went out, and what we asked to publish:
+      // paired with the "answer applied" line below, the absence of the second is
+      // what names the failure. Without both, a session that offered and was never
+      // answered is indistinguishable from one that never offered.
+      log.info(`[peer] offer sent — kinds=[${[...this._kindByStreamId.values()].join(",") || "none"}] awaiting answer`);
     } finally {
       this.makingOffer = false;
     }
@@ -432,6 +438,9 @@ export class Peer extends EventTarget {
       );
       throw err;
     }
+    // The other half of the "offer sent" line: this is the event whose absence means
+    // the SFU never completed the exchange.
+    log.info(`[peer] answer applied — sig=${this.pc.signalingState} pc=${this.pc.connectionState}/${this.pc.iceConnectionState}`);
     await this._drainCandidates();
     // Negotiated: the senders now have real encodings, so a cap that could not be
     // set before this point can be set now (see _reapplyQuality).
@@ -638,14 +647,22 @@ export class Peer extends EventTarget {
           reported = true;
           if (r.kind === "audio") {
             // For audio the question is never "is it decoding" but "is anything
-            // arriving, and is it silence". pkts climbing with level at 0 is a live
-            // stream carrying a muted or dead microphone; pkts frozen is a forward
-            // that has stopped. concealed rising is packet loss being papered over,
-            // which is what choppy audio sounds like.
+            // arriving, and is it silence". pkts frozen is a forward that has
+            // stopped. concealed rising is packet loss being papered over, which is
+            // what choppy audio sounds like.
+            //
+            // level is INSTANTANEOUS, and this dump samples it once every 4s, so it
+            // reads 0.000 for any stream that happens to be quiet at that instant —
+            // a healthy mic between words looks exactly like a dead one. It cannot
+            // answer "can we hear them". energy (totalAudioEnergy) can: it is
+            // cumulative and monotonic, so a mic that has EVER carried sound has a
+            // nonzero figure. energy stuck at 0.000000 while pkts climbs is the
+            // muted-or-dead-microphone signature; level alone never was.
             lines.push(
               `${who} mid=${mid} pkts=${r.packetsReceived ?? 0} lost=${r.packetsLost ?? 0} ` +
                 `jitter=${fixed(r.jitter, 3)} bytes=${r.bytesReceived ?? 0} ` +
-                `level=${fixed(r.audioLevel, 3)} concealed=${r.concealedSamples ?? 0}`,
+                `level=${fixed(r.audioLevel, 3)} energy=${fixed(r.totalAudioEnergy, 6)} ` +
+                `concealed=${r.concealedSamples ?? 0}`,
             );
             return;
           }
@@ -680,7 +697,14 @@ export class Peer extends EventTarget {
     }
     log.info(
       `[track-debug stats]${saver} no inbound media — transceivers=${this.pc.getTransceivers().length} ` +
-        `media=${this._incoming.size} labels=${this._trackInfo.size} pc=${this.pc.connectionState}/${this.pc.iceConnectionState}`,
+        `media=${this._incoming.size} labels=${this._trackInfo.size} pc=${this.pc.connectionState}/${this.pc.iceConnectionState} ` +
+        // signalingState is what separates the two ways to have no inbound media, and
+        // without it this line cannot tell them apart: "have-local-offer" means we
+        // offered and the SFU never answered (connectionState and iceConnectionState
+        // both sit at "new" until a remote description arrives, so pc=new/new looks
+        // identical to never having negotiated at all), while "stable" with nothing
+        // inbound means negotiation completed and the server simply forwards nothing.
+        `sig=${this.pc.signalingState}`,
     );
   }
 
