@@ -31,6 +31,7 @@ import { primeAudio, unlockSounds } from "../lib/sounds.js";
 import { fullscreenSupported, isFullscreen, toggleFullscreen } from "../lib/fullscreen.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
 import { BackgroundPicker } from "./background.js";
+import { log } from "../lib/log.js";
 
 // Tiny DOM helper: el("button", {class:"x", onClick:fn}, "text"). The "text" key
 // sets textContent, so any caller string is inert markup-wise.
@@ -822,7 +823,7 @@ export class Controls {
     try {
       await this.media.setNoiseSuppression(target);
     } catch (err) {
-      console.error("noise suppression toggle failed", err);
+      log.error("noise suppression toggle failed", err);
     } finally {
       this.nsBusy = false;
       this.nsOn = !!this.media.noiseSuppressionOn; // trust Media's real state

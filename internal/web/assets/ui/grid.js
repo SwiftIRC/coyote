@@ -37,6 +37,7 @@
 import { playSound } from "../lib/sounds.js";
 import { applyAvatar } from "../lib/avatar.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS } from "../lib/icons.js";
+import { log } from "../lib/log.js";
 
 // Tiny DOM helper: el("div", {class:"x", onClick:fn}, child, "text"...). The
 // "text" key sets textContent, so caller-supplied strings can never inject markup.
@@ -370,7 +371,7 @@ export class Grid {
       // the cover deliberately stays up here; note the inconsistency and let the heal
       // resolve it if real video follows.
       if (!tile.camOff.hidden) {
-        console.warn(
+        log.warn(
           `[grid] camera media arrived for ${participantId} while the camera-off placeholder is still showing —` +
             " the last media-state for them said camera off. Leaving it covered until frames actually play;" +
             " if they are on, _onCameraProgress will uncover and say so.",
@@ -519,7 +520,7 @@ export class Grid {
     // but receiving nothing can still emit a timeupdate while sitting at 0.
     if (!(at > 0) || at === tile.lastCameraTime) return;
     tile.lastCameraTime = at;
-    console.warn(
+    log.warn(
       `[grid] ${id} is publishing video while the room still says their camera is off — uncovering.` +
         " A media-state broadcast was missed.",
     );
@@ -591,7 +592,7 @@ export class Grid {
     // signal, so a speaker user who picks a non-default output can echo even
     // though echoCancellation reports true on their mic. Pair this line with
     // "[audio capture]" from media.js to tell the two causes apart.
-    console.info(`[audio output] sink=${this._sinkId || "(browser default)"}`);
+    log.info(`[audio output] sink=${this._sinkId || "(browser default)"}`);
   }
 
   // Mute/unmute ALL incoming audio (deafen). Transient — not persisted. Re-applies volume

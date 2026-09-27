@@ -15,6 +15,7 @@ import { BackgroundPicker } from "./background.js";
 import { resolveEffectId } from "../lib/backgrounds.js";
 import { deviceErrorText } from "../lib/mediaErrors.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
+import { log } from "../lib/log.js";
 
 const POLL_INTERVAL_MS = 3000;
 const TEST_SOUND = "/sounds_bloop.mp3"; // short, neutral blip for the speaker test
@@ -377,7 +378,7 @@ export class Prejoin {
       if (!this.speakerSelect.disabled && !loadMediaPrefs().speakerId) {
         const id = this.speakerSelect.value;
         saveMediaPrefs({ speakerId: id });
-        console.info(`[audio output] sink=${id || "(browser default)"} (adopted the listed default)`);
+        log.info(`[audio output] sink=${id || "(browser default)"} (adopted the listed default)`);
       }
     }
   }
@@ -417,7 +418,7 @@ export class Prejoin {
   _switchSpeaker() {
     const id = this.speakerSelect.value;
     saveMediaPrefs({ speakerId: id }); // picked up by Controls on join
-    console.info(`[audio output] sink=${id || "(browser default)"}`);
+    log.info(`[audio output] sink=${id || "(browser default)"}`);
   }
 
   // Play a blip through the DISPLAYED output so the choice is verifiable before

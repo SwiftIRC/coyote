@@ -34,6 +34,7 @@
 import { BackgroundSegmenter } from "../lib/segmenter.js";
 import { resolveEffectId } from "../lib/backgrounds.js";
 import { micConstraints } from "../lib/audioConstraints.js";
+import { log } from "../lib/log.js";
 
 export class Media extends EventTarget {
   constructor() {
@@ -135,7 +136,7 @@ export class Media extends EventTarget {
   _logMicProcessing(where) {
     const p = this.micProcessing();
     if (!p) return;
-    console.info(
+    log.info(
       `[audio ${where}] mic="${p.label}" echoCancellation=${p.echoCancellation} ` +
         `noiseSuppression=${p.noiseSuppression} autoGainControl=${p.autoGainControl} ` +
         `sampleRate=${p.sampleRate} rnnoiseWorklet=${p.worklet}`,
@@ -150,7 +151,7 @@ export class Media extends EventTarget {
     const t = this.cameraTrack;
     if (!t || typeof t.getSettings !== "function") return;
     const s = t.getSettings() || {};
-    console.info(
+    log.info(
       `[video ${where}] camera="${t.label || ""}" ${s.width ?? 0}x${s.height ?? 0} fps=${s.frameRate ?? "n/a"} deviceId=${s.deviceId ? "set" : "default"}`,
     );
   }
@@ -195,7 +196,7 @@ export class Media extends EventTarget {
         // A denied/absent device must still not block the other — that part was
         // right; only the silence was wrong.
         this.deviceErrors[slot] = (err && err.name) || "Error";
-        console.warn(`[${label} capture] failed: ${(err && err.name) || "Error"} — ${(err && err.message) || err}`);
+        log.warn(`[${label} capture] failed: ${(err && err.name) || "Error"} — ${(err && err.message) || err}`);
         return null;
       }
     };
