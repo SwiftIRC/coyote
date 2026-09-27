@@ -22,6 +22,7 @@
 import { FpsGuard } from "./fpsGuard.js";
 import { effectById, drawImageBackground } from "./backgrounds.js";
 import { loadBackgroundImage } from "./backgroundImages.js";
+import { log } from "./log.js";
 
 const VENDOR_BASE = "/vendor/mediapipe";
 const MODEL_PATH = `${VENDOR_BASE}/selfie_segmenter.tflite`;
@@ -199,7 +200,7 @@ export class BackgroundSegmenter {
         // A GPU that passed the WebGL precondition can still fail to initialise
         // TFLite's GPU delegate. Inference falls back to CPU; the graph keeps
         // using the WebGL context we already confirmed exists.
-        console.warn("segmenter: GPU inference delegate failed, running inference on the CPU", err);
+        log.warn("segmenter: GPU inference delegate failed, running inference on the CPU", err);
         return vision.ImageSegmenter.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: MODEL_PATH, delegate: "CPU" },
           runningMode: "VIDEO",
@@ -437,7 +438,7 @@ export class BackgroundSegmenter {
       // Log ONCE per run of failures. A dead GL context throws on every frame,
       // and logging each one buries the actual first error under thousands of
       // identical lines.
-      if (this._frameErrors === 0) console.error("segmenter: frame failed", err);
+      if (this._frameErrors === 0) log.error("segmenter: frame failed", err);
       this._frameErrors += 1;
       if (this._frameErrors >= MAX_CONSECUTIVE_FRAME_ERRORS && !this._bailed) {
         // Every frame since the last good one has thrown. This is not a slow
@@ -446,7 +447,7 @@ export class BackgroundSegmenter {
         // lost GPU process). Bail with a reason that says so: telling the user
         // their device "couldn't keep up" would be a wrong diagnosis for a
         // machine that is not even being asked to do the work.
-        console.error(`segmenter: ${this._frameErrors} consecutive frame failures, dropping the effect`);
+        log.error(`segmenter: ${this._frameErrors} consecutive frame failures, dropping the effect`);
         this._bailed = true;
         this.onBail("broken");
         return; // do not reschedule; the pipeline is being torn down
@@ -611,7 +612,7 @@ export class BackgroundSegmenter {
       const elapsed = performance.now() - this._pipelineStartedAt;
       if (elapsed < this._guard.graceMs + this._guard.windowMs) return;
       this._bailed = true;
-      console.warn("segmenter: no frame ever rendered, dropping the background effect");
+      log.warn("segmenter: no frame ever rendered, dropping the background effect");
       // "broken", not "slow": zero frames across the whole grace+window is a
       // pipeline that never worked, not a device struggling to keep up.
       this.onBail("broken");
@@ -619,7 +620,7 @@ export class BackgroundSegmenter {
     }
     if (this._guard.check(performance.now())) {
       this._bailed = true;
-      console.warn("segmenter: frame rate too low, dropping the background effect");
+      log.warn("segmenter: frame rate too low, dropping the background effect");
       // Report only; media.js owns the tracks and performs the revert. This is
       // the one genuinely "the device can't keep up" case.
       this.onBail("slow");

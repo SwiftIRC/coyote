@@ -11,6 +11,8 @@
 // would surface in the frame loop, where the watchdog reads consecutive failures
 // as the effect being broken and turns the background off.
 
+import { log } from "./log.js";
+
 // src -> Promise<ImageBitmap|null>. The PROMISE is cached, not the bitmap, so
 // concurrent callers share one in-flight request. A resolved null stays cached:
 // the compositor asks on every effect switch and the picker on every render, so
@@ -30,7 +32,7 @@ export function loadBackgroundImage(src) {
     .catch((err) => {
       // Once, not per frame: the cached null means we never get here again for
       // this src.
-      console.warn(`background image ${src} could not be loaded:`, err);
+      log.warn(`background image ${src} could not be loaded:`, err);
       return null;
     });
   cache.set(src, pending);

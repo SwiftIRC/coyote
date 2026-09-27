@@ -38,6 +38,7 @@ import { formatDuration } from "./lib/duration.js";
 import { useCommunicationAudio } from "./lib/audioSession.js";
 import { serverErrorDisposition } from "./lib/serverError.js";
 import { restoreCustomBackground } from "./lib/customBackground.js";
+import { log } from "./lib/log.js";
 
 // Mirror of the server's room-slug rule (internal/server: slugRe). A path that
 // doesn't match can never join, so we route it to home with a hint instead.
@@ -154,7 +155,7 @@ function renderPrejoin() {
   document.body.classList.remove("in-call");
   media = new Media();
   prejoin = new Prejoin({ root, slug, token, invite, media, onJoin });
-  prejoin.mount().catch((err) => console.error("prejoin mount failed", err));
+  prejoin.mount().catch((err) => log.error("prejoin mount failed", err));
 }
 
 // Fired by the lobby's Join button. Opens a fresh socket and registers the whole
@@ -234,7 +235,7 @@ function onServerError(msg) {
   const { fatal, text } = serverErrorDisposition({ code: msg.code, message: msg.message, inCall: !prejoin });
   if (!fatal) {
     if (chat) chat.notice(text);
-    else console.warn("[app] server refused an action:", msg.code, msg.message);
+    else log.warn("[app] server refused an action:", msg.code, msg.message);
     return;
   }
   if (signaling) {
@@ -399,7 +400,7 @@ function renderInCall(msg) {
   // `media` singleton is discarded on leave, so this listener dies with the call.
   media.addEventListener("mic-track", (e) => {
     const track = e && e.detail ? e.detail.track : null;
-    if (peer && track) peer.replaceTrack("mic", track).catch((err) => console.error("mic replaceTrack failed", err));
+    if (peer && track) peer.replaceTrack("mic", track).catch((err) => log.error("mic replaceTrack failed", err));
   });
 
   // Local camera track released/re-acquired (camera off releases the device, on
@@ -412,10 +413,10 @@ function renderInCall(msg) {
     const track = e && e.detail ? e.detail.track : null;
     if (!peer) return;
     const replaced = await peer.replaceTrack("camera", track).catch((err) => {
-      console.error("camera replaceTrack failed", err);
+      log.error("camera replaceTrack failed", err);
       return false;
     });
-    if (!replaced && track) peer.publish(track, "camera").catch((err) => console.error("camera publish failed", err));
+    if (!replaced && track) peer.publish(track, "camera").catch((err) => log.error("camera publish failed", err));
   });
 
   // Roster + moderation + chat from the signaling socket. The join/leave chimes live
@@ -484,7 +485,7 @@ function wirePeerAndStart() {
   // Remote media -> tiles.
   peer.addEventListener("remote-track", (e) => grid.onRemoteTrack(e.detail));
   peer.addEventListener("peer-gone", (e) => grid.onPeerGone(e.detail));
-  peer.addEventListener("error", (e) => console.error("peer error", e.detail.phase, e.detail.error));
+  peer.addEventListener("error", (e) => log.error("peer error", e.detail.phase, e.detail.error));
   // The media plane failed and one ICE restart didn't recover it. Surface a visible,
   // non-blocking prompt; unlike kicked/banned we do NOT stop() the socket — the WS
   // may still be fine (chat/roster keep working), and a reload rebuilds the call.
@@ -526,7 +527,7 @@ function wirePeerAndStart() {
   // Re-publish an in-progress screenshare too, so a reconnect mid-share keeps sharing.
   if (media && media.screenTrack) localTracks.push({ track: media.screenTrack, kind: "screen" });
   if (media && media.screenAudioTrack) localTracks.push({ track: media.screenAudioTrack, kind: "screen-audio" });
-  peer.start(localTracks).catch((err) => console.error("peer start failed", err));
+  peer.start(localTracks).catch((err) => log.error("peer start failed", err));
 }
 
 // On a reconnect (or server restart) the server builds a FRESH SFU peer for us, so our
@@ -732,6 +733,6 @@ async function watchVersion() {
   });
 }
 
-console.log("SwiftIRC VC loaded");
+log.info("SwiftIRC VC loaded");
 boot();
 watchVersion();

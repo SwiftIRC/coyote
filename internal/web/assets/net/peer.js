@@ -28,6 +28,7 @@
 //                                                  ICE restart did not recover it
 import { handleRemoteOffer } from "../lib/negotiation.js";
 import { qualityTier, encodingCaps } from "../lib/quality.js";
+import { log } from "../lib/log.js";
 
 // How long to let a single ICE restart try to reconnect before we give up and tell
 // the user. The transport goes failed -> (restart) -> checking -> connected on a
@@ -269,7 +270,7 @@ export class Peer extends EventTarget {
     try {
       params = sender.getParameters();
     } catch (err) {
-      console.warn(`[quality] ${kind}: getParameters failed`, err);
+      log.warn(`[quality] ${kind}: getParameters failed`, err);
       return false;
     }
     // Do NOT invent an encoding when there is none. setParameters rejects with
@@ -279,7 +280,7 @@ export class Peer extends EventTarget {
     // unapplied. An empty list means the sender is not negotiated yet; say so and
     // let the post-negotiation pass pick it up.
     if (!params.encodings || params.encodings.length === 0) {
-      console.warn(`[quality] ${kind}: sender has no encodings yet — deferring the cap`);
+      log.warn(`[quality] ${kind}: sender has no encodings yet — deferring the cap`);
       return false;
     }
     const enc = params.encodings[0];
@@ -293,7 +294,7 @@ export class Peer extends EventTarget {
     sender.setParameters(params).catch((err) => {
       // Never silent. A rejection here is the whole cap failing to apply, and it
       // was the reason "the quality control does nothing" had no console trace.
-      console.warn(`[quality] ${kind}: setParameters rejected (tier=${tier.id}, source height=${h || "unknown"})`, err);
+      log.warn(`[quality] ${kind}: setParameters rejected (tier=${tier.id}, source height=${h || "unknown"})`, err);
     });
     return true;
   }
@@ -377,7 +378,7 @@ export class Peer extends EventTarget {
       // order of BOTH (compact, then full SDPs) so the reordered line is obvious.
       const order = (sdp) => (sdp || "").split(/\r?\n/).filter((l) => l.startsWith("m=") || l.startsWith("a=mid:")).join("  ");
       const layout = this.pc.getTransceivers().map((t) => `${t.mid}:${t.direction}>${t.currentDirection || "-"}`).join(" ");
-      console.error(
+      log.error(
         "[peer] offer setRemoteDescription failed:", String(err),
         "\ntransceivers:", layout,
         "\nLAST-NEGOTIATED m-lines:", order(this.pc.localDescription && this.pc.localDescription.sdp),
@@ -397,7 +398,7 @@ export class Peer extends EventTarget {
       // That's a renegotiation-shape problem — dump the m-line layout and the SDPs so
       // the offending pair is diagnosable, then let the error propagate as usual.
       const layout = this.pc.getTransceivers().map((t) => `${t.mid}:${t.direction}>${t.currentDirection || "-"}`).join(" ");
-      console.error("[peer] answer setLocalDescription failed:", String(err), "\ntransceivers:", layout, "\n--- SERVER OFFER ---\n" + msg.sdp + "\n--- OUR ANSWER ---\n" + answer.sdp);
+      log.error("[peer] answer setLocalDescription failed:", String(err), "\ntransceivers:", layout, "\n--- SERVER OFFER ---\n" + msg.sdp + "\n--- OUR ANSWER ---\n" + answer.sdp);
       throw err;
     }
     this.signaling.send("answer", { sdp: this.pc.localDescription.sdp });
@@ -422,7 +423,7 @@ export class Peer extends EventTarget {
       // failed SRD did not apply. Dump the a=setup/a=fingerprint of BOTH our offer and the
       // server's answer so a recurrence is diagnosable — that's the pair that disagrees.
       const dtls = (sdp) => (sdp || "").split(/\r?\n/).filter((l) => l.startsWith("m=") || l.startsWith("a=mid:") || l.startsWith("a=setup:") || l.startsWith("a=fingerprint:")).join("  ");
-      console.error(
+      log.error(
         "[peer] answer setRemoteDescription failed:", String(err),
         "\nOUR-OFFER    setup:", dtls(this.pc.localDescription && this.pc.localDescription.sdp),
         "\nSERVER-ANSWER setup:", dtls(msg.sdp),
@@ -550,7 +551,7 @@ export class Peer extends EventTarget {
     if (!info || !rec || rec.emitted) return;
     rec.emitted = true;
     rec.info = info;
-    if (TRACK_DEBUG) console.info(`[track-debug] ATTACH mid=${mid} ${info.kind}@${info.participantId}`);
+    if (TRACK_DEBUG) log.info(`[track-debug] ATTACH mid=${mid} ${info.kind}@${info.participantId}`);
     this.dispatchEvent(
       new CustomEvent("remote-track", {
         detail: { participantId: info.participantId, kind: info.kind, stream: rec.stream },
@@ -574,7 +575,7 @@ export class Peer extends EventTarget {
     let line = `[track-debug ${where}] incomingMids=[${incoming.join(",")}] labels=[${labels.join(" ")}]`;
     if (mediaNoLabel.length) line += ` !! UNPAIRED media-without-label mids=[${mediaNoLabel.join(",")}]`;
     if (labelNoMedia.length) line += ` !! UNPAIRED label-without-media mids=[${labelNoMedia.join(",")}]`;
-    console.info(line);
+    log.info(line);
   }
 
   // TEMP DEBUG (see TRACK_DEBUG): periodically dump the state of EVERY inbound
@@ -674,10 +675,10 @@ export class Peer extends EventTarget {
     // naming none of them.
     const saver = this._lowBandwidth ? " (data saver ON — no video is forwarded to this client)" : "";
     if (lines.length) {
-      console.info(`[track-debug stats]${saver}\n  ` + lines.join("\n  "));
+      log.info(`[track-debug stats]${saver}\n  ` + lines.join("\n  "));
       return;
     }
-    console.info(
+    log.info(
       `[track-debug stats]${saver} no inbound media — transceivers=${this.pc.getTransceivers().length} ` +
         `media=${this._incoming.size} labels=${this._trackInfo.size} pc=${this.pc.connectionState}/${this.pc.iceConnectionState}`,
     );
