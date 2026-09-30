@@ -1162,6 +1162,21 @@ body.ui-idle .controls {
   cursor: pointer;
 }
 
+/* Lobby heading: the logo beside the app name. alt="" because the name beside it
+   already says what it is. */
+.home .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.home .brand .logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
 /* Terminal "you were kicked/banned" card reuses .home; muted second line. */
 .removed .muted {
   color: var(--muted);

@@ -1,3 +1,5 @@
+<p align="center"><img src="internal/web/assets/img/logo.webp" alt="Coyote logo" width="128" height="128"></p>
+
 # Coyote
 
 A self-hosted group video-conferencing app — a lightweight Jitsi replacement,

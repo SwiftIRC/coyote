@@ -140,7 +140,14 @@ function renderHome(message) {
     el(
       "div",
       { class: "home" },
-      el("h1", { text: "Coyote" }),
+      el(
+        "div",
+        { class: "brand" },
+        // Resolved against this module's own URL, so it inherits the /v/<version>/
+        // prefix and the immutable caching that comes with it.
+        el("img", { class: "logo", src: new URL("./img/logo.webp", import.meta.url).href, alt: "", width: "56", height: "56" }),
+        el("h1", { text: "Coyote" }),
+      ),
       el("p", { class: "lede", text: "Enter a room name to start or join a call." }),
       el("div", { class: "row" }, input, el("button", { class: "join", type: "button", onClick: go }, "Go")),
       error,
