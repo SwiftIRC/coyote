@@ -28,6 +28,7 @@ import { QUALITY_TIERS } from "../lib/quality.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS, EYE_PATHS, EYE_OFF_PATHS, SPEAKER_PATHS, SPEAKER_OFF_PATHS } from "../lib/icons.js";
 import { confirmDialog } from "../lib/confirm.js";
 import { primeAudio, unlockSounds } from "../lib/sounds.js";
+import { soundboardFromPage, boardButtonState, boardToggleTitle } from "../lib/soundboard.js";
 import { fullscreenSupported, isFullscreen, toggleFullscreen } from "../lib/fullscreen.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
 import { BackgroundPicker } from "./background.js";
@@ -110,17 +111,18 @@ export class Controls {
     this.sharing = false; // local screen-share active?
     this.locked = false; // authoritative room lock state (from broadcasts)
 
-    // Synced countdown sound. State is driven ENTIRELY by the server's
-    // countdown broadcasts (non-authoritative UI): countdownActive locks the
-    // control for everyone, countdownByMe is true only for the participant who
-    // started this run (they alone may stop it). _startPending records that WE
-    // just asked to start, so when the accepting broadcast returns we know it is
-    // ours. The Audio element is created lazily on first use.
-    this.countdownActive = false;
-    this.countdownByMe = false;
+    // Soundboard. State is driven ENTIRELY by the server's `sound` broadcasts
+    // (non-authoritative UI): soundPlaying is the room's playing sound id ("" when
+    // idle) and locks the board for everyone, soundByMe is true only for the
+    // participant who started it (they alone may stop it). _startPending records that
+    // WE just asked to start, so when the accepting broadcast returns we know it is
+    // ours. Each sound's Audio element is created lazily on first use.
+    this.board = soundboardFromPage();
+    this.soundPlaying = "";
+    this.soundByMe = false;
     this._startPending = false;
-    this.countdownAudio = null;
-    this._onCountdownEnded = () => this._reportCountdownEnded();
+    this.boardAudio = new Map(); // sound id -> Audio
+    this._onBoardEnded = (e) => this._reportSoundEnded(e.target);
     this.nsOn = false; // noise suppression active? (opt-in; default OFF, like Jitsi)
     this.nsBusy = false; // true while the ~2MB worklet loads / graph (re)builds
 
@@ -152,7 +154,7 @@ export class Controls {
     }
 
     // iOS Safari blocks HTMLAudioElement.play() outside a user gesture until the
-    // element has been played once within one. The countdown and chimes are played
+    // element has been played once within one. The soundboard and chimes are played
     // from network events, so prime every sound element on the first REAL gesture in
     // the call (once), then drop these listeners. mousemove is deliberately excluded —
     // it is not a user-activation gesture.
@@ -161,7 +163,7 @@ export class Controls {
     this._onAudioUnlock = () => {
       if (this._audioUnlocked) return;
       this._audioUnlocked = true;
-      primeAudio(this._countdownSound());
+      for (const s of this.board) primeAudio(this._boardSound(s));
       unlockSounds();
       this._removeAudioUnlock();
     };
@@ -195,6 +197,10 @@ export class Controls {
       if (this.settingsMenu && !this.settingsMenu.hidden && this.settingsWrap && !this.settingsWrap.contains(e.target)) {
         this.settingsMenu.hidden = true;
         this.settingsBtn.setAttribute("aria-expanded", "false");
+      }
+      if (this.soundMenu && !this.soundMenu.hidden && this.soundWrap && !this.soundWrap.contains(e.target)) {
+        this.soundMenu.hidden = true;
+        this.soundBtn.setAttribute("aria-expanded", "false");
       }
     };
     document.addEventListener("pointerdown", this._onDocPointer);
@@ -362,14 +368,24 @@ export class Controls {
       this.chatBadge,
     );
 
-    // Countdown: a compact icon (matching the chat toggle) that plays the shared
-    // rocket-countdown sound for everyone, synchronized. Non-authoritative — the
-    // click just sends intent; the server's broadcast drives the actual state.
-    this.countdownBtn = el(
-      "button",
-      { type: "button", class: "ctl countdown icon", title: "Play countdown for everyone", "aria-label": "Play countdown for everyone", onClick: () => this._toggleCountdown() },
-      el("span", { class: "glyph", text: "🚀" }),
-    );
+    // Soundboard: a compact icon (matching the chat toggle) opening a popover with one
+    // emoji button per board sound, each played for everyone, synchronized.
+    // Non-authoritative — a click just sends intent; the server's broadcast drives
+    // the actual state. A build with an empty board gets no control at all.
+    this.soundWrap = null;
+    if (this.board.length) {
+      this.soundBtn = el(
+        "button",
+        { type: "button", class: "ctl soundboard icon", "aria-label": "Soundboard", "aria-haspopup": "menu", "aria-expanded": "false", onClick: () => this._toggleSoundMenu() },
+        el("span", { class: "glyph", text: "🎶" }),
+      );
+      this.soundItems = new Map(); // sound id -> its board button
+      for (const s of this.board) {
+        this.soundItems.set(s.id, el("button", { type: "button", class: "share-item board-item", onClick: () => this._onBoardClick(s.id) }, s.label));
+      }
+      this.soundMenu = el("div", { class: "share-menu soundboard-menu", hidden: true }, ...this.soundItems.values());
+      this.soundWrap = el("div", { class: "share-wrap" }, this.soundBtn, this.soundMenu);
+    }
 
     // Full screen: hands the whole page to the browser, which on a phone also reclaims
     // the space the URL bar and chrome occupy. Feature-detected, and simply absent where
@@ -440,11 +456,13 @@ export class Controls {
     this._setCameraButton(!!(this.media && this.media.cameraTrack));
     this._setShareButton(false);
     this._setNsButton(false, false); // default OFF
-    this._setCountdownButton();
+    this._setSoundButtons();
 
     // Lock indicator (everyone) + lock toggle (op only).
     this.lockStatus = el("span", { class: "lock-status", hidden: true, text: "Room locked" });
-    const children = [this.micWrap, this.cameraWrap, this.deafenBtn, this.shareWrap, this.countdownBtn, this.chatBtn];
+    const children = [this.micWrap, this.cameraWrap, this.deafenBtn, this.shareWrap];
+    if (this.soundWrap) children.push(this.soundWrap);
+    children.push(this.chatBtn);
     if (this.fullscreenBtn) children.push(this.fullscreenBtn);
     children.push(this.settingsWrap, this.lockStatus, leaveBtn);
     this.el = el("div", { class: "controls" }, ...children);
@@ -605,6 +623,8 @@ export class Controls {
     if (this.micArrow) this.micArrow.setAttribute("aria-expanded", "false");
     if (this.cameraArrow) this.cameraArrow.setAttribute("aria-expanded", "false");
     if (this.settingsBtn) this.settingsBtn.setAttribute("aria-expanded", "false");
+    if (this.soundMenu) this.soundMenu.hidden = true;
+    if (this.soundBtn) this.soundBtn.setAttribute("aria-expanded", "false");
   }
 
   // A labelled settings-menu row: a text label plus its control (a toggle button, a
@@ -888,55 +908,68 @@ export class Controls {
     if (this.lockBtn) this._setLockButton(this.locked);
   }
 
-  // --- synced countdown sound ---
+  // --- soundboard ---
 
-  // Click handler. Non-authoritative: we only send intent and let the server's
-  // broadcast flip our state. When idle, ask to start (and remember it was us,
-  // so the accepting broadcast is recognized as ours). When WE own an active
-  // run, ask to stop. When someone else owns it the button is disabled, so the
-  // active/not-mine branch is unreachable from a click.
-  _toggleCountdown() {
-    if (this.countdownActive) {
-      if (this.countdownByMe) this._send("countdown", { action: "stop" });
+  _toggleSoundMenu() {
+    const open = this.soundMenu.hidden;
+    this._closeMenus(); // only one popover open at a time
+    if (open) {
+      this.soundMenu.hidden = false;
+      this.soundBtn.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  // A board button. Non-authoritative: we only send intent and let the server's
+  // broadcast flip our state. When idle, ask to start this sound (and remember it was
+  // us, so the accepting broadcast is recognized as ours). When WE own the playing
+  // sound, its button asks to stop. Every other button is disabled while a sound
+  // plays, so those branches are unreachable from a click. The popover stays open, so
+  // the stop is right where the start was.
+  _onBoardClick(id) {
+    if (this.soundPlaying) {
+      if (this.soundByMe && id === this.soundPlaying) this._send("sound", { action: "stop" });
       return;
     }
     this._startPending = true;
-    this._send("countdown", { action: "start" });
+    this._send("sound", { action: "start", id });
   }
 
-  // Inbound `countdown` {action, by} broadcast. On start, lock the control for
-  // everyone and play the sound (ours iff we had a start pending); on stop,
-  // unlock and reset. The audio itself is best-effort (see _playCountdown).
-  onCountdown(msg = {}) {
+  // Inbound `sound` {action, id, by} broadcast. On start, lock the board for everyone
+  // and play the sound (ours iff we had a start pending); on stop, unlock and reset.
+  // The audio itself is best-effort (see _playBoardSound).
+  onSound(msg = {}) {
     const action = msg && msg.action;
     if (action === "start") {
-      this.countdownActive = true;
-      this.countdownByMe = this._startPending;
+      this._stopBoardSound(); // a stop we missed (e.g. across a reconnect) must not leave one playing
+      this.soundPlaying = String(msg.id || "");
+      this.soundByMe = this._startPending;
       this._startPending = false;
-      this._setCountdownButton();
-      this._playCountdown();
+      this._setSoundButtons();
+      this._playBoardSound(this.soundPlaying);
     } else if (action === "stop") {
-      this.countdownActive = false;
-      this.countdownByMe = false;
+      this._stopBoardSound();
+      this.soundPlaying = "";
+      this.soundByMe = false;
       this._startPending = false;
-      this._setCountdownButton();
-      this._stopCountdown();
+      this._setSoundButtons();
     }
   }
 
-  // Reflect countdown state on the button. While a run is active the control is
-  // locked for everyone EXCEPT its starter, who sees a highlighted "stop"
-  // affordance.
-  _setCountdownButton() {
-    const active = this.countdownActive;
-    const mine = this.countdownByMe;
-    this.countdownBtn.classList.toggle("active", active);
-    this.countdownBtn.disabled = active && !mine;
-    this.countdownBtn.title = active
-      ? mine
-        ? "Stop the countdown"
-        : "Countdown in progress"
-      : "Play countdown for everyone";
+  // Reflect the room's sound state on the toggle and every board button.
+  _setSoundButtons() {
+    if (!this.soundWrap) return;
+    const playing = this.soundPlaying;
+    const mine = this.soundByMe;
+    this.soundBtn.classList.toggle("active", !!playing);
+    this.soundBtn.title = boardToggleTitle(playing, mine);
+    for (const s of this.board) {
+      const st = boardButtonState(s.id, s.label, playing, mine);
+      const btn = this.soundItems.get(s.id);
+      btn.classList.toggle("active", st.active);
+      btn.disabled = st.disabled;
+      btn.title = st.title;
+      btn.setAttribute("aria-label", st.title);
+    }
   }
 
   // A native <dialog>: it gives the modal backdrop, focus trapping and Escape-to-cancel
@@ -1012,21 +1045,25 @@ export class Controls {
     }
   }
 
-  // Lazily build the Audio element and wire its natural-end handler once.
-  _countdownSound() {
-    if (!this.countdownAudio) {
-      this.countdownAudio = new Audio("/RocketCountdown.mp3");
-      this.countdownAudio.addEventListener("ended", this._onCountdownEnded);
+  // Lazily build a board sound's Audio element and wire its natural-end handler once.
+  _boardSound(s) {
+    let audio = this.boardAudio.get(s.id);
+    if (!audio) {
+      audio = new Audio(s.src);
+      audio.addEventListener("ended", this._onBoardEnded);
+      this.boardAudio.set(s.id, audio);
     }
-    return this.countdownAudio;
+    return audio;
   }
 
-  _playCountdown() {
-    const audio = this._countdownSound();
+  _playBoardSound(id) {
+    const s = this.board.find((b) => b.id === id);
+    if (!s) return; // a sound this page doesn't know (a newer build's board): stay silent
+    const audio = this._boardSound(s);
     try {
       audio.currentTime = 0;
     } catch {}
-    // Best-effort: this runs from the `countdown` broadcast handler for EVERYONE —
+    // Best-effort: this runs from the `sound` broadcast handler for EVERYONE —
     // including the starter, whose click only _send()s — so it is never a user
     // gesture. iOS therefore blocks it unless the element was unlocked on the first
     // in-call gesture (see the audio-unlock in the constructor); desktop permits it
@@ -1035,20 +1072,22 @@ export class Controls {
     if (p && typeof p.catch === "function") p.catch(() => {});
   }
 
-  _stopCountdown() {
-    if (!this.countdownAudio) return;
-    this.countdownAudio.pause();
+  // Silence whatever board sound is playing locally.
+  _stopBoardSound() {
+    const audio = this.boardAudio.get(this.soundPlaying);
+    if (!audio) return;
+    audio.pause();
     try {
-      this.countdownAudio.currentTime = 0;
+      audio.currentTime = 0;
     } catch {}
   }
 
-  // The sound finished on its own. Only the starter reports the end, which lets
-  // the server clear the authoritative state and unlock the control for everyone
-  // (others just let their own copy finish). A manual stop pauses instead, so it
-  // never fires this.
-  _reportCountdownEnded() {
-    if (this.countdownByMe) this._send("countdown", { action: "stop" });
+  // A sound finished on its own. Only its starter reports the end, which lets the
+  // server clear the authoritative state and unlock the board for everyone (others
+  // just let their own copy finish). A manual stop pauses instead, so it never fires
+  // this; nor does a stale element, since only the playing sound's element counts.
+  _reportSoundEnded(audio) {
+    if (this.soundByMe && audio === this.boardAudio.get(this.soundPlaying)) this._send("sound", { action: "stop" });
   }
 
   // --- op controls ---
@@ -1259,14 +1298,14 @@ export class Controls {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
     }
-    // Stop and release the countdown Audio so it doesn't keep playing after the
+    // Stop and release the board's Audio elements so nothing keeps playing after the
     // call is torn down.
-    if (this.countdownAudio) {
-      this.countdownAudio.removeEventListener("ended", this._onCountdownEnded);
-      this.countdownAudio.pause();
-      this.countdownAudio.src = "";
-      this.countdownAudio = null;
+    for (const audio of this.boardAudio.values()) {
+      audio.removeEventListener("ended", this._onBoardEnded);
+      audio.pause();
+      audio.src = "";
     }
+    this.boardAudio.clear();
     if (this.pollDialog) {
       if (this.pollDialog.open) this.pollDialog.close();
       this.pollDialog.remove();

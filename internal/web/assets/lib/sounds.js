@@ -43,8 +43,8 @@ export function playSound(name) {
 // loaded yet, so the chime and the countdown leaked out on the user's first click.
 export function primeAudio(el) {
   // Skip a null element, and one that's ALREADY playing: a playing element is already
-  // unlocked, and priming it would mute/pause/rewind a chime or countdown that's mid-play
-  // for a real reason (e.g. the user's first gesture landing during the countdown).
+  // unlocked, and priming it would mute/pause/rewind a chime or board sound that's mid-play
+  // for a real reason (e.g. the user's first gesture landing during a board sound).
   if (!el || !el.paused) return;
   el.muted = true; // belt and braces for a browser that starts faster than we can pause
   const restore = () => {

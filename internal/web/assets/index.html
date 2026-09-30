@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwiftIRC VC</title>
+  <title>Coyote</title>
   <!-- __ASSET_VERSION__ is substituted with the build's asset digest when the shell is
        served, so every redeploy changes these URLs and no cache can serve stale code.
        app.js's imports are all RELATIVE, so the whole module graph inherits the prefix. -->
@@ -20,6 +20,9 @@
        the effect catalogue is complete by the time anything resolves a saved
        preference against it. An empty array simply means no Scenes row. -->
   <script>window.__vcScenes = __BACKGROUND_SCENES__;</script>
+  <!-- The soundboard: whatever sounds/board/*.mp3 this build embedded, each named by
+       its emoji's codepoints (see internal/server/soundboard.go). -->
+  <script>window.__vcSoundboard = __SOUNDBOARD__;</script>
   <script type="module" src="/v/__ASSET_VERSION__/app.js"></script>
 </body>
 </html>

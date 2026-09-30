@@ -90,7 +90,7 @@ func TestBanOverWSBlocksRejoin(t *testing.T) {
 	}
 }
 
-func TestCountdownSyncedOverWS(t *testing.T) {
+func TestSoundSyncedOverWS(t *testing.T) {
 	_, srv := newTestHub(t, "", true)
 	a := dialRoom(t, srv, "cafe")
 	send(t, a, map[string]any{"type": "join", "name": "alice"})
@@ -99,21 +99,26 @@ func TestCountdownSyncedOverWS(t *testing.T) {
 	send(t, b, map[string]any{"type": "join", "name": "bob"})
 	recv(t, b, "joined")
 
-	// alice starts: everyone (including alice) gets a start naming the starter.
-	send(t, a, map[string]any{"type": "countdown", "action": "start"})
-	if m := recv(t, b, "countdown"); m["action"] != "start" || m["by"] != "alice" {
-		t.Errorf("bob start = %v", m)
+	// bob asks for a sound that is not on the board: refused, no broadcast, and the
+	// room stays idle — so alice's start below is accepted and is the first bob sees.
+	send(t, b, map[string]any{"type": "sound", "action": "start", "id": "../door_open"})
+
+	// alice starts: everyone (including alice) gets a start naming the sound and
+	// the starter.
+	send(t, a, map[string]any{"type": "sound", "action": "start", "id": "1f680"})
+	if m := recv(t, b, "sound"); m["action"] != "start" || m["id"] != "1f680" || m["by"] != "alice" {
+		t.Errorf("bob start = %v (want alice's 1f680; an unknown id must not broadcast)", m)
 	}
-	if m := recv(t, a, "countdown"); m["action"] != "start" {
+	if m := recv(t, a, "sound"); m["action"] != "start" {
 		t.Errorf("alice start = %v", m)
 	}
 
 	// bob (not the starter) tries to stop: refused, no broadcast. alice stops:
 	// the only stop bob sees is alice's — so the first stop must be "by alice".
-	send(t, b, map[string]any{"type": "countdown", "action": "stop"})
-	send(t, a, map[string]any{"type": "countdown", "action": "stop"})
-	if m := recv(t, b, "countdown"); m["action"] != "stop" || m["by"] != "alice" {
-		t.Errorf("bob stop = %v (want stop by alice; a non-starter stop must not broadcast)", m)
+	send(t, b, map[string]any{"type": "sound", "action": "stop"})
+	send(t, a, map[string]any{"type": "sound", "action": "stop"})
+	if m := recv(t, b, "sound"); m["action"] != "stop" || m["id"] != "1f680" || m["by"] != "alice" {
+		t.Errorf("bob stop = %v (want stop of 1f680 by alice; a non-starter stop must not broadcast)", m)
 	}
 }
 

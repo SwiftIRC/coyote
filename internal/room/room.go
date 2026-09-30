@@ -84,10 +84,10 @@ var (
 	ErrNotOp          = errors.New("room: not op")
 	ErrNoSuchPeer     = errors.New("room: no such peer")
 
-	ErrCountdownActive   = errors.New("room: countdown already active")
-	ErrCountdownInactive = errors.New("room: no countdown active")
-	ErrCountdownNotOwner = errors.New("room: only the starter can stop the countdown")
-	ErrBadCountdown      = errors.New("room: bad countdown action")
+	ErrSoundActive   = errors.New("room: a sound is already playing")
+	ErrSoundInactive = errors.New("room: no sound playing")
+	ErrSoundNotOwner = errors.New("room: only the starter can stop the sound")
+	ErrBadSound      = errors.New("room: bad sound action")
 )
 
 // evictGrace is how long a kicked/banned client's socket stays open after its
@@ -125,10 +125,11 @@ type Room struct {
 	emptySince    time.Time
 	startedAt     time.Time // when the room/call began (New); sent as roomAge in Joined
 	hasBeenJoined bool
-	// Synced countdown sound. countdownActive gates the control for everyone;
-	// countdownBy is the starter's participant ID so only they may stop it.
-	countdownActive bool
-	countdownBy     string
+	// The soundboard's one playing sound. soundID is the board sound ("" when idle,
+	// so it doubles as the active flag and gates the board for everyone); soundBy is
+	// the starter's participant ID so only they may stop it.
+	soundID string
+	soundBy string
 
 	// The room's single active poll (nil until an op creates one) and the counter its
 	// ids come from. A counter, not randomness: the id only has to invalidate votes
@@ -242,27 +243,28 @@ func (r *Room) Leave(id string) {
 	if len(r.parts) == 0 {
 		r.emptySince = r.cfg.Now()
 	}
-	// If the leaver owned an active countdown, clear it so the control does not
-	// stay locked for everyone else with no one able to stop it.
-	countdownCleared := r.countdownActive && r.countdownBy == id
-	if countdownCleared {
-		r.countdownActive = false
-		r.countdownBy = ""
+	// If the leaver owned the playing sound, clear it so the board does not stay
+	// locked for everyone else with no one able to stop it.
+	clearedSound := ""
+	if r.soundID != "" && r.soundBy == id {
+		clearedSound = r.soundID
+		r.soundID, r.soundBy = "", ""
 	}
 	r.mu.Unlock()
-	if countdownCleared {
-		r.Broadcast(signal.CountdownEvent{Action: "stop", By: p.Name}, "")
+	if clearedSound != "" {
+		r.Broadcast(signal.SoundEvent{Action: "stop", ID: clearedSound, By: p.Name}, "")
 	}
 	r.Broadcast(signal.PeerLeft{ID: id, Ref: p.Ref}, "")
 }
 
-// Countdown starts or stops the room's synced countdown sound. It is
-// authoritative: a start is refused when one is already running, and only the
-// participant who started it may stop it. Mutations happen under the mutex; the
-// resulting CountdownEvent fans out after the lock is released (lock discipline
-// matching Chat/SetLock). A late joiner is not synced — the sound is short, so a
-// client that arrives mid-countdown simply won't hear it or see the lock.
-func (r *Room) Countdown(actorID, action string) error {
+// Sound starts or stops the room's soundboard sound. It is authoritative: a
+// start is refused while any sound is playing, and only the participant who
+// started it may stop it. id names the board sound to start; the room only relays
+// it, so the caller checks it is a real one. Mutations happen under the mutex; the
+// resulting SoundEvent fans out after the lock is released (lock discipline
+// matching Chat/SetLock). A late joiner is not synced — the sounds are short, so a
+// client that arrives mid-sound simply won't hear it or see the lock.
+func (r *Room) Sound(actorID, action, id string) error {
 	r.mu.Lock()
 	actor, ok := r.parts[actorID]
 	if !ok {
@@ -271,34 +273,37 @@ func (r *Room) Countdown(actorID, action string) error {
 	}
 	switch action {
 	case "start":
-		if r.countdownActive {
+		if id == "" {
 			r.mu.Unlock()
-			return ErrCountdownActive
+			return ErrBadSound
 		}
-		r.countdownActive = true
-		r.countdownBy = actorID
+		if r.soundID != "" {
+			r.mu.Unlock()
+			return ErrSoundActive
+		}
+		r.soundID, r.soundBy = id, actorID
 		by := actor.Name
 		r.mu.Unlock()
-		r.Broadcast(signal.CountdownEvent{Action: "start", By: by}, "")
+		r.Broadcast(signal.SoundEvent{Action: "start", ID: id, By: by}, "")
 		return nil
 	case "stop":
-		if !r.countdownActive {
+		if r.soundID == "" {
 			r.mu.Unlock()
-			return ErrCountdownInactive
+			return ErrSoundInactive
 		}
-		if r.countdownBy != actorID {
+		if r.soundBy != actorID {
 			r.mu.Unlock()
-			return ErrCountdownNotOwner
+			return ErrSoundNotOwner
 		}
-		r.countdownActive = false
-		r.countdownBy = ""
+		stopped := r.soundID
+		r.soundID, r.soundBy = "", ""
 		by := actor.Name
 		r.mu.Unlock()
-		r.Broadcast(signal.CountdownEvent{Action: "stop", By: by}, "")
+		r.Broadcast(signal.SoundEvent{Action: "stop", ID: stopped, By: by}, "")
 		return nil
 	default:
 		r.mu.Unlock()
-		return ErrBadCountdown
+		return ErrBadSound
 	}
 }
 
@@ -322,7 +327,7 @@ func (r *Room) Chat(fromID, text string) {
 // and fans the change out to the OTHER participants so everyone's remote mute
 // indicators stay correct. The sender is excluded (its own tile is driven locally,
 // not by this echo). Unknown ids are a silent no-op. Lock discipline matches
-// Chat/Countdown: the state is mutated under the mutex, then the PeerMediaState is
+// Chat/Sound: the state is mutated under the mutex, then the PeerMediaState is
 // broadcast after the lock is released. Stored on the Participant so a late joiner's
 // roster (built in Join) reflects the current state without a replayed event.
 func (r *Room) SetMediaState(id string, mic, camera bool) {

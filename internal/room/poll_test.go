@@ -9,7 +9,7 @@ import (
 )
 
 // lastPoll returns the most recent PollEvent a fakeConn received, matching the
-// lastCountdown / lastModeration helpers already in this package.
+// lastSound / lastModeration helpers already in this package.
 func lastPoll(c *fakeConn) (signal.PollEvent, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -286,7 +286,7 @@ func TestEmptyRefVotersNeverShareABucket(t *testing.T) {
 	}
 }
 
-// Unlike the countdown, which Leave clears, a poll outlives its creator — that is the
+// Unlike a soundboard sound, which Leave clears, a poll outlives its creator — that is the
 // point of the feature, and this pins the deliberate difference.
 func TestPollSurvivesItsCreatorLeaving(t *testing.T) {
 	r, _, _, _, _ := modRoom(t)

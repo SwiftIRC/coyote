@@ -70,7 +70,7 @@ test("a synchronous play() throw leaves nothing muted", () => {
 
 test("an already-playing element is left alone", () => {
   const { el, calls } = fakeAudio();
-  el.paused = false; // a chime or the countdown is mid-play for a real reason
+  el.paused = false; // a chime or a board sound is mid-play for a real reason
   el.currentTime = 3;
   primeAudio(el);
   assert.deepEqual(calls, []);

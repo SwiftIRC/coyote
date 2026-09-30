@@ -1,4 +1,6 @@
-# SwiftIRC VC (coyote)
+<p align="center"><img src="internal/web/assets/img/logo.webp" alt="Coyote logo" width="128" height="128"></p>
+
+# Coyote
 
 A self-hosted group video-conferencing app — a lightweight Jitsi replacement,
 tied to the SwiftIRC network. One Go binary runs the whole thing: a Pion-based
@@ -36,8 +38,11 @@ own and can wire natively into SwiftIRC.
   picker says so and offers only "None".
 - Low-bandwidth mode: stop downloading *all* inbound video while keeping audio.
   Per-user and purely local — it changes only what you receive.
-- Per-participant local volume, a mirrored self-view, and a shared countdown
-  sound.
+- Per-participant local volume, a mirrored self-view, and a shared soundboard:
+  every `internal/web/assets/sounds/board/*.mp3` is a button, labelled by the emoji
+  its filename spells in hex codepoints (`1f680.mp3` is 🚀; sequences are
+  dash-joined, `1f468-200d-1f4bb.mp3`). go:embed rejects emoji filenames, hence
+  the hex. One sound plays at a time, room-wide.
 - Self-healing clients: reconnect on drop, ICE-restart on media failure, and —
   importantly — a kicked/banned client stops and does **not** rejoin.
 
@@ -56,7 +61,7 @@ own and can wire natively into SwiftIRC.
 - **`internal/config`** — flags/env config.
 - **`internal/token`** — HMAC identity tokens (minted by the Anope module, verified here). Cross-implementation test vectors in `internal/token/testdata/vectors.json` are what keep the two implementations byte-identical.
 - **`internal/signal`** — the JSON WebSocket wire protocol.
-- **`internal/room`** — pure room state: join rules, roster, chat ring, moderation, countdown. No I/O, no Pion.
+- **`internal/room`** — pure room state: join rules, roster, chat ring, moderation, soundboard lock. No I/O, no Pion.
 - **`internal/sfu`** — the media plane (Pion `webrtc/v4`): one PeerConnection per participant, forwarding each published track (VP8/Opus) to every other participant; perfect-negotiation with the server as the impolite peer.
 - **`internal/server`** — the `Hub`: WebSocket join flow, signaling dispatch, HTTP API, static serving.
 - **`internal/web`** — the embedded browser client (`assets/`), with `node --test`

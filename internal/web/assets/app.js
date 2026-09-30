@@ -140,7 +140,14 @@ function renderHome(message) {
     el(
       "div",
       { class: "home" },
-      el("h1", { text: "SwiftIRC VC" }),
+      el(
+        "div",
+        { class: "brand" },
+        // Resolved against this module's own URL, so it inherits the /v/<version>/
+        // prefix and the immutable caching that comes with it.
+        el("img", { class: "logo", src: new URL("./img/logo.webp", import.meta.url).href, alt: "", width: "56", height: "56" }),
+        el("h1", { text: "Coyote" }),
+      ),
       el("p", { class: "lede", text: "Enter a room name to start or join a call." }),
       el("div", { class: "row" }, input, el("button", { class: "join", type: "button", onClick: go }, "Go")),
       error,
@@ -445,7 +452,7 @@ function renderInCall(msg) {
   signaling.on("muted", (m) => controls.onMuted(m.kind));
   signaling.on("room-locked", () => controls.onLock(true));
   signaling.on("room-unlocked", () => controls.onLock(false));
-  signaling.on("countdown", (m) => controls.onCountdown(m));
+  signaling.on("sound", (m) => controls.onSound(m));
   signaling.on("chat", (m) => {
     chat.onChat(m);
     controls.notifyChatActivity(); // bumps the unread badge while chat is hidden
@@ -710,7 +717,7 @@ function showUpdateBanner() {
     el(
       "div",
       { class: "update-banner", role: "status" },
-      el("span", { text: "A new version of SwiftIRC VC is available." }),
+      el("span", { text: "A new version of Coyote is available." }),
       el("button", { type: "button", class: "update-reload", onClick: () => location.reload() }, "Reload"),
     ),
   );
@@ -733,6 +740,6 @@ async function watchVersion() {
   });
 }
 
-log.info("SwiftIRC VC loaded");
+log.info("Coyote loaded");
 boot();
 watchVersion();

@@ -758,13 +758,6 @@ body.ui-idle .controls {
   display: block;
 }
 
-/* Countdown is locked for everyone except its starter while it runs; make the
-   locked state read as non-interactive (scoped so other buttons are untouched). */
-.controls .ctl.countdown:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 /* Noise-suppression toggle: the vendored worklet is ~2MB, so the first enable
    shows a wait cursor while it loads (the button is disabled during that time). */
 .controls .ctl.ns.loading {
@@ -838,6 +831,30 @@ body.ui-idle .controls {
 /* The columns segmented control is a short list of numbers — center them for a tidier look. */
 .cols-seg .cols-item {
   text-align: center;
+}
+
+/* Soundboard popover: a wrapping row of emoji buttons rather than a text list. After
+   .share-menu, whose column layout it overrides at the same specificity. */
+.soundboard-menu {
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 1rem));
+}
+.soundboard-menu .board-item {
+  padding: 0.35rem 0.5rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  text-align: center;
+}
+/* While a sound plays the board is locked for everyone except its starter; make the
+   locked buttons read as non-interactive (scoped so other buttons are untouched). */
+.soundboard-menu .board-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.soundboard-menu .board-item:disabled:hover {
+  background: transparent;
 }
 
 /* Split control: a main icon button (mic/camera) fused with a caret button that opens
@@ -1143,6 +1160,21 @@ body.ui-idle .controls {
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Lobby heading: the logo beside the app name. alt="" because the name beside it
+   already says what it is. */
+.home .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.home .brand .logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex: none;
 }
 
 /* Terminal "you were kicked/banned" card reuses .home; muted second line. */
