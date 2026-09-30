@@ -84,11 +84,13 @@ type SetReceiveVideo struct {
 	Enabled bool `json:"enabled"`
 }
 
-// Countdown is a client's request to start or stop the synced countdown sound.
-// Action ∈ start|stop. The server is authoritative: only the participant who
+// Sound is a client's request to start or stop a soundboard sound for everyone.
+// Action ∈ start|stop; ID names the board sound to start (ignored on stop). The
+// server is authoritative: one sound plays at a time, only the participant who
 // started it may stop it, and while it runs others are locked out.
-type Countdown struct {
+type Sound struct {
 	Action string `json:"action"` // "start" | "stop"
+	ID     string `json:"id,omitempty"`
 }
 
 // MediaState is a participant's report of its OWN current mic/camera enabled
@@ -216,11 +218,13 @@ type RoleChange struct {
 	Role string `json:"role"`
 }
 
-// CountdownEvent tells every client the synced countdown started or stopped.
-// By is the starter's display name. On start clients play /RocketCountdown.mp3
-// and lock the control for everyone but the starter; on stop they reset it.
-type CountdownEvent struct {
+// SoundEvent tells every client a soundboard sound started or stopped. ID is the
+// board sound (on stop, the one that was playing); By is the starter's display
+// name. On start clients play it and lock the board for everyone but the starter;
+// on stop they reset it.
+type SoundEvent struct {
 	Action string `json:"action"` // "start" | "stop"
+	ID     string `json:"id"`
 	By     string `json:"by"`
 }
 
@@ -305,8 +309,8 @@ func Decode(data []byte) (any, error) {
 		v = &SetQuality{}
 	case "set-receive-video":
 		v = &SetReceiveVideo{}
-	case "countdown":
-		v = &Countdown{}
+	case "sound":
+		v = &Sound{}
 	case "media-state":
 		v = &MediaState{}
 	case "rename":
@@ -372,8 +376,8 @@ func serverTypeName(v any) (string, error) {
 		return "role", nil
 	case Moderation, *Moderation:
 		return "moderation", nil
-	case CountdownEvent, *CountdownEvent:
-		return "countdown", nil
+	case SoundEvent, *SoundEvent:
+		return "sound", nil
 	case PollEvent, *PollEvent:
 		return "poll", nil
 	case Kicked, *Kicked:

@@ -245,28 +245,34 @@ becomes op, or open `/<room>#t=<token>` from a `!vc` invite whose token carries
       returns: the ☰ menu right-aligned under ☰, the Share menu left-aligned under
       Share.
 
-## Synced countdown sound
+## Soundboard
 
-- [ ] **Countdown plays for everyone** — with A, B, C joined, A clicks the 🚀
-      countdown button. `RocketCountdown.mp3` starts for A (its click is a user
-      gesture, so autoplay is allowed) and for B/C (best-effort — a browser may
-      block the network-triggered playback until that tab has been interacted with;
-      that is acceptable). A's button highlights and its title becomes "Stop the
-      countdown".
-- [ ] **Only the starter controls it; others are locked** — while A's countdown
-      runs, B's and C's countdown buttons are disabled (locked, greyed) and cannot
-      start or stop it. Only A can stop it.
-- [ ] **Starter stop clears it for everyone** — A clicks the button again. The
-      sound stops for A, B, and C and every button unlocks (returns to the idle 🚀).
-- [ ] **Natural end unlocks everyone** — A starts the countdown and lets it play to
-      the end without clicking. When A's audio finishes, A's client reports the end,
-      the server clears the state, and every button unlocks on its own.
-- [ ] **Starter leaving mid-countdown unlocks everyone** — A starts the countdown,
-      then A leaves (or closes the tab). B and C stop hearing it and their buttons
-      unlock — the control never stays stuck locked with no one able to stop it.
-- [ ] **Non-starter cannot hijack** — while A's countdown runs, nothing B or C does
-      (the disabled button, or a crafted frame) can stop A's run or start a second
-      one; the server refuses silently and the UI stays consistent.
+- [ ] **Board lists the directory** — the 🎶 button opens a popover with one emoji
+      button per `internal/web/assets/sounds/board/*.mp3` (today just 🚀, from
+      `1f680.mp3`). Drop in another codepoint-named MP3 (e.g. `1f389.mp3`), rebuild,
+      and a 🎉 button appears with no other change.
+- [ ] **A sound plays for everyone** — with A, B, C joined, A opens the board and
+      clicks 🚀. It starts for A and for B/C (best-effort — a browser may block the
+      network-triggered playback until that tab has been interacted with; that is
+      acceptable). A's 🎶 toggle and 🚀 button highlight and the 🚀 title becomes
+      "Stop 🚀".
+- [ ] **Only the starter controls it; others are locked** — while A's sound plays,
+      every board button for B and C is disabled (locked, greyed) and cannot start or
+      stop anything; A's OTHER board buttons are locked too. Only A can stop it.
+- [ ] **Starter stop clears it for everyone** — A clicks the highlighted button
+      again. The sound stops for A, B, and C and every board unlocks.
+- [ ] **Natural end unlocks everyone** — A starts a sound and lets it play to the
+      end without clicking. When A's audio finishes, A's client reports the end, the
+      server clears the state, and every board unlocks on its own.
+- [ ] **Starter leaving mid-sound unlocks everyone** — A starts a sound, then A
+      leaves (or closes the tab). B and C stop hearing it and their boards unlock —
+      the board never stays stuck locked with no one able to stop it.
+- [ ] **Non-starter cannot hijack** — while A's sound plays, nothing B or C does (the
+      disabled buttons, or a crafted frame) can stop it or start a second one; a
+      crafted start naming a sound not on the board is refused too. The server
+      refuses silently and the UI stays consistent.
+- [ ] **iPhone** — after the first tap anywhere in the call, sounds another
+      participant starts are audible (every board sound is unlocked on that tap).
 
 ## Chat + moderation feed
 

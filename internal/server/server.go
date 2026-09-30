@@ -275,7 +275,7 @@ func (h *Hub) serve(c *wsClient, slug, ip string) {
 		switch m := v.(type) {
 		case *signal.Leave:
 			return
-		case *signal.Chat, *signal.SetLock, *signal.Kick, *signal.MutePeer, *signal.Ban, *signal.GrantOp, *signal.SetQuality, *signal.Countdown, *signal.MediaState, *signal.Rename, *signal.CreatePoll, *signal.Vote, *signal.ClosePoll:
+		case *signal.Chat, *signal.SetLock, *signal.Kick, *signal.MutePeer, *signal.Ban, *signal.GrantOp, *signal.SetQuality, *signal.Sound, *signal.MediaState, *signal.Rename, *signal.CreatePoll, *signal.Vote, *signal.ClosePoll:
 			h.dispatch(rm, p, m)
 		// An offer or answer that will not apply is never routine, and it does not
 		// correct itself. The SFU has already added and announced this peer's senders,
@@ -345,27 +345,32 @@ func (h *Hub) dispatch(rm *room.Room, p *room.Participant, v any) {
 		}
 		rm.Chat(p.ID, text)
 		return
-	case *signal.Countdown:
-		// Countdown refusals (already active, not the starter, idle stop) are
-		// deliberately silent: the client control already reflects the
-		// authoritative state from the broadcast, and a lost start/stop race
-		// self-heals when the winner's CountdownEvent arrives, so a refusal would
-		// report a condition the user is about to see resolved anyway.
+	case *signal.Sound:
+		// Sound refusals (already playing, not the starter, idle stop, a sound not
+		// on the board) are deliberately silent: the client board already reflects
+		// the authoritative state from the broadcast, and a lost start/stop race
+		// self-heals when the winner's SoundEvent arrives, so a refusal would
+		// report a condition the user is about to see resolved anyway. An unknown
+		// id only comes from a stale page or a hand-crafted frame.
 		//
 		// This silence used to ALSO be load-bearing, because an "error" frame
 		// in-call stopped the client's socket for good. It no longer is: app.js
 		// treats an in-call error as non-fatal and shows it in the moderation feed
 		// (lib/serverError.js). The self-healing argument above is what still
 		// justifies staying quiet here.
-		if err := rm.Countdown(p.ID, m.Action); err != nil {
-			h.log.Debug("countdown refused", "from", p.ID, "action", m.Action, "err", err)
+		if m.Action == "start" && !knownSound(m.ID) {
+			h.log.Debug("sound refused", "from", p.ID, "action", m.Action, "id", m.ID, "err", "not on the board")
+			return
+		}
+		if err := rm.Sound(p.ID, m.Action, m.ID); err != nil {
+			h.log.Debug("sound refused", "from", p.ID, "action", m.Action, "id", m.ID, "err", err)
 		}
 		return
 	case *signal.Vote:
-		// Refusals are deliberately silent for the same reason countdown's are: a
+		// Refusals are deliberately silent for the same reason sound's are: a
 		// stale card or a lost race self-heals on the next broadcast. (The old
 		// second reason — that an in-call "error" frame killed the client's socket
-		// — no longer applies; see the countdown case above.)
+		// — no longer applies; see the sound case above.)
 		if err := rm.Vote(p.ID, m.PollID, m.Choice); err != nil {
 			h.log.Debug("vote refused", "from", p.ID, "poll", m.PollID, "err", err)
 		}

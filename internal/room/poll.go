@@ -164,7 +164,7 @@ func (r *Room) Vote(actorID, pollID string, choice int) error {
 }
 
 // ClosePoll freezes the tallies. Any op may close, not only the creator: unlike the
-// countdown, a poll outliving its creator's reconnect is the point of the feature.
+// soundboard, a poll outliving its creator's reconnect is the point of the feature.
 func (r *Room) ClosePoll(actorID, pollID string) error {
 	r.mu.Lock()
 	actor, ok := r.parts[actorID]

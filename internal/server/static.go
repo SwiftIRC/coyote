@@ -38,6 +38,11 @@ const versionPlaceholder = "__ASSET_VERSION__"
 // and quietly downgrade a saved background to "none".
 const scenesPlaceholder = "__BACKGROUND_SCENES__"
 
+// soundboardPlaceholder is where the shell carries this build's soundboard (see
+// soundboard.go), injected for the same reason as the scenes: the controls build
+// their buttons synchronously at call start.
+const soundboardPlaceholder = "__SOUNDBOARD__"
+
 func mustReadShell() []byte {
 	b, err := fs.ReadFile(web.Assets, "index.html")
 	if err != nil {
@@ -49,11 +54,14 @@ func mustReadShell() []byte {
 	if !bytes.Contains(b, []byte(versionPlaceholder)) {
 		panic("index.html is missing " + versionPlaceholder)
 	}
-	if !bytes.Contains(b, []byte(scenesPlaceholder)) {
-		panic("index.html is missing " + scenesPlaceholder)
+	for _, ph := range []string{scenesPlaceholder, soundboardPlaceholder} {
+		if !bytes.Contains(b, []byte(ph)) {
+			panic("index.html is missing " + ph)
+		}
 	}
 	b = bytes.ReplaceAll(b, []byte(versionPlaceholder), []byte(assetsVersion))
-	return bytes.ReplaceAll(b, []byte(scenesPlaceholder), embeddedScenesJSON())
+	b = bytes.ReplaceAll(b, []byte(scenesPlaceholder), embeddedScenesJSON())
+	return bytes.ReplaceAll(b, []byte(soundboardPlaceholder), soundboardJSON(embeddedSoundboard))
 }
 
 // assetsVersion is a digest of the embedded client assets, computed once at startup.
