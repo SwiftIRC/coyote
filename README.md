@@ -1,4 +1,4 @@
-# SwiftIRC VC (coyote)
+# Coyote
 
 A self-hosted group video-conferencing app — a lightweight Jitsi replacement,
 tied to the SwiftIRC network. One Go binary runs the whole thing: a Pion-based

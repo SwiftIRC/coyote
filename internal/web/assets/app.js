@@ -140,7 +140,7 @@ function renderHome(message) {
     el(
       "div",
       { class: "home" },
-      el("h1", { text: "SwiftIRC VC" }),
+      el("h1", { text: "Coyote" }),
       el("p", { class: "lede", text: "Enter a room name to start or join a call." }),
       el("div", { class: "row" }, input, el("button", { class: "join", type: "button", onClick: go }, "Go")),
       error,
@@ -710,7 +710,7 @@ function showUpdateBanner() {
     el(
       "div",
       { class: "update-banner", role: "status" },
-      el("span", { text: "A new version of SwiftIRC VC is available." }),
+      el("span", { text: "A new version of Coyote is available." }),
       el("button", { type: "button", class: "update-reload", onClick: () => location.reload() }, "Reload"),
     ),
   );
@@ -733,6 +733,6 @@ async function watchVersion() {
   });
 }
 
-log.info("SwiftIRC VC loaded");
+log.info("Coyote loaded");
 boot();
 watchVersion();
