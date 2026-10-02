@@ -1211,6 +1211,13 @@ body.ui-idle .controls {
   left: auto;
   right: 0;
   max-width: calc(100vw - 1rem);
+  /* Taller than most viewports once the background picker and the op rows are in, so
+     it scrolls. The real cap is set inline on open from the space actually above the
+     bar (see Controls._fitSettingsMenu) — the bar wraps to several rows on a phone, so
+     no fixed offset is right everywhere; this is only the fallback. */
+  max-height: calc(100dvh - 6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .settings-menu .settings-item {
   display: flex;
