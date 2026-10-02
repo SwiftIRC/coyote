@@ -507,6 +507,23 @@ video.mirror {
   transform: scaleX(-1);
 }
 
+/* Narrow-screen single-column stack (Grid._relayout): the strips are far wider than
+   tall, so cover would crop faces down to a band — show the whole frame instead. */
+.grid.stacked .tile .cam {
+  object-fit: contain;
+}
+/* The camera-off avatar sizes by tile WIDTH (cqw), which in a wide, short strip
+   overflows the height and slides under the name tag. Stacked tiles are size
+   containers instead (their grid rows are definite, so containment is safe), and the
+   avatar takes the smaller of its width rule and a height one. */
+.grid.stacked .tile {
+  container-type: size;
+}
+.grid.stacked .cam-off-avatar {
+  width: clamp(40px, min(34cqw, 55cqh), 128px);
+  font-size: clamp(1.1rem, min(18cqw, 28cqh), 3rem);
+}
+
 .tile.screen .cam {
   object-fit: contain; /* show the whole shared surface, don't crop */
   transform: none; /* a shared screen is never mirrored, even your own */

@@ -22,5 +22,12 @@ internal/web/assets/img/bg/*.webp
 !internal/web/assets/img/bg/carina.webp
 !internal/web/assets/img/bg/pillars.webp
 
+# Soundboard clips are local-only by default, for the same reason as the scenes:
+# most are cut from music or media the MIT licence cannot cover, and go:embed would
+# put them in every binary. The server discovers whichever are present at build
+# time (internal/server/soundboard.go). Add an exception per freely-licensed file.
+internal/web/assets/sounds/board/*.mp3
+!internal/web/assets/sounds/board/1f680.mp3
+
 # Superpowers isolated worktrees (feature branches checked out under the repo root)
 .worktrees/

@@ -38,6 +38,7 @@ import { playSound } from "../lib/sounds.js";
 import { applyAvatar } from "../lib/avatar.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS } from "../lib/icons.js";
 import { log } from "../lib/log.js";
+import { stacksNarrow } from "../lib/gridLayout.js";
 
 // Tiny DOM helper: el("div", {class:"x", onClick:fn}, child, "text"...). The
 // "text" key sets textContent, so caller-supplied strings can never inject markup.
@@ -176,6 +177,7 @@ export class Grid {
     if (!this.el) return;
     const all = [...this.el.querySelectorAll(":scope > .tile")];
     for (const t of all) t.classList.remove("pos3-a", "pos3-b", "pos3-c"); // recomputed below
+    this.el.classList.remove("stacked"); // likewise; only the narrow stack sets it
     const tiles = all.filter((t) => !t.hidden); // a hidden (self-view) tile leaves no cell
     if (this._focusedEl) {
       this._layoutFocus(tiles);
@@ -194,6 +196,15 @@ export class Grid {
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
     if (!w || !h) return; // not mounted/sized yet; the ResizeObserver will call again
+    // Narrow (phone) grid with a small call: one full-width column, ahead of the 3-up
+    // case so three people stack too. The strips are far wider than tall, so .stacked
+    // letterboxes the video rather than cropping faces (see lib/gridLayout.js).
+    if (stacksNarrow(w, n)) {
+      this.el.style.gridTemplateColumns = "1fr";
+      this.el.style.gridTemplateRows = `repeat(${n}, 1fr)`;
+      this.el.classList.add("stacked");
+      return;
+    }
     // 3-up special case: two tiles on top, the third centered on the bottom — all
     // the same (half) width. A 4-column grid lets the top two span cols 1-2 and 3-4
     // and the third span the middle cols 2-3 (centered) on row 2.
