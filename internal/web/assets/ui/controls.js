@@ -208,6 +208,12 @@ export class Controls {
     // so the button's state follows the document's event rather than its own handler.
     this._onFullscreenChange = () => this._setFullscreenButton();
     document.addEventListener("fullscreenchange", this._onFullscreenChange);
+    // An open settings menu re-fits when the viewport changes (rotation, a mobile URL
+    // bar collapsing, the window being resized).
+    this._onWinResize = () => {
+      if (this.settingsMenu && !this.settingsMenu.hidden) this._fitSettingsMenu();
+    };
+    window.addEventListener("resize", this._onWinResize);
     this._revealControls(); // start visible, then arm the idle timer
   }
 
@@ -640,7 +646,17 @@ export class Controls {
       this.settingsMenu.hidden = false;
       this.settingsBtn.setAttribute("aria-expanded", "true");
       if (this.renameInput) this.renameInput.value = (this.grid && this.grid.selfName) || "";
+      this._fitSettingsMenu();
     }
+  }
+
+  // Cap the settings menu to the space above it so it scrolls instead of running off
+  // the top of the screen. It opens UPWARD with its bottom pinned just above the bar,
+  // so that bottom edge (in viewport coordinates) is exactly the height available; keep
+  // a small margin. The inline cap overrides the CSS fallback.
+  _fitSettingsMenu() {
+    const bottom = this.settingsMenu.getBoundingClientRect().bottom;
+    this.settingsMenu.style.maxHeight = `${Math.max(120, Math.floor(bottom - 8))}px`;
   }
 
   // Send a rename if the trimmed input is non-empty and actually different from the
@@ -1294,6 +1310,7 @@ export class Controls {
     window.removeEventListener("blur", this._onWinBlur);
     document.removeEventListener("pointerdown", this._onDocPointer);
     document.removeEventListener("fullscreenchange", this._onFullscreenChange);
+    window.removeEventListener("resize", this._onWinResize);
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
