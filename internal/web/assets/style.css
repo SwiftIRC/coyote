@@ -507,7 +507,7 @@ video.mirror {
   transform: scaleX(-1);
 }
 
-/* Narrow-screen single-column stack (Grid._relayout): the strips are far wider than
+/* Portrait-grid single-column stack (Grid._relayout): the strips are far wider than
    tall, so cover would crop faces down to a band — show the whole frame instead. */
 .grid.stacked .tile .cam {
   object-fit: contain;
