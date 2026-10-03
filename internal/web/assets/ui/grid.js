@@ -196,10 +196,10 @@ export class Grid {
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
     if (!w || !h) return; // not mounted/sized yet; the ResizeObserver will call again
-    // Narrow (phone) grid with a small call: one full-width column, ahead of the 3-up
-    // case so three people stack too. The strips are far wider than tall, so .stacked
-    // letterboxes the video rather than cropping faces (see lib/gridLayout.js).
-    if (stacksNarrow(w, n)) {
+    // Portrait (tall, thin) grid with a small call: one full-width column, ahead of
+    // the 3-up case so three people stack too. The strips are far wider than tall, so
+    // .stacked letterboxes the video rather than cropping faces (see lib/gridLayout.js).
+    if (stacksNarrow(w, h, n)) {
       this.el.style.gridTemplateColumns = "1fr";
       this.el.style.gridTemplateRows = `repeat(${n}, 1fr)`;
       this.el.classList.add("stacked");
