@@ -13,6 +13,9 @@ import type {
   CodecLike, Frame, Kind, Logger, PeerConnectionLike, SenderLike, StreamLike, Timers, TrackEventLike, TrackLike,
 } from "./types";
 
+// How long one ICE restart may take to reconnect before we give up.
+const ICE_RESTART_GRACE_MS = 6000;
+
 export type SignalingPort = {
   on(t: string, fn: (m: Frame) => void): unknown;
   off(t: string, fn: (m: Frame) => void): unknown;
@@ -43,6 +46,11 @@ export class Peer {
   private kindByStreamId = new Map<string, Kind>();
   private streamIdByKind = new Map<Kind, string>();
   private quality = { camera: "auto", screen: "auto" };
+  private trackInfo = new Map<string, { participantId: string; kind: string }>();
+  private incoming = new Map<string, { stream: StreamLike; emitted: boolean; info: { participantId: string; kind: string } | null }>();
+  private restartedIce = false;
+  private mediaFailedEmitted = false;
+  private iceGraceTimer: unknown = null;
   private sigHandlers: Array<[string, (m: Frame) => void]>;
 
   constructor(private sig: SignalingPort, private deps: PeerDeps, private events: PeerEvents) {
@@ -54,6 +62,8 @@ export class Peer {
       this.makeOffer().catch((err) => this.emitError(err, "negotiation"));
     });
     this.pc.addEventListener("track", (ev) => this.onTrack(ev));
+    this.pc.addEventListener("connectionstatechange", () => this.onConnectionStateChange());
+    this.pc.addEventListener("iceconnectionstatechange", () => this.onConnectionStateChange());
     this.sigHandlers = [
       ["offer", (m) => {
         this.onRemoteOffer(m).catch((err) => this.emitError(err, "offer"));
@@ -224,9 +234,91 @@ export class Peer {
 
   // --- inbound media (Task 7) ---
 
-  private onTracks(_msg: Frame) {}
-  private onTrack(_ev: TrackEventLike) {}
-  private closeExtras() {}
+  // The SFU's mid -> {participantId, kind} labels. An EMPTY list carries no
+  // information and is ignored entirely (see peer.js _onTracks for the incident).
+  // A non-empty list is authoritative: held mids it no longer names are retired.
+  private onTracks(msg: Frame) {
+    const next = new Map<string, { participantId: string; kind: string }>();
+    for (const t of msg.tracks || []) next.set(t.mid, { participantId: t.participantId, kind: t.kind });
+    if (next.size === 0) return;
+    for (const mid of [...this.incoming.keys()]) if (!next.has(mid)) this.onStreamGone(mid);
+    this.trackInfo = next;
+    for (const mid of next.keys()) this.emitRemoteTrack(mid);
+  }
+
+  private onTrack(ev: TrackEventLike) {
+    const mid = ev.transceiver.mid;
+    if (mid == null || this.incoming.has(mid)) return;
+    // The SFU bundles a publisher's tracks under one stream id; wrap just this track.
+    const stream = this.deps.createStream([ev.track]);
+    this.incoming.set(mid, { stream, emitted: false, info: null });
+    this.emitRemoteTrack(mid);
+    ev.track.addEventListener?.("ended", () => this.onStreamGone(mid));
+  }
+
+  private emitRemoteTrack(mid: string) {
+    const info = this.trackInfo.get(mid);
+    const rec = this.incoming.get(mid);
+    if (!info || !rec || rec.emitted) return;
+    rec.emitted = true;
+    rec.info = info;
+    this.events.remoteTrack({ participantId: info.participantId, kind: info.kind, stream: rec.stream });
+  }
+
+  private onStreamGone(mid: string) {
+    const rec = this.incoming.get(mid);
+    if (!rec) return;
+    this.incoming.delete(mid);
+    const info = rec.info || this.trackInfo.get(mid);
+    this.trackInfo.delete(mid);
+    this.events.peerGone({ participantId: info?.participantId, kind: info?.kind });
+  }
+
+  // --- media-plane health: one ICE restart, then report ---
+
+  private onConnectionStateChange() {
+    if (this.pc.connectionState === "connected") {
+      this.clearGrace();
+      return;
+    }
+    if (this.pc.connectionState === "failed" || this.pc.iceConnectionState === "failed") this.handleMediaFailure();
+  }
+
+  private handleMediaFailure() {
+    if (this.mediaFailedEmitted || this.iceGraceTimer !== null) return;
+    if (!this.restartedIce && typeof this.pc.restartIce === "function") {
+      this.restartedIce = true;
+      try {
+        this.pc.restartIce();
+      } catch (err) {
+        this.emitError(err, "ice-restart");
+      }
+      this.iceGraceTimer = this.deps.setTimeout(() => {
+        this.iceGraceTimer = null;
+        if (this.pc.connectionState !== "connected") this.emitMediaFailed();
+      }, ICE_RESTART_GRACE_MS);
+      return;
+    }
+    this.emitMediaFailed();
+  }
+
+  private emitMediaFailed() {
+    if (this.mediaFailedEmitted) return;
+    this.mediaFailedEmitted = true;
+    this.clearGrace();
+    this.events.mediaFailed();
+  }
+
+  private clearGrace() {
+    if (this.iceGraceTimer !== null) {
+      this.deps.clearTimeout(this.iceGraceTimer);
+      this.iceGraceTimer = null;
+    }
+  }
+
+  private closeExtras() {
+    this.clearGrace();
+  }
 
   private emitError(error: unknown, phase: string) {
     this.events.error({ error, phase });
