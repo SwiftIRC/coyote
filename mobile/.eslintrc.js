@@ -5,6 +5,8 @@ module.exports = {
     {
       files: ["src/core/**/*.ts"],
       rules: {
+        // core decodes bytes (base64/UTF-8, UUIDs) where bitwise ops are intended.
+        "no-bitwise": "off",
         "no-restricted-imports": [
           "error",
           {
