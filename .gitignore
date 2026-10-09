@@ -44,3 +44,4 @@ mobile/**/*.keystore
 !mobile/android/app/debug.keystore
 mobile/.bundle/
 mobile/vendor/
+mobile/android/env.sh
