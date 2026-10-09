@@ -31,3 +31,16 @@ internal/web/assets/sounds/board/*.mp3
 
 # Superpowers isolated worktrees (feature branches checked out under the repo root)
 .worktrees/
+
+# Mobile (React Native) build products and secrets
+mobile/node_modules/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/local.properties
+mobile/**/*.keystore
+!mobile/android/app/debug.keystore
+mobile/.bundle/
+mobile/vendor/
