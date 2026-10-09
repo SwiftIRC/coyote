@@ -105,6 +105,9 @@ is UDP sent directly to the SFU and does **not** flow through nginx, so
 | `-secret` | `WVC_SECRET` | _(empty)_ | Shared HMAC secret for tokens + `/api/provision` (empty = ad-hoc rooms only) |
 | `-adhoc` | `WVC_ADHOC` | `true` | Allow non-IRC rooms created on demand |
 | `-trust-proxy` | `WVC_TRUST_PROXY` | `false` | Trust `X-Forwarded-For` (enable only behind a trusted proxy) |
+| `-apple-app-id` | `WVC_APPLE_APP_ID` | _(empty)_ | iOS `<TEAMID>.<bundle id>`; serves `/.well-known/apple-app-site-association` so room links open the app |
+| `-android-package` | `WVC_ANDROID_PACKAGE` | _(empty)_ | Android applicationId for `/.well-known/assetlinks.json` |
+| `-android-cert-sha256` | `WVC_ANDROID_CERT_SHA256` | _(empty)_ | Comma-separated signing-cert SHA-256 fingerprints for assetlinks (both settings needed) |
 | `-tls-cert` / `-tls-key` | `WVC_TLS_CERT` / `_KEY` | _(empty)_ | Optional built-in TLS |
 
 ## Testing

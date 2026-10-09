@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -19,6 +20,11 @@ type Config struct {
 	TLSCert    string // optional built-in TLS
 	TLSKey     string
 	TrustProxy bool // trust X-Forwarded-For (only enable behind a trusted reverse proxy)
+	// Mobile app links (Universal Links / Android App Links). Each .well-known
+	// document is served only when its settings are present.
+	AppleAppID        string   // "<TEAMID>.<bundle id>"
+	AndroidPackage    string   // applicationId
+	AndroidCertSHA256 []string // signing-cert SHA-256 fingerprints, "AA:BB:..." form
 	// Minimum level the process logs at. The media plane reports per-peer signaling
 	// failures — an offer or answer that would not apply, a candidate rejected — at
 	// debug, because they are per-frame chatter on a healthy server and a flood on a
@@ -69,9 +75,17 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	fs.StringVar(&cfg.TLSCert, "tls-cert", str("WVC_TLS_CERT", ""), "TLS certificate file (optional)")
 	fs.StringVar(&cfg.TLSKey, "tls-key", str("WVC_TLS_KEY", ""), "TLS key file (optional)")
 	fs.BoolVar(&cfg.TrustProxy, "trust-proxy", boolean("WVC_TRUST_PROXY", false), "trust X-Forwarded-For (enable only behind a trusted reverse proxy)")
+	fs.StringVar(&cfg.AppleAppID, "apple-app-id", str("WVC_APPLE_APP_ID", ""), "iOS app id <TEAMID>.<bundle> for Universal Links (empty = no AASA)")
+	fs.StringVar(&cfg.AndroidPackage, "android-package", str("WVC_ANDROID_PACKAGE", ""), "Android applicationId for App Links (empty = no assetlinks)")
+	androidCerts := fs.String("android-cert-sha256", str("WVC_ANDROID_CERT_SHA256", ""), "comma-separated Android signing-cert SHA-256 fingerprints")
 	logLevel := fs.String("log-level", str("WVC_LOG_LEVEL", "info"), "log verbosity: debug, info, warn, error")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
+	}
+	for _, c := range strings.Split(*androidCerts, ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			cfg.AndroidCertSHA256 = append(cfg.AndroidCertSHA256, c)
+		}
 	}
 	// slog.Level.UnmarshalText accepts the names case-insensitively (and offsets like
 	// "debug+2"), so it is both the idiomatic parse and a slightly richer one.

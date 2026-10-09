@@ -78,6 +78,13 @@ spec:
                 secretKeyRef:
                   name: coyote
                   key: secret
+            # Mobile app links — uncomment once the apps are published.
+            # - name: WVC_APPLE_APP_ID
+            #   value: "<TEAMID>.net.swiftirc.coyote"
+            # - name: WVC_ANDROID_PACKAGE
+            #   value: "net.swiftirc.coyote"
+            # - name: WVC_ANDROID_CERT_SHA256
+            #   value: "<Play app-signing SHA-256>"
             # Go's GC doesn't know the cgroup memory limit below, so without this a
             # busy SFU meets an OOMKill rather than back-pressure. Kept below the
             # 1Gi hard limit so GC has room to react before the kernel steps in.

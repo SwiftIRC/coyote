@@ -93,3 +93,34 @@ func TestInvalidLogLevelRejected(t *testing.T) {
 		t.Fatal("want error for an unparseable log level from the environment")
 	}
 }
+
+func TestAppLinkSettings(t *testing.T) {
+	env := map[string]string{
+		"WVC_APPLE_APP_ID":        "ABCDE12345.net.swiftirc.coyote",
+		"WVC_ANDROID_PACKAGE":     "net.swiftirc.coyote",
+		"WVC_ANDROID_CERT_SHA256": "AA:BB, CC:DD ,",
+	}
+	cfg, err := Load(nil, func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AppleAppID != "ABCDE12345.net.swiftirc.coyote" {
+		t.Errorf("AppleAppID = %q", cfg.AppleAppID)
+	}
+	if cfg.AndroidPackage != "net.swiftirc.coyote" {
+		t.Errorf("AndroidPackage = %q", cfg.AndroidPackage)
+	}
+	if len(cfg.AndroidCertSHA256) != 2 || cfg.AndroidCertSHA256[0] != "AA:BB" || cfg.AndroidCertSHA256[1] != "CC:DD" {
+		t.Errorf("AndroidCertSHA256 = %q, want [AA:BB CC:DD]", cfg.AndroidCertSHA256)
+	}
+}
+
+func TestAppLinkSettingsDefaultEmpty(t *testing.T) {
+	cfg, err := Load(nil, func(string) string { return "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AppleAppID != "" || cfg.AndroidPackage != "" || len(cfg.AndroidCertSHA256) != 0 {
+		t.Errorf("app-link settings should default empty: %+v", cfg)
+	}
+}

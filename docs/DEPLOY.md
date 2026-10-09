@@ -498,3 +498,22 @@ and rotate both together — a mismatch rejects every token and every provision.
 3. Join from two browsers on different networks; confirm two-way video (proves the
    UDP range and `-public-ip` are reachable). If the preview works but remote video
    never arrives, the media UDP ports or `-public-ip` are wrong.
+
+## Mobile app links
+
+Set these three variables to have room links open the Coyote iOS and Android apps
+instead of the browser. Each `.well-known` document is served only when its
+settings are present; without them the paths return 404.
+
+- `WVC_APPLE_APP_ID=<TEAMID>.net.swiftirc.coyote` (serves `/.well-known/apple-app-site-association`)
+- `WVC_ANDROID_PACKAGE=net.swiftirc.coyote` (serves `/.well-known/assetlinks.json`)
+- `WVC_ANDROID_CERT_SHA256=<Play app-signing cert SHA-256, from Play Console → App integrity>`
+  (both Android settings are needed for assetlinks to be served)
+
+The reverse proxy must pass `/.well-known/*` through to coyote unmodified and without
+redirects: Apple fetches the association file via its CDN and refuses redirects.
+Verify with:
+
+```bash
+curl -sI https://vc.swiftirc.net/.well-known/apple-app-site-association
+```

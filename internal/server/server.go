@@ -101,6 +101,7 @@ func (h *Hub) Routes() http.Handler {
 	mux.HandleFunc("POST /api/provision", h.handleProvision)
 	mux.HandleFunc("POST /api/invite", h.handleInvite)
 	mux.HandleFunc("GET /api/invite/{id}", h.handleInvitePeek)
+	h.registerWellKnown(mux)
 	// Catch-all app shell + static assets. The specific routes above are more
 	// specific and still win under Go 1.22 mux precedence (verified in tests).
 	mux.HandleFunc("GET /", h.handleStatic)
