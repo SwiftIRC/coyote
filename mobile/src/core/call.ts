@@ -82,6 +82,13 @@ export class Call {
   private micTrack: TrackLike | null = null;
   private camTrack: TrackLike | null = null;
   private joinedOnce = false;
+  // Set once join() has finished acquiring devices. Until then media toggles only
+  // amend the request (join reads it after acquisition) instead of racing it.
+  private ready = false;
+  // Bumped on every set call for that device; an acquisition that finds the counter
+  // moved on while it awaited was superseded, so it stops its track and does nothing.
+  private micGen = 0;
+  private camGen = 0;
   // True from each socket open (join sent) until that socket's `joined`: an `error`
   // in this window is a refused join and is fatal, even on a reconnect.
   private awaitingJoined = false;
@@ -110,8 +117,7 @@ export class Call {
     this.deps.system.start(this.callId, req.link.slug, req.camera);
 
     this.micTrack = await this.deps.media.getMic();
-    if (this.micTrack) this.micTrack.enabled = req.mic;
-    else if (req.mic) this.events.notice("Microphone unavailable — joining muted.");
+    if (!this.micTrack && req.mic) this.events.notice("Microphone unavailable — joining muted.");
     if (req.camera && this.isLive()) {
       this.camTrack = await this.deps.media.getCamera("user");
       if (!this.camTrack) this.events.notice("Camera unavailable — joining with it off.");
@@ -120,7 +126,14 @@ export class Call {
       this.releaseTracks(); // left while devices were being acquired
       return;
     }
-    const mic = !!this.micTrack && req.mic;
+    this.ready = true;
+    const want = this.req;
+    if (this.camTrack && !want.camera) {
+      this.camTrack.stop(); // turned off while it was being acquired
+      this.camTrack = null;
+    }
+    const mic = !!this.micTrack && want.mic;
+    if (this.micTrack) this.micTrack.enabled = mic;
     this.update({ mic, camera: !!this.camTrack });
     this.refreshLocalStream();
     if (!mic) this.deps.system.setMuted(this.callId, true);
@@ -156,11 +169,20 @@ export class Call {
   }
 
   async setMic(on: boolean, fromSystem = false): Promise<void> {
-    if (!this.isLive() || on === this.state.mic) return; // equal: e.g. CallKit echoing our setMuted
+    if (!this.isLive()) return;
+    if (!this.ready) {
+      if (this.req) this.req = { ...this.req, mic: on };
+      return;
+    }
+    const gen = ++this.micGen;
+    if (on === this.state.mic) return; // equal: e.g. CallKit echoing our setMuted
     if (on && !this.micTrack) {
       const t = await this.deps.media.getMic();
-      if (!t || !this.isLive()) {
-        t?.stop();
+      if (gen !== this.micGen || !this.isLive() || this.micTrack) {
+        t?.stop(); // superseded (or a track appeared) while acquiring
+        return;
+      }
+      if (!t) {
         this.events.notice("Microphone unavailable.");
         if (fromSystem) this.deps.system.setMuted(this.callId, true);
         return;
@@ -175,7 +197,13 @@ export class Call {
   }
 
   async setCamera(on: boolean): Promise<void> {
-    if (!this.isLive() || on === this.state.camera) return;
+    if (!this.isLive()) return;
+    if (!this.ready) {
+      if (this.req) this.req = { ...this.req, camera: on };
+      return;
+    }
+    const gen = ++this.camGen;
+    if (on === this.state.camera) return;
     if (!on) {
       const old = this.camTrack;
       this.camTrack = null;
@@ -187,12 +215,12 @@ export class Call {
       return;
     }
     const t = await this.deps.media.getCamera(this.state.facing);
-    if (!t) {
-      this.events.notice("Camera unavailable.");
+    if (gen !== this.camGen || !this.isLive()) {
+      t?.stop();
       return;
     }
-    if (!this.isLive() || this.state.camera) {
-      t.stop();
+    if (!t) {
+      this.events.notice("Camera unavailable.");
       return;
     }
     this.camTrack = t;
@@ -203,12 +231,18 @@ export class Call {
   }
 
   async flipCamera(): Promise<void> {
+    if (!this.isLive() || !this.ready) return;
     const facing: Facing = this.state.facing === "user" ? "environment" : "user";
     if (!this.state.camera) {
       this.update({ facing });
       return;
     }
+    const gen = ++this.camGen;
     const t = await this.deps.media.getCamera(facing);
+    if (gen !== this.camGen || !this.isLive() || !this.state.camera) {
+      t?.stop(); // camera turned off, or the call ended, while switching
+      return;
+    }
     if (!t) {
       this.events.notice("Could not switch camera.");
       return;
@@ -226,7 +260,8 @@ export class Call {
   async onAppState(s: "active" | "background" | "inactive"): Promise<void> {
     if (!this.isLive()) return;
     if (s === "background") {
-      if (this.state.camera) {
+      // The flag also covers a restore still in flight: backgrounding cancels it.
+      if (this.state.camera || this.cameraBeforeBackground) {
         this.cameraBeforeBackground = true;
         await this.setCamera(false);
       }
@@ -235,8 +270,8 @@ export class Call {
     if (s === "active") {
       if (this.sig && !this.sig.isOpen) this.sig.reconnectNow();
       if (this.cameraBeforeBackground) {
-        this.cameraBeforeBackground = false;
         await this.setCamera(true);
+        if (this.state.camera) this.cameraBeforeBackground = false; // else cancelled: restore next time
       }
     }
   }
@@ -255,7 +290,7 @@ export class Call {
 
   async onHold(held: boolean): Promise<void> {
     if (held) {
-      if (this.micBeforeHold === null) this.micBeforeHold = this.state.mic;
+      if (this.micBeforeHold === null) this.micBeforeHold = this.ready ? this.state.mic : !!this.req?.mic;
       await this.setMic(false, true);
       return;
     }

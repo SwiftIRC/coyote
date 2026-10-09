@@ -44,6 +44,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const states: CallState[] = [];
   const mics: FakeTrack[] = [];
   const cams: FakeTrack[] = [];
+  const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void> };
   let ids = 0;
   const call = new Call({
     createSignaling: (url) => new Signaling(url, {
@@ -56,8 +57,18 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
       return p;
     },
     media: {
-      getMic: async () => (opts.micDenied ? null : (mics[mics.push(new FakeTrack("audio")) - 1])),
-      getCamera: async () => (opts.camDenied ? null : (cams[cams.push(new FakeTrack("video")) - 1])),
+      getMic: () => {
+        if (opts.micDenied) return Promise.resolve(null);
+        const t = new FakeTrack("audio");
+        mics.push(t);
+        return ctl.deferMic ? new Promise<FakeTrack>((r) => ctl.micWaits.push(() => r(t))) : Promise.resolve(t);
+      },
+      getCamera: () => {
+        if (opts.camDenied) return Promise.resolve(null);
+        const t = new FakeTrack("video");
+        cams.push(t);
+        return ctl.deferCam ? new Promise<FakeTrack>((r) => ctl.camWaits.push(() => r(t))) : Promise.resolve(t);
+      },
       createStream: (t) => new FakeStream(t),
     },
     system: {
@@ -73,7 +84,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
     end: (o) => ends.push(o),
     notice: (t) => notices.push(t),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
@@ -353,4 +364,109 @@ test("op force-mute and quality frames apply", async () => {
   expect(call.getState().camera).toBe(false);
   sock().receive({ type: "quality", camera: "high", screen: "low" });
   expect(peers[0].quality).toEqual(["high", "low"]);
+});
+
+test("flip then camera off during acquisition: the new track is stopped, not assigned", async () => {
+  const { call, peers, cams, ctl } = await inCall();
+  ctl.deferCam = true;
+  const flip = call.flipCamera();
+  await call.setCamera(false);
+  ctl.camWaits[0]();
+  await flip;
+  expect(cams[1].stopped).toBe(true);
+  expect(call.getState().camera).toBe(false);
+  expect(peers[0].replaced).toEqual([["camera", null]]);
+});
+
+test("flip then leave during acquisition: the new track is stopped", async () => {
+  const { call, cams, ctl } = await inCall();
+  ctl.deferCam = true;
+  const flip = call.flipCamera();
+  call.leave();
+  ctl.camWaits[0]();
+  await flip;
+  expect(cams[1].stopped).toBe(true);
+});
+
+test("flip then kick during acquisition: the new track is stopped", async () => {
+  const { call, cams, ctl } = await inCall();
+  ctl.deferCam = true;
+  const flip = call.flipCamera();
+  sock().receive({ type: "kicked", by: "Alice" });
+  ctl.camWaits[0]();
+  await flip;
+  expect(cams[1].stopped).toBe(true);
+  expect(call.getState().phase).toBe("ended");
+});
+
+test("background during a pending camera restore keeps it off and restores next foreground", async () => {
+  const { call, cams, ctl, peers } = await inCall();
+  await call.onAppState("background");
+  ctl.deferCam = true;
+  const restore = call.onAppState("active");
+  await call.onAppState("background");
+  ctl.camWaits[0]();
+  await restore;
+  expect(cams[1].stopped).toBe(true);
+  expect(call.getState().camera).toBe(false);
+  ctl.deferCam = false;
+  await call.onAppState("active");
+  expect(call.getState().camera).toBe(true);
+  expect(cams[2].stopped).toBe(false);
+  expect(peers[0].replaced.at(-1)).toEqual(["camera", cams[2]]);
+});
+
+test("double setMic(true) with no track leaves exactly one live mic", async () => {
+  const { call, mics, ctl } = await inCall({ mic: false });
+  mics.forEach((m) => m.stop());
+  mics.length = 0;
+  await call.setMic(false); // already off: no-op
+  (call as unknown as { micTrack: null }).micTrack = null;
+  ctl.deferMic = true;
+  const a = call.setMic(true);
+  const b = call.setMic(true);
+  ctl.micWaits.forEach((f) => f());
+  await Promise.all([a, b]);
+  expect(mics.filter((m) => !m.stopped)).toHaveLength(1);
+  expect(call.getState().mic).toBe(true);
+});
+
+test("setCamera(true) resolving after leave stops the track and emits no change", async () => {
+  const { call, cams, ctl, states } = await inCall({ camera: false });
+  ctl.deferCam = true;
+  const p = call.setCamera(true);
+  call.leave();
+  const n = states.length;
+  ctl.camWaits[0]();
+  await p;
+  expect(cams[0].stopped).toBe(true);
+  expect(states).toHaveLength(n);
+});
+
+test("a hold arriving during a pending mic acquisition keeps the mic off", async () => {
+  const { call, mics, ctl } = await inCall({ mic: false });
+  (call as unknown as { micTrack: null }).micTrack = null;
+  mics[0].stop();
+  ctl.deferMic = true;
+  const p = call.setMic(true);
+  await call.onHold(true);
+  ctl.micWaits[0]();
+  await p;
+  expect(call.getState().mic).toBe(false);
+  expect(mics[1].stopped).toBe(true);
+});
+
+test("system mute and hold during join's device acquisition are applied after it", async () => {
+  const t = setup();
+  t.ctl.deferMic = true;
+  const p = t.call.join(req());
+  await t.call.onSystemMute(true);
+  await t.call.onHold(true);
+  t.ctl.micWaits[0]();
+  await flush();
+  await p;
+  expect(t.call.getState().mic).toBe(false);
+  expect(t.mics[0].enabled).toBe(false);
+  sock().open();
+  expect(sock().sent[0]).toMatchObject({ type: "join", mic: false });
 });
