@@ -19,9 +19,11 @@ Each change that touches iOS-only native code or configuration names the items t
    shows your avatar placeholder (camera off). Unlock: your camera comes back.
 4. **Switch to another app for 2 minutes** and return. The call is intact or rejoins
    within a few seconds ("Reconnecting…" banner, then gone).
-5. **Mute from the system UI**: iOS lock screen / Control Centre call controls;
-   Android notification shade. The in-app mic button matches, and the browser's
-   muted badge matches.
+5. **Mute from the system UI**: iOS lock screen / Control Centre call controls. The
+   in-app mic button matches, and the browser's muted badge matches. Android has no
+   system mute in Foundation (the notification offers only "Leave", and the
+   self-managed call has no system call screen); at most a Bluetooth headset's call
+   button may toggle mute, and if it does the in-app button and browser badge match.
 6. **End from the system UI** (iOS lock-screen end; Android notification "Leave").
    You leave the room; the browser sees you go.
 7. **A cellular call arrives mid-meeting.** Coyote is held and your mic muted; after
@@ -29,11 +31,15 @@ Each change that touches iOS-only native code or configuration names the items t
 8. **Bluetooth headset** connect and disconnect mid-call: audio follows. On Android the
    route button cycles Phone / Speaker / Bluetooth; on iOS it toggles the speaker.
 9. **Airplane mode for 10 seconds**, then off: the app rejoins and media resumes.
+   "Reconnecting…" or "Media connection lost — rejoining…" may show meanwhile; both
+   are fine as long as they clear.
 10. **Tap an `#i=` invite link** in an IRC client: the app opens on Join with the
-    invite's name locked. Join. Then open the same link on a second device: it is refused
+    invite's name locked. (Android App Links only verify for builds whose signing-cert
+    SHA-256 is in the server's `WVC_ANDROID_CERT_SHA256`; a debug build won't open
+    links unless the debug cert is listed there too.) Join. Then open the same link on a second device: it is refused
     ("Your invite link is invalid.").
 11. **Get kicked** by an op in the browser: the app returns to Home with "You were
-    removed from the call by <op>." and does not rejoin.
+    removed from the call by <op>." (`<op>` is the op's nickname) and does not rejoin.
 12. **Restart the server** mid-call. A call joined by room name or token shows
     "Reconnecting…", then is back in the call. A call joined via an `#i=` invite link
     ends instead, with "Your invite link is invalid.", because invites live in server
@@ -44,8 +50,8 @@ Each change that touches iOS-only native code or configuration names the items t
 15. **Tap a link while already in a call**: "Switch rooms?" prompt; Stay keeps the call.
 16. **Android: swipe the app away from recents** mid-call: the notification and call
     end cleanly (no orphaned "In call" notification).
-17. **Android: flip camera on a device that refuses a second open camera.** Tap flip
-    mid-call. The camera switches, or fails with a visible notice while the call and
+17. **Android: flip camera on a device that refuses a second open camera.** Tap 🔄
+    ("Switch camera") mid-call. The camera switches, or fails with a visible notice while the call and
     the previous camera keep working; it must not freeze the tile or drop the call.
 18. **Android: hardware back during a call.** "Leave call?" appears. Cancel stays in
     the call; Leave ends the call and the browser sees you go.

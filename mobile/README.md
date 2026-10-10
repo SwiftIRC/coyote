@@ -13,6 +13,7 @@ React Native (bare) client for Coyote. Design:
     cd mobile && npm ci
     npm test && npm run typecheck && npm run lint
     npx react-native run-android      # needs the Android SDK
+    bundle install && (cd ios && bundle exec pod install)   # Mac only; Gemfile pins CocoaPods
     npx react-native run-ios          # Mac only
 
 On Linux, `source mobile/android/env.sh` before running Gradle or

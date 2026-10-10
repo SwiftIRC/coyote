@@ -36,7 +36,7 @@ Bump both in one commit before each release:
 ## iOS → TestFlight
 
 ```bash
-cd mobile && npm ci && (cd ios && pod install)
+cd mobile && npm ci && bundle install && (cd ios && bundle exec pod install)
 open ios/Coyote.xcworkspace
 ```
 

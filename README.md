@@ -140,8 +140,7 @@ that untested layer.
 - **SFU media plane** — VP8/Opus forwarding, fan-out, PLI, tracks metadata, perfect-negotiation glare handling. **Done.**
 - **Browser client** — pre-join, tile grid, chat, polls, moderation controls, screenshare, noise suppression, background effects, reliability wiring. **Done.**
 - **Anope 2.1 module** — `!vc`/`!chat` fantasy commands, `VC SET`, HMAC token minting (against the shared test vectors), `/api/provision` and short `#i=` invite links via `/api/invite`. **Done** and deployed.
-
-- **Mobile apps (Foundation)** — calls, links, background survival. **In TestFlight / closed testing.**
+- **Mobile apps (Foundation)** — calls, links, background survival. **Built; awaiting first device test.**
 
 Design and implementation plans live in `docs/superpowers/`.
 
