@@ -92,7 +92,11 @@ export class Call {
   // True from each socket open (join sent) until that socket's `joined`: an `error`
   // in this window is a refused join and is fatal, even on a reconnect.
   private awaitingJoined = false;
+  // "Restore the camera on the next foreground". Set only by backgrounding; any other
+  // explicit camera-off, or a finished restore attempt (even a denied one), clears it.
   private cameraBeforeBackground = false;
+  private backgrounding = false;
+  private restores = 0; // foreground restores in flight
   private micBeforeHold: boolean | null = null;
   private quality = { camera: "auto", screen: "auto" };
   private state: CallState = {
@@ -117,8 +121,8 @@ export class Call {
     this.deps.system.start(this.callId, req.link.slug, req.camera);
 
     this.micTrack = await this.deps.media.getMic();
-    if (!this.micTrack && req.mic) this.events.notice("Microphone unavailable — joining muted.");
-    if (req.camera && this.isLive()) {
+    if (!this.micTrack && this.req.mic) this.events.notice("Microphone unavailable — joining muted.");
+    if (this.isLive() && this.req.camera) { // the request may have been amended meanwhile
       this.camTrack = await this.deps.media.getCamera("user");
       if (!this.camTrack) this.events.notice("Camera unavailable — joining with it off.");
     }
@@ -198,6 +202,7 @@ export class Call {
 
   async setCamera(on: boolean): Promise<void> {
     if (!this.isLive()) return;
+    if (!on && !this.backgrounding) this.cameraBeforeBackground = false; // explicit off wins
     if (!this.ready) {
       if (this.req) this.req = { ...this.req, camera: on };
       return;
@@ -260,18 +265,36 @@ export class Call {
   async onAppState(s: "active" | "background" | "inactive"): Promise<void> {
     if (!this.isLive()) return;
     if (s === "background") {
-      // The flag also covers a restore still in flight: backgrounding cancels it.
-      if (this.state.camera || this.cameraBeforeBackground) {
+      if (!this.ready) {
+        // Still acquiring devices: amend the request so join() leaves the camera off.
+        if (this.req?.camera) {
+          this.cameraBeforeBackground = true;
+          this.req = { ...this.req, camera: false };
+        }
+        return;
+      }
+      // A restore still in flight counts: backgrounding cancels it but keeps the intent.
+      if (this.state.camera || this.restores > 0) {
         this.cameraBeforeBackground = true;
-        await this.setCamera(false);
+        this.backgrounding = true;
+        try {
+          await this.setCamera(false);
+        } finally {
+          this.backgrounding = false;
+        }
       }
       return;
     }
     if (s === "active") {
       if (this.sig && !this.sig.isOpen) this.sig.reconnectNow();
       if (this.cameraBeforeBackground) {
-        await this.setCamera(true);
-        if (this.state.camera) this.cameraBeforeBackground = false; // else cancelled: restore next time
+        this.cameraBeforeBackground = false; // a background during the restore sets it again
+        this.restores++;
+        try {
+          await this.setCamera(true);
+        } finally {
+          this.restores--;
+        }
       }
     }
   }

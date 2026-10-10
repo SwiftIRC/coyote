@@ -470,3 +470,81 @@ test("system mute and hold during join's device acquisition are applied after it
   sock().open();
   expect(sock().sent[0]).toMatchObject({ type: "join", mic: false });
 });
+
+test("user camera-off during a pending foreground restore stays off across another cycle", async () => {
+  const { call, cams, ctl } = await inCall();
+  await call.onAppState("background");
+  ctl.deferCam = true;
+  const restore = call.onAppState("active");
+  await call.setCamera(false);
+  ctl.camWaits[0]();
+  await restore;
+  expect(cams[1].stopped).toBe(true);
+  ctl.deferCam = false;
+  await call.onAppState("background");
+  await call.onAppState("active");
+  expect(call.getState().camera).toBe(false);
+  expect(cams).toHaveLength(2);
+});
+
+test("op force-mute of the camera during a pending restore stays off across another cycle", async () => {
+  const { call, cams, ctl } = await inCall();
+  await call.onAppState("background");
+  ctl.deferCam = true;
+  const restore = call.onAppState("active");
+  sock().receive({ type: "muted", kind: "camera" });
+  ctl.camWaits[0]();
+  await restore;
+  await flush();
+  ctl.deferCam = false;
+  await call.onAppState("background");
+  await call.onAppState("active");
+  expect(call.getState().camera).toBe(false);
+  expect(cams[1].stopped).toBe(true);
+  expect(cams).toHaveLength(2);
+});
+
+test("a denied foreground restore notices once, not on every foreground", async () => {
+  const { call, notices, cams } = await inCall();
+  await call.onAppState("background");
+  cams.length = 0;
+  (call as unknown as { deps: { media: { getCamera: () => Promise<null> } } }).deps.media.getCamera = async () => null;
+  notices.length = 0;
+  await call.onAppState("active");
+  await call.onAppState("background");
+  await call.onAppState("active");
+  expect(notices).toEqual(["Camera unavailable."]);
+  expect(call.getState().camera).toBe(false);
+});
+
+test("a camera turned on during join's acquisition is started even if join began with it off", async () => {
+  const t = setup();
+  t.ctl.deferMic = true;
+  const p = t.call.join(req({ camera: false }));
+  await t.call.setCamera(true);
+  t.ctl.micWaits[0]();
+  await p;
+  expect(t.call.getState().camera).toBe(true);
+  expect(t.cams).toHaveLength(1);
+});
+
+test("the amended mic value decides the muted-join notice", async () => {
+  const t = setup({ micDenied: true });
+  const p = t.call.join(req({ mic: true }));
+  await t.call.setMic(false);
+  await p;
+  expect(t.notices).not.toContain("Microphone unavailable — joining muted.");
+});
+
+test("backgrounding during join's acquisition keeps the camera off and restores it on foreground", async () => {
+  const t = setup();
+  t.ctl.deferMic = true;
+  const p = t.call.join(req());
+  await t.call.onAppState("background");
+  t.ctl.micWaits[0]();
+  await p;
+  expect(t.call.getState().camera).toBe(false);
+  expect(t.cams).toHaveLength(0);
+  await t.call.onAppState("active");
+  expect(t.call.getState().camera).toBe(true);
+});
