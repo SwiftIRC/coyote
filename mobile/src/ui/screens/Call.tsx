@@ -17,7 +17,7 @@ const warn = (what: string) => (e: unknown) => console.warn(`${what} failed`, e)
 
 export function Call() {
   const nav = useNavigation<NavigationProp<RootStack>>();
-  const { state, notices, leave, call, outcome, takePendingLink } = useCall();
+  const { state, notices, leave, call, outcome, takePendingLink, busy } = useCall();
   const { width, height } = useWindowDimensions();
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
   const audioStarted = useRef(false);
@@ -40,16 +40,19 @@ export function Call() {
     }
   }, [state?.phase, state?.camera]);
   // Back (Android button, gestures, header) must not drop a live call's UI; ask first.
-  const live = hasState && phase !== "ended" && phase !== "idle";
-  const liveRef = useRef(live);
-  liveRef.current = live;
+  // `busy` also covers the setup window before any call state exists.
+  const liveRef = useRef(busy);
+  liveRef.current = busy;
+  const confirming = useRef(false);
   useEffect(() => nav.addListener("beforeRemove", (e) => {
     if (!liveRef.current) return;
     e.preventDefault();
+    if (confirming.current) return;
+    confirming.current = true;
     Alert.alert("Leave call?", undefined, [
-      { text: "Stay", style: "cancel" },
-      { text: "Leave", style: "destructive", onPress: leave },
-    ]);
+      { text: "Stay", style: "cancel", onPress: () => { confirming.current = false; } },
+      { text: "Leave", style: "destructive", onPress: () => { confirming.current = false; leave(); } },
+    ], { onDismiss: () => { confirming.current = false; } });
   }), [nav, leave]);
 
   // Leaving this screen for any reason follows the outcome.

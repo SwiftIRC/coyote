@@ -13,8 +13,9 @@ export interface CallCtx {
   call(): Call | null;
   /** True from join() until the call ends, including the setup window before state exists. */
   busy: boolean;
-  /** Leaves the live call; the Call screen then opens PreJoin for `link` instead of Home. */
-  switchTo(link: RoomLink): void;
+  /** Leaves the live call; the Call screen then opens PreJoin for `link` instead of Home.
+   *  Returns false (and does nothing) when no call object exists yet, e.g. during setup. */
+  switchTo(link: RoomLink): boolean;
   takePendingLink(): RoomLink | null;
 }
 
@@ -38,6 +39,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   // await) so a Call screen navigated to in the same tick never sees the old "ended".
   const join = useCallback(async (req: JoinRequest) => {
     active.current?.call.leave();
+    pending.current = null;
     setJoining(true);
     setOutcome(null);
     setState(null);
@@ -76,8 +78,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const leave = useCallback(() => active.current?.call.leave(), []);
   const call = useCallback(() => active.current?.call ?? null, []);
   const switchTo = useCallback((link: RoomLink) => {
+    if (!active.current) return false;
     pending.current = link;
-    active.current?.call.leave();
+    active.current.call.leave();
+    return true;
   }, []);
   const takePendingLink = useCallback(() => {
     const l = pending.current;
