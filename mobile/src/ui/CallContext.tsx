@@ -21,6 +21,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
 
+  const pushNotice = useCallback((text: string) => {
+    setNotices((n) => [...n, text]);
+    setTimeout(() => setNotices((n) => n.slice(1)), NOTICE_MS);
+  }, []);
+
   // Clears the previous call's state and outcome synchronously (before the first
   // await) so a Call screen navigated to in the same tick never sees the old "ended".
   const join = useCallback(async (req: JoinRequest) => {
@@ -35,14 +40,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         made.dispose();
         if (active.current === made) active.current = null;
       },
-      notice: (text) => {
-        setNotices((n) => [...n, text]);
-        setTimeout(() => setNotices((n) => n.slice(1)), NOTICE_MS);
-      },
+      notice: pushNotice,
     });
     active.current = made;
-    await made.call.join(req);
-  }, []);
+    try {
+      await made.call.join(req);
+    } catch (e) {
+      // Ending the call fires end() -> dispose + outcome, so the Call screen leaves "connecting".
+      console.warn("call join failed", e);
+      made.call.leave();
+      pushNotice("Couldn't join the call.");
+    }
+  }, [pushNotice]);
 
   const leave = useCallback(() => active.current?.call.leave(), []);
   const call = useCallback(() => active.current?.call ?? null, []);

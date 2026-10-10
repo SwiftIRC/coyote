@@ -43,26 +43,24 @@ export function PreJoin() {
       peekInvite(fetch, link).then((r) => {
         if (r.status === "ok" && r.name) {
           setLockedName(r.name);
-          setName(r.name);
         } else if (r.status === "invalid") setError("Your invite link is invalid.");
       });
     } else if (link.token) {
       const nick = nickFromToken(link.token);
-      if (nick) {
-        setLockedName(nick);
-        setName(nick);
-      }
+      if (nick) setLockedName(nick);
     }
   }, [link]);
 
+  // Keyed on the params object: every navigation creates a new one, so a repeated
+  // identical error (e.g. bad-password twice) is shown again.
   useEffect(() => {
     setError(params.error || "");
-  }, [params.error]);
+  }, [params]);
 
   // Occupancy and lock state, polled while this screen is focused.
   useFocusEffect(useCallback(() => {
     let live = true;
-    const tick = () => peekRoom(fetch, link).then((r) => live && setRoom(r));
+    const tick = () => peekRoom(fetch, link).then((r) => live && r && setRoom(r));
     tick();
     const id = setInterval(tick, PEEK_MS);
     return () => {
@@ -103,14 +101,27 @@ export function PreJoin() {
     }
     setJoining(true);
     setError("");
-    stopPreview();
-    await requestCallPermissions(camera);
-    await savePrefs({ name: lockedName ? name : finalName, email, mic, camera });
-    await rememberRoom(link);
-    const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera });
-    nav.navigate("Call"); // after join() has synchronously cleared the previous call's state
     try {
+      stopPreview();
+      try {
+        await requestCallPermissions(camera);
+      } catch (e) {
+        console.warn("permission request failed", e);
+        setError("Couldn't get microphone or camera permission.");
+        return;
+      }
+      try {
+        await savePrefs({ name: lockedName ? name : finalName, email, mic, camera });
+        await rememberRoom(link);
+      } catch (e) {
+        console.warn("saving prefs or recent room failed", e);
+      }
+      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera });
+      nav.navigate("Call"); // after join() has synchronously cleared the previous call's state
       await joined;
+    } catch (e) {
+      console.warn("join failed", e);
+      setError("Couldn't join the call.");
     } finally {
       setJoining(false);
     }
