@@ -17,14 +17,14 @@ const Stack = createNativeStackNavigator<RootStack>();
 // Opens tapped room links: valid links go to PreJoin (asking first if a call is
 // live), anything else to Home.
 function LinkHandler({ nav }: { nav: React.RefObject<NavigationContainerRef<RootStack> | null> }) {
-  const { state, leave } = useCall();
+  const { state, busy, switchTo } = useCall();
   // Refs, so the effect below runs once: re-running it would re-open the cold-start link.
   const live = useRef(false);
   const current = useRef("");
-  const leaveRef = useRef(leave);
-  live.current = !!state && state.phase !== "ended" && state.phase !== "idle";
+  const switchRef = useRef(switchTo);
+  live.current = busy;
   current.current = state?.slug || "";
-  leaveRef.current = leave;
+  switchRef.current = switchTo;
 
   useEffect(() => {
     const open = (url: string | null, tries = 0) => {
@@ -46,12 +46,14 @@ function LinkHandler({ nav }: { nav: React.RefObject<NavigationContainerRef<Root
       Alert.alert("Switch rooms?", `Leave #${current.current} and join #${link.slug}?`, [
         { text: "Stay", style: "cancel" },
         { text: "Switch", style: "destructive", onPress: () => {
-          leaveRef.current();
-          setTimeout(() => nav.current?.navigate("PreJoin", { link }), 0);
+          // The Call screen, when mounted, opens PreJoin itself once the call has ended.
+          const onCall = nav.current?.getCurrentRoute()?.name === "Call";
+          switchRef.current(link);
+          if (!onCall) nav.current?.navigate("PreJoin", { link });
         } },
       ]);
     };
-    initialUrl().then((u) => open(u));
+    initialUrl().then((u) => open(u)).catch((e) => console.warn("initial url failed", e));
     return watchUrls((u) => open(u));
   }, [nav]);
   return null;

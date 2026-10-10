@@ -24,8 +24,7 @@ function Btn({ label, onPress, active = true, danger = false, a11y }: BtnProps) 
   );
 }
 
-// The call's control bar. Sub-project 2 adds chat, polls and soundboard buttons to
-// the `more` slot, so the layout already reserves a flexible row.
+// The call's control bar.
 export function Controls(p: Props) {
   return (
     <View style={styles.bar}>

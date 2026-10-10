@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { RoomLink } from "../core/link";
 import type { Call, CallOutcome, CallState, JoinRequest } from "../core/call";
 import { createCall } from "../native/callFactory";
 import { setupSystemCalls } from "../native/systemCall";
@@ -10,6 +11,11 @@ export interface CallCtx {
   join(req: JoinRequest): Promise<void>;
   leave(): void;
   call(): Call | null;
+  /** True from join() until the call ends, including the setup window before state exists. */
+  busy: boolean;
+  /** Leaves the live call; the Call screen then opens PreJoin for `link` instead of Home. */
+  switchTo(link: RoomLink): void;
+  takePendingLink(): RoomLink | null;
 }
 
 const Ctx = createContext<CallCtx | null>(null);
@@ -19,6 +25,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const active = useRef<{ call: Call; dispose(): void } | null>(null);
   const [state, setState] = useState<CallState | null>(null);
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
+  const [joining, setJoining] = useState(false);
+  const pending = useRef<RoomLink | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
 
   const pushNotice = useCallback((text: string) => {
@@ -30,6 +38,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   // await) so a Call screen navigated to in the same tick never sees the old "ended".
   const join = useCallback(async (req: JoinRequest) => {
     active.current?.call.leave();
+    setJoining(true);
     setOutcome(null);
     setState(null);
     try {
@@ -39,6 +48,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // on an outcome with no live call and returns to PreJoin with this text.
       console.warn("call setup failed", e);
       setOutcome({ kind: "rejected", code: "setup", text: "Couldn't start the call." });
+      setJoining(false);
       return;
     }
     const made = createCall({
@@ -58,14 +68,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       console.warn("call join failed", e);
       made.call.leave();
       pushNotice("Couldn't join the call.");
+    } finally {
+      setJoining(false);
     }
   }, [pushNotice]);
 
   const leave = useCallback(() => active.current?.call.leave(), []);
   const call = useCallback(() => active.current?.call ?? null, []);
+  const switchTo = useCallback((link: RoomLink) => {
+    pending.current = link;
+    active.current?.call.leave();
+  }, []);
+  const takePendingLink = useCallback(() => {
+    const l = pending.current;
+    pending.current = null;
+    return l;
+  }, []);
   useEffect(() => () => active.current?.call.leave(), []);
 
-  return <Ctx.Provider value={{ state, outcome, notices, join, leave, call }}>{children}</Ctx.Provider>;
+  const busy = joining || (!!state && state.phase !== "ended" && state.phase !== "idle");
+  return <Ctx.Provider value={{ state, outcome, notices, join, leave, call, busy, switchTo, takePendingLink }}>{children}</Ctx.Provider>;
 }
 
 export function useCall(): CallCtx {
