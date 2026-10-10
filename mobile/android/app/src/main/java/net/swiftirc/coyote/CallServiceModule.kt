@@ -1,6 +1,7 @@
 package net.swiftirc.coyote
 
 import android.content.Intent
+import android.util.Log
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -19,7 +20,14 @@ class CallServiceModule(private val ctx: ReactApplicationContext) : ReactContext
   @ReactMethod
   fun start(room: String) {
     val intent = Intent(ctx, CallService::class.java).putExtra(CallService.EXTRA_ROOM, room)
-    androidx.core.content.ContextCompat.startForegroundService(ctx, intent)
+    try {
+      androidx.core.content.ContextCompat.startForegroundService(ctx, intent)
+    } catch (e: Exception) {
+      // Android 12+ throws ForegroundServiceStartNotAllowedException if the app went to
+      // the background before this ran; uncaught, it would crash the app. The call
+      // continues, just without the keep-alive notification.
+      Log.w("CallService", "could not start the call service", e)
+    }
   }
 
   @ReactMethod

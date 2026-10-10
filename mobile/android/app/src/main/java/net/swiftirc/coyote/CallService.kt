@@ -31,7 +31,8 @@ class CallService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_LEAVE) {
-      onLeave?.invoke()
+      val leave = onLeave
+      if (leave != null) leave() else stopSelf() // no app to tell: don't orphan the notification
       return START_NOT_STICKY
     }
     val room = intent?.getStringExtra(EXTRA_ROOM) ?: ""
