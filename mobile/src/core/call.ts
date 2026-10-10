@@ -12,7 +12,7 @@ import type { Frame, Kind, Logger, StreamLike, TrackLike } from "./types";
 
 export type Facing = "user" | "environment";
 export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "setQuality" | "close">;
-export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
+export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
 
 export interface MediaPort {
   getMic(): Promise<TrackLike | null>; // null: denied or unavailable
