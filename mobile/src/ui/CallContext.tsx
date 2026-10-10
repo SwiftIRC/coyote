@@ -13,8 +13,9 @@ export interface CallCtx {
   call(): Call | null;
   /** True from join() until the call ends, including the setup window before state exists. */
   busy: boolean;
-  /** Leaves the live call; the Call screen then opens PreJoin for `link` instead of Home.
-   *  Returns false (and does nothing) when no call object exists yet, e.g. during setup. */
+  /** Leaves the live call (or cancels one still in setup); the Call screen then opens
+   *  PreJoin for `link` instead of Home. Returns false (and does nothing) when there is
+   *  no call to leave. */
   switchTo(link: RoomLink): boolean;
   takePendingLink(): RoomLink | null;
 }
@@ -28,6 +29,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [joining, setJoining] = useState(false);
   const pending = useRef<RoomLink | null>(null);
+  // The join still awaiting system-call setup (no call object yet). Leave or switch in
+  // that window marks it cancelled, and the join stops once setup returns.
+  const settingUp = useRef<{ cancelled: boolean } | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
 
   const pushNotice = useCallback((text: string) => {
@@ -43,24 +47,39 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setJoining(true);
     setOutcome(null);
     setState(null);
+    const setup = { cancelled: false };
+    settingUp.current = setup;
+    let failed = false;
     try {
       await setupSystemCalls();
     } catch (e) {
-      // No call exists yet, so report the failure as an outcome; the Call screen acts
-      // on an outcome with no live call and returns to PreJoin with this text.
       console.warn("call setup failed", e);
-      setOutcome({ kind: "rejected", code: "setup", text: "Couldn't start the call." });
+      failed = true;
+    }
+    if (settingUp.current !== setup) return; // a newer join took over
+    settingUp.current = null;
+    if (setup.cancelled || failed) {
+      // No call exists yet, so report it as an outcome; the Call screen acts on an
+      // outcome with no live call (Home, PreJoin for a pending link, or PreJoin with
+      // the setup error).
+      setOutcome(setup.cancelled ? { kind: "left" } : { kind: "rejected", code: "setup", text: "Couldn't start the call." });
       setJoining(false);
       return;
     }
+    // Events from a superseded call must not overwrite the current call's state.
     const made = createCall({
-      change: (s) => setState(s),
-      end: (o) => {
-        setOutcome(o);
-        made.dispose();
-        if (active.current === made) active.current = null;
+      change: (s) => {
+        if (active.current === made) setState(s);
       },
-      notice: pushNotice,
+      end: (o) => {
+        made.dispose();
+        if (active.current !== made) return;
+        active.current = null;
+        setOutcome(o);
+      },
+      notice: (text) => {
+        if (active.current === made) pushNotice(text);
+      },
     });
     active.current = made;
     try {
@@ -75,12 +94,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pushNotice]);
 
-  const leave = useCallback(() => active.current?.call.leave(), []);
+  const leave = useCallback(() => {
+    if (active.current) active.current.call.leave();
+    else if (settingUp.current) settingUp.current.cancelled = true;
+  }, []);
   const call = useCallback(() => active.current?.call ?? null, []);
   const switchTo = useCallback((link: RoomLink) => {
-    if (!active.current) return false;
+    if (active.current) {
+      pending.current = link;
+      active.current.call.leave();
+      return true;
+    }
+    if (!settingUp.current) return false;
     pending.current = link;
-    active.current.call.leave();
+    settingUp.current.cancelled = true;
     return true;
   }, []);
   const takePendingLink = useCallback(() => {

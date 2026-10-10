@@ -48,7 +48,7 @@ function LinkHandler({ nav }: { nav: React.RefObject<NavigationContainerRef<Root
         { text: "Switch", style: "destructive", onPress: () => {
           // The Call screen, when mounted, opens PreJoin itself once the call has ended.
           const onCall = nav.current?.getCurrentRoute()?.name === "Call";
-          if (!switchRef.current(link)) return; // no call to leave yet: stay put
+          if (!switchRef.current(link)) return; // nothing to leave or cancel: stay put
           if (!onCall) nav.current?.navigate("PreJoin", { link });
         } },
       ]);

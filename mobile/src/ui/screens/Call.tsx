@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { routeLabel, type AudioRoutes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
@@ -80,7 +80,18 @@ export function Call() {
     nav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "Home", params: message ? { message } : undefined }] }));
   }, [outcome, hasState, phase, nav, takePendingLink]);
 
-  if (!state) return <View style={styles.root} />;
+  if (!state) {
+    // Setting up the system call: no call state yet, but the user can still back out.
+    if (!busy) return <View style={styles.root} />;
+    return (
+      <View style={[styles.root, styles.setup]}>
+        <Text style={styles.setupText}>Connecting…</Text>
+        <Pressable onPress={leave} accessibilityRole="button" accessibilityLabel="Leave call" style={styles.leave}>
+          <Text style={styles.leaveText}>Leave</Text>
+        </Pressable>
+      </View>
+    );
+  }
   const people = state.participants;
   const gridH = height - CONTROLS_H;
   const cols = gridColumns(width, gridH, people.length);
@@ -117,4 +128,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   grid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },
   waiting: { color: colors.muted, textAlign: "center", width: "100%", marginTop: "50%" },
+  setup: { alignItems: "center", justifyContent: "center", gap: 24 },
+  setupText: { color: colors.muted, fontSize: 16 },
+  leave: { height: 52, borderRadius: 26, paddingHorizontal: 24, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center" },
+  leaveText: { color: colors.text, fontSize: 18, fontWeight: "600" },
 });

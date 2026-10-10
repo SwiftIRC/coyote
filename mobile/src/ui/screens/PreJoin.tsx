@@ -32,7 +32,13 @@ export function PreJoin() {
   const [preview, setPreview] = useState<StreamLike | null>(null);
   const previewTrack = useRef<TrackLike | null>(null);
 
+  // React Navigation reuses an open PreJoin for a new link, so drop the previous
+  // room's locked name, password and occupancy first.
   useEffect(() => {
+    let live = true;
+    setLockedName("");
+    setPassword("");
+    setRoom(null);
     loadPrefs().then((p) => {
       setName((n) => n || p.name);
       setEmail(p.email);
@@ -41,6 +47,7 @@ export function PreJoin() {
     });
     if (link.invite) {
       peekInvite(fetch, link).then((r) => {
+        if (!live) return;
         if (r.status === "ok" && r.name) {
           setLockedName(r.name);
         } else if (r.status === "invalid") setError("Your invite link is invalid.");
@@ -49,6 +56,9 @@ export function PreJoin() {
       const nick = nickFromToken(link.token);
       if (nick) setLockedName(nick);
     }
+    return () => {
+      live = false;
+    };
   }, [link]);
 
   // Keyed on the params object: every navigation creates a new one, so a repeated
@@ -166,16 +176,15 @@ export function PreJoin() {
         value={email}
         onChangeText={setEmail}
       />
-      {room?.locked ? (
-        <TextInput
-          style={styles.input}
-          placeholder="Room password"
-          placeholderTextColor={colors.muted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-      ) : null}
+      {/* Always shown: if the occupancy poll fails, a locked room must still be joinable. */}
+      <TextInput
+        style={styles.input}
+        placeholder="Room password (if locked)"
+        placeholderTextColor={colors.muted}
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable style={styles.button} onPress={onJoin} disabled={joining} accessibilityRole="button">
         {joining ? <ActivityIndicator color="#000" /> : <Text style={styles.buttonText}>Join</Text>}
