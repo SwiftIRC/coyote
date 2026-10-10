@@ -24,31 +24,38 @@ export function setupSystemCalls(): Promise<void> {
       },
     }).then(() => {
       if (Platform.OS === "android") RNCallKeep.setAvailable(true);
+    }).catch((e) => {
+      setupDone = null; // allow a retry
+      throw e;
     });
   }
   return setupDone;
 }
 
-const EVENTS = ["didPerformSetMutedCallAction", "endCall", "didToggleHoldCallAction", "didActivateAudioSession", "didDeactivateAudioSession"] as const;
-
 export function createSystemCall(target: () => SystemCallTarget | null): { port: SystemCallPort; dispose(): void } {
-  const router = new SystemCallRouter();
+  const router = new SystemCallRouter(console);
+  // Own subscriptions only: removeEventListener(type) would clear another call's handlers.
+  const subs: { remove(): void }[] = [];
   const withTarget = (fn: (t: SystemCallTarget) => void) => {
-    const t = target();
-    if (t) fn(t);
+    try {
+      const t = target();
+      if (t) fn(t);
+    } catch (e) {
+      console.warn("system call event failed", e);
+    }
   };
 
-  RNCallKeep.addEventListener("didPerformSetMutedCallAction", ({ muted, callUUID }) => withTarget((t) => router.mute(callUUID, muted, t)));
-  RNCallKeep.addEventListener("endCall", ({ callUUID }) => withTarget((t) => router.end(callUUID, t)));
-  RNCallKeep.addEventListener("didToggleHoldCallAction", ({ hold, callUUID }) => withTarget((t) => router.hold(callUUID, hold, t)));
+  subs.push(RNCallKeep.addEventListener("didPerformSetMutedCallAction", ({ muted, callUUID }) => withTarget((t) => router.mute(callUUID, muted, t))));
+  subs.push(RNCallKeep.addEventListener("endCall", ({ callUUID }) => withTarget((t) => router.end(callUUID, t))));
+  subs.push(RNCallKeep.addEventListener("didToggleHoldCallAction", ({ hold, callUUID }) => withTarget((t) => router.hold(callUUID, hold, t))));
   // CallKit owns the iOS audio session: libwebrtc's audio unit may only run while
   // CallKit has it active. Getting this wrong is a silent call (MANUAL-TEST item 1).
-  RNCallKeep.addEventListener("didActivateAudioSession", () => {
+  subs.push(RNCallKeep.addEventListener("didActivateAudioSession", () => {
     if (Platform.OS === "ios") RTCAudioSession.audioSessionDidActivate();
-  });
-  RNCallKeep.addEventListener("didDeactivateAudioSession", () => {
+  }));
+  subs.push(RNCallKeep.addEventListener("didDeactivateAudioSession", () => {
     if (Platform.OS === "ios") RTCAudioSession.audioSessionDidDeactivate();
-  });
+  }));
   const leaveSub = Platform.OS === "android"
     ? new NativeEventEmitter(CallService).addListener("CallServiceLeave", () => withTarget((t) => router.endCurrent(t)))
     : null;
@@ -76,7 +83,7 @@ export function createSystemCall(target: () => SystemCallTarget | null): { port:
   return {
     port,
     dispose() {
-      for (const e of EVENTS) RNCallKeep.removeEventListener(e);
+      for (const s of subs) s.remove();
       leaveSub?.remove();
     },
   };
