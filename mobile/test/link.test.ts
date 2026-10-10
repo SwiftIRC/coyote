@@ -34,3 +34,9 @@ test.each([
 ])("not a room: %p", (input) => {
   expect(parseRoomInput(input)).toBeNull();
 });
+
+test.each([
+  "https://vc.swiftirc.net@evil.com/room", "https://user:pass@evil.com/room", "https://@vc.swiftirc.net/room",
+])("userinfo in the host is rejected: %p", (input) => {
+  expect(parseRoomInput(input)).toBeNull();
+});

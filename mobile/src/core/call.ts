@@ -97,6 +97,7 @@ export class Call {
   private cameraBeforeBackground = false;
   private backgrounding = false;
   private restores = 0; // foreground restores in flight
+  private cameraOns = 0; // setCamera(true) acquisitions in flight (user or restore)
   private micBeforeHold: boolean | null = null;
   private quality = { camera: "auto", screen: "auto" };
   private state: CallState = {
@@ -219,7 +220,13 @@ export class Call {
       this.sendMediaState();
       return;
     }
-    const t = await this.deps.media.getCamera(this.state.facing);
+    let t: TrackLike | null;
+    this.cameraOns++;
+    try {
+      t = await this.deps.media.getCamera(this.state.facing);
+    } finally {
+      this.cameraOns--;
+    }
     if (gen !== this.camGen || !this.isLive()) {
       t?.stop();
       return;
@@ -273,8 +280,11 @@ export class Call {
         }
         return;
       }
-      // A restore still in flight counts: backgrounding cancels it but keeps the intent.
-      if (this.state.camera || this.restores > 0) {
+      // A camera-on still acquiring (the user's or a restore) counts: backgrounding
+      // cancels it but keeps the intent.
+      const pending = this.cameraOns > 0 || this.restores > 0;
+      this.camGen++; // supersedes any camera acquisition in flight
+      if (this.state.camera || pending) {
         this.cameraBeforeBackground = true;
         this.backgrounding = true;
         try {

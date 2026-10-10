@@ -13,7 +13,8 @@ export interface RoomLink {
 }
 
 // scheme, host, path, fragment. React Native's URL has no pathname/hash getters.
-const URL_RE = /^(https?):\/\/([^/?#\s]+)\/?([^?#]*)(?:\?[^#]*)?(?:#(.*))?$/i;
+// No '@' in the host: "https://real.host@evil.com/x" must not parse as real.host.
+const URL_RE = /^(https?):\/\/([^/?#\s@]+)\/?([^?#]*)(?:\?[^#]*)?(?:#(.*))?$/i;
 
 // parseRoomInput accepts a full room link (any host) or a bare room name (default
 // host). Returns null for anything that is not exactly one valid slug segment, so a

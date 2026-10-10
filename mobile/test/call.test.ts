@@ -548,3 +548,19 @@ test("backgrounding during join's acquisition keeps the camera off and restores 
   await t.call.onAppState("active");
   expect(t.call.getState().camera).toBe(true);
 });
+
+test("backgrounding during a user camera-on acquisition keeps it off and restores it on foreground", async () => {
+  const { call, cams, ctl, peers } = await inCall({ camera: false });
+  ctl.deferCam = true;
+  const on = call.setCamera(true);
+  await call.onAppState("background");
+  ctl.camWaits[0]();
+  await on;
+  expect(cams[0].stopped).toBe(true);
+  expect(call.getState().camera).toBe(false);
+  ctl.deferCam = false;
+  await call.onAppState("active");
+  expect(call.getState().camera).toBe(true);
+  expect(cams[1].stopped).toBe(false);
+  expect(peers[0].published.at(-1)).toEqual(["camera", cams[1]]);
+});
