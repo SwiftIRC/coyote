@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Coyote</title>
+  <meta name="description" content="How Coyote, SwiftIRC's video-chat service, handles your data.">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #14161a;
+      --panel: #1d2026;
+      --fg: #e6e8ec;
+      --muted: #9aa1ac;
+      --accent: #4c8dff;
+      --border: #2b2f37;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --fg: #1b1e23;
+        --muted: #5b6270;
+        --accent: #2f6fe0;
+        --border: #dde1e7;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main {
+      max-width: 44rem;
+      margin: 0 auto;
+      padding: 2.5rem 1rem 4rem;
+    }
+    h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.2rem; margin: 2rem 0 0.5rem; }
+    p, li { color: var(--fg); }
+    ul { padding-left: 1.25rem; }
+    li + li { margin-top: 0.35rem; }
+    a { color: var(--accent); }
+    .meta { color: var(--muted); margin: 0 0 1.5rem; }
+    .summary {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .summary ul { margin: 0.5rem 0 0; }
+    footer { color: var(--muted); font-size: 0.9rem; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Coyote video chat, operated by SwiftIRC · Effective 10 October 2026</p>
+
+  <section class="summary" aria-label="Summary">
+    <strong>In short</strong>
+    <ul>
+      <li>There are no accounts, and we don't record calls.</li>
+      <li>Chat history lives only in server memory and disappears when the room closes.</li>
+      <li>No analytics, no ads, no tracking, and we never sell data.</li>
+    </ul>
+  </section>
+
+  <h2>Who we are</h2>
+  <p>
+    Coyote is the video-chat service of the SwiftIRC network, available at
+    <a href="https://vc.swiftirc.net">vc.swiftirc.net</a> and through the Coyote apps for
+    iOS and Android. SwiftIRC operates the service and is responsible for the data described
+    here. Contact us at <a href="mailto:support@swiftirc.net">support@swiftirc.net</a>.
+  </p>
+
+  <h2>What we process, and why</h2>
+  <ul>
+    <li>
+      <strong>Your display name.</strong> You choose a name when you join, or it comes from
+      the IRC nick carried by an invite link. Everyone else in the room sees it. We use it
+      only to show who is in the call.
+    </li>
+    <li>
+      <strong>Invite links and tokens.</strong> If you join from an IRC invite, the server
+      checks the link to confirm your nick and channel role. Invite links expire, and the
+      apps never save them.
+    </li>
+    <li>
+      <strong>Audio and video.</strong> Your microphone and camera stream pass through our
+      server to the other people in the room in real time. We do not record, store or analyse
+      calls.
+    </li>
+    <li>
+      <strong>Chat and polls.</strong> The last 200 chat messages in a room are kept in server
+      memory so people who join late can catch up. Polls and the list of who is in the room
+      are kept the same way. All of it is gone when the room closes or the server restarts.
+      We keep no database.
+    </li>
+    <li>
+      <strong>Connection details.</strong> While you are connected, the server holds your
+      IP address in memory so it can route your call and enforce room bans set by channel
+      operators. Coyote does not write names, messages or IP addresses to its logs. Like most
+      websites, the web server in front of Coyote may keep standard access logs (IP address,
+      time and page requested) for security and troubleshooting.
+    </li>
+    <li>
+      <strong>Your avatar (optional).</strong> If you enter an email address for a Gravatar
+      picture, your device turns it into a one-way hash, and only that hash is sent. Your
+      email address never leaves your device. Avatar images are then loaded from
+      gravatar.com, which handles that request under
+      <a href="https://automattic.com/privacy/">Gravatar's own privacy policy</a>.
+    </li>
+  </ul>
+
+  <h2>What stays on your device</h2>
+  <p>
+    Your browser or the app remembers your display name, the email for your avatar, your
+    microphone and camera preferences and, in the apps, a list of recently joined rooms.
+    This is stored only on your device. You can clear it from your browser settings, or by
+    clearing the app's data or uninstalling it.
+  </p>
+
+  <h2>Permissions the apps use</h2>
+  <ul>
+    <li><strong>Microphone and camera</strong>: only during a call, so others can hear and see you.</li>
+    <li><strong>Bluetooth</strong>: to route call audio to your headset.</li>
+    <li><strong>Notifications (Android)</strong>: to show the ongoing-call notification that keeps your call running in the background.</li>
+  </ul>
+  <p>
+    The apps show calls in your phone's call screen (CallKit on iPhone, the call service on
+    Android) so a call keeps working when the screen is locked. Coyote calls are not added
+    to your phone's call history.
+  </p>
+
+  <h2>Sharing</h2>
+  <p>
+    We don't sell, rent or share your data with advertisers or anyone else. What you say and
+    show in a room is shared with the other people in that room, which is the point of a
+    call. Bear in mind that other participants could record a call on their own devices.
+  </p>
+
+  <h2>Children</h2>
+  <p>
+    Coyote is not directed at children under 13, and we don't knowingly collect information
+    from them. If you think a child has used Coyote in a way that concerns you, contact us
+    and we'll help.
+  </p>
+
+  <h2>Your choices and rights</h2>
+  <p>
+    Because we keep no accounts and no stored copies of calls or chat, there is usually
+    nothing for us to look up, export or delete once a room has closed. You can still ask
+    us any question about your data, or exercise any rights you have under the law where you
+    live, by emailing <a href="mailto:support@swiftirc.net">support@swiftirc.net</a>.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    If we change how Coyote handles data, we'll update this page and its effective date.
+    Significant changes will also be announced on the SwiftIRC network.
+  </p>
+
+  <footer>
+    <p>Questions? <a href="mailto:support@swiftirc.net">support@swiftirc.net</a> · <a href="/">Back to Coyote</a></p>
+  </footer>
+</main>
+</body>
+</html>

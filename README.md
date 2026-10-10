@@ -45,6 +45,9 @@ own and can wire natively into SwiftIRC.
   the hex. One sound plays at a time, room-wide.
 - Self-healing clients: reconnect on drop, ICE-restart on media failure, and —
   importantly — a kicked/banned client stops and does **not** rejoin.
+- A privacy policy at `/privacy` (`internal/web/assets/privacy.html`), the URL the app-store
+  listings use. It describes what the code actually does with data, so update it alongside
+  any change to what is collected, stored or logged.
 
 ## Architecture
 

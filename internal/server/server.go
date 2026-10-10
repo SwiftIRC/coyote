@@ -101,6 +101,13 @@ func (h *Hub) Routes() http.Handler {
 	mux.HandleFunc("POST /api/provision", h.handleProvision)
 	mux.HandleFunc("POST /api/invite", h.handleInvite)
 	mux.HandleFunc("GET /api/invite/{id}", h.handleInvitePeek)
+	// The privacy policy the app-store listings link to. Without this route the
+	// catch-all below would read "privacy" as a room slug and serve the app shell.
+	mux.HandleFunc("GET /privacy", func(w http.ResponseWriter, r *http.Request) {
+		r2 := r.Clone(r.Context())
+		r2.URL.Path = "/privacy.html"
+		h.handleStatic(w, r2)
+	})
 	// Catch-all app shell + static assets. The specific routes above are more
 	// specific and still win under Go 1.22 mux precedence (verified in tests).
 	mux.HandleFunc("GET /", h.handleStatic)
