@@ -11,10 +11,10 @@ export function watchLifecycle(call: Pick<Call, "onAppState" | "onNetworkChange"
       call.onAppState(s).catch((e: unknown) => console.warn("onAppState failed", e));
     }
   });
-  let last = { connected: true, type: "" };
+  let last: { connected: boolean; type: string } | null = null; // first event is the baseline
   const net = NetInfo.addEventListener((st) => {
     const now = { connected: !!st.isConnected, type: String(st.type) };
-    if (now.connected && (!last.connected || now.type !== last.type)) call.onNetworkChange(true);
+    if (last && now.connected && (!last.connected || now.type !== last.type)) call.onNetworkChange(true);
     last = now;
   });
   return () => {
