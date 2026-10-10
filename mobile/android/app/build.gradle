@@ -92,15 +92,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (project.hasProperty("COYOTE_UPLOAD_STORE_FILE")) {
+                storeFile file(COYOTE_UPLOAD_STORE_FILE)
+                storePassword COYOTE_UPLOAD_STORE_PASSWORD
+                keyAlias COYOTE_UPLOAD_KEY_ALIAS
+                keyPassword COYOTE_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Signed with the upload key from ~/.gradle/gradle.properties (see RELEASE.md).
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }

@@ -64,6 +64,7 @@ own and can wire natively into SwiftIRC.
 - **`internal/room`** — pure room state: join rules, roster, chat ring, moderation, soundboard lock. No I/O, no Pion.
 - **`internal/sfu`** — the media plane (Pion `webrtc/v4`): one PeerConnection per participant, forwarding each published track (VP8/Opus) to every other participant; perfect-negotiation with the server as the impolite peer.
 - **`internal/server`** — the `Hub`: WebSocket join flow, signaling dispatch, HTTP API, static serving.
+- **`mobile/`** — the iOS and Android apps (React Native), a second client of the same protocol; see `mobile/README.md`.
 - **`internal/web`** — the embedded browser client (`assets/`), with `node --test`
   unit tests for its pure logic (`test/`). Two vendored payloads live here and
   account for most of the binary: the MediaPipe segmentation runtime
@@ -116,6 +117,7 @@ is UDP sent directly to the SFU and does **not** flow through nginx, so
 go test -race ./...                         # Go: unit + Pion synthetic-client media integration
 go vet ./...
 nvm use && node --test 'internal/web/test/*.test.js'   # client pure-logic unit tests (Node 22; .nvmrc)
+(cd mobile && npm test && npm run typecheck)   # mobile core (Jest)
 make -C anope/m_webrtc_chat/tests test      # Anope module core (C++; no Anope SDK needed)
 ```
 
@@ -138,6 +140,8 @@ that untested layer.
 - **SFU media plane** — VP8/Opus forwarding, fan-out, PLI, tracks metadata, perfect-negotiation glare handling. **Done.**
 - **Browser client** — pre-join, tile grid, chat, polls, moderation controls, screenshare, noise suppression, background effects, reliability wiring. **Done.**
 - **Anope 2.1 module** — `!vc`/`!chat` fantasy commands, `VC SET`, HMAC token minting (against the shared test vectors), `/api/provision` and short `#i=` invite links via `/api/invite`. **Done** and deployed.
+
+- **Mobile apps (Foundation)** — calls, links, background survival. **In TestFlight / closed testing.**
 
 Design and implementation plans live in `docs/superpowers/`.
 
