@@ -32,7 +32,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     active.current?.call.leave();
     setOutcome(null);
     setState(null);
-    await setupSystemCalls();
+    try {
+      await setupSystemCalls();
+    } catch (e) {
+      // No call exists yet, so report the failure as an outcome; the Call screen acts
+      // on an outcome with no live call and returns to PreJoin with this text.
+      console.warn("call setup failed", e);
+      setOutcome({ kind: "rejected", code: "setup", text: "Couldn't start the call." });
+      return;
+    }
     const made = createCall({
       change: (s) => setState(s),
       end: (o) => {
