@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { RTCView } from "react-native-webrtc";
@@ -145,7 +145,7 @@ export function PreJoin() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={headerHeight}>
+    <KeyboardAvoidingView style={styles.root} behavior="padding" keyboardVerticalOffset={headerHeight}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>#{link.slug}</Text>
         <Text style={styles.muted}>

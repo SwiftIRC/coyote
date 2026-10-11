@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Keyboard, PanResponder, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { keyboardEvents } from "../../core/keyboard";
 import { colors, radius } from "../theme";
 
 // Bottom sheet over the call. The area above it stays visible; tapping it, or
@@ -10,12 +11,13 @@ export function Sheet({ visible, onClose, heightFraction = 0.55, children }: {
 }) {
   const win = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // iOS does not resize the window for the keyboard, so lift the sheet above it.
+  // Neither iOS nor edge-to-edge Android resizes the window for the keyboard, so
+  // lift the sheet above it ourselves.
   const [kb, setKb] = useState(0);
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    const show = Keyboard.addListener("keyboardWillShow", (e) => setKb(e.endCoordinates.height));
-    const hide = Keyboard.addListener("keyboardWillHide", () => setKb(0));
+    const ev = keyboardEvents(Platform.OS);
+    const show = Keyboard.addListener(ev.show, (e) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener(ev.hide, () => setKb(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
   const base = Math.round(win.height * heightFraction);
