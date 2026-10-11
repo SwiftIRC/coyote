@@ -13,7 +13,10 @@ Claude maintains the code on Linux; builds are signed and shipped from a Mac.
     **App Groups** (`group.net.swiftirc.coyote`);
   - the App Group `group.net.swiftirc.coyote` itself (Identifiers → App Groups).
   With automatic signing, Xcode creates both provisioning profiles once you select your
-  team on **both** the Coyote and CoyoteBroadcast targets.
+  team on **both** the Coyote and CoyoteBroadcast targets. If an in-call share on
+  device ends immediately with "Start screen sharing from a Coyote call.", the App
+  Group is missing from one of the two App IDs or profiles. Screen sharing does not
+  work in the iOS Simulator (no broadcast extensions) — test it on a device.
 - Play Console app `net.swiftirc.coyote` with Play App Signing enabled; keep your upload
   keystore outside the repo and reference it from `~/.gradle/gradle.properties`:
 

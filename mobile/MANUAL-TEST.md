@@ -176,7 +176,9 @@ Run with the phone in a call with a browser (and a second phone if available).
     screen · Stop" shows and a "You're sharing your screen" tile appears first in the
     grid. The browser shows the phone's screen tile within a few seconds. Switch to
     another app: the browser follows it; the phone's camera turns off while away and
-    comes back on return.
+    comes back on return. If the broadcast ends at once with "Start screen sharing
+    from a Coyote call." during a call, the App Group (entitlements / provisioning) is
+    not set up — see RELEASE.md.
 47. **iOS cancel.** ☰ → Share screen, then dismiss the sheet: within 30 s the ☰ row
     reads "Share screen" again, and no error notice appears.
 48. **iOS stop from the system.** While sharing, stop via Control Center (or the red
@@ -186,7 +188,8 @@ Run with the phone in a call with a browser (and a second phone if available).
 50. **Android share.** ☰ → Share screen: the "Start recording or casting?" prompt;
     Start → pill, own tile and the browser sees the screen; a "screen sharing"
     notification is shown. On Android 15+, choose "A single app" and confirm only
-    that app is shared.
+    that app is shared. The phone's camera may blink off and on while the consent
+    prompt is up (Android pauses the app).
 51. **Android denied.** ☰ → Share screen → Cancel: back to "Share screen", no notice.
 52. **Android stop from the system.** Stop from the notification / status-bar chip:
     the share ends in the app and the browser.
@@ -201,3 +204,9 @@ Run with the phone in a call with a browser (and a second phone if available).
 57. **Extension without a call (iOS).** Start a broadcast to Coyote from Control
     Center with no call open: it ends within ~5 s with "Start screen sharing from a
     Coyote call."
+58. **Lock the phone while sharing.** iOS: locking ends the broadcast; on unlock the
+    pill and own tile are gone and the browser's tile went when it ended. Android: the
+    share keeps running (the browser may see a black/secure frame) and the pill is
+    still there on unlock.
+59. **A second phone sees the share.** With another phone in the call, it shows the
+    sharing phone's screen tile and can open it full screen.
