@@ -28,6 +28,11 @@ const keyFrameInterval = 10 * time.Second
 // so tests can shrink it.
 var renegRetryDelay = 3 * time.Second
 
+// newcomerOfferDelay is how long a newly added peer may go without a server offer
+// before the newcomer fallback runs a reconcile pass for it (see AddPeer). A
+// package var so tests can shrink it.
+var newcomerOfferDelay = 3 * time.Second
+
 type localTrack struct {
 	publisherID string
 	kind        string // mic|camera|screen
@@ -145,6 +150,21 @@ func (s *SFU) AddPeer(slug, peerID string, sig Signaler) (*Peer, error) {
 		})
 	})
 	p.wireOnTrack() // Task 3 fills this in; a no-op stub in Task 2
+
+	// Newcomer fallback. A newcomer is normally offered the room's existing tracks
+	// by the reconcile pass that its own first media triggers (OnTrack ->
+	// addLocalTrack). A peer that sends no media — no microphone, a broken device,
+	// the iOS Simulator on a Mac without one — never triggers that pass, so if it
+	// still has not been offered after newcomerOfferDelay, run one for it. A peer
+	// that publishes has been offered long before this fires, so its negotiation and
+	// its timing are unchanged. (Reconciling straight after answering a client's
+	// offer instead disturbed real clients' renegotiation in production: Android
+	// rejoins saw 1/4, then 0/4 cameras.)
+	p.newcomerTimer = time.AfterFunc(newcomerOfferDelay, func() {
+		if !p.offered.Load() {
+			s.signalPeerConnections(slug)
+		}
+	})
 
 	s.mu.Lock()
 	s.roomLocked(slug).peers[peerID] = p
@@ -299,6 +319,7 @@ func (s *SFU) signalPeerConnections(slug string) {
 			}
 			p.makingOffer = false
 			p.mu.Unlock()
+			p.offered.Store(true)
 			if !p.sig.Send(signal.Offer{SDP: stripDemuxExtensions(offer.SDP)}) {
 				// The peer never learns about the forwards this offer would have
 				// negotiated, so they stay unbound and silent until some later
@@ -686,6 +707,7 @@ func (s *SFU) RemovePeer(slug, peerID string) {
 	// Close the departed peer's PC after releasing s.mu so its read-loop's own
 	// removeLocalTrack can acquire s.mu without deadlocking.
 	if p != nil {
+		p.newcomerTimer.Stop()
 		p.pc.Close()
 	}
 }

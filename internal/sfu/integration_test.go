@@ -1,6 +1,7 @@
 package sfu
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -66,6 +67,76 @@ func TestThreeClientsFullMesh(t *testing.T) {
 	assertReceivesAll(t, p1, want("p1"))
 	assertReceivesAll(t, p2, want("p2"))
 	assertReceivesAll(t, p3, want("p3"))
+}
+
+// A newcomer whose own media never reaches the server (no microphone, a broken
+// device, the iOS Simulator on a Mac without one) must still be offered the room's
+// existing tracks. Normally its own first RTP packet triggers the reconcile pass
+// that offers them (OnTrack -> addLocalTrack); a peer that sends nothing never
+// triggered one and saw and heard nobody. The newcomer fallback covers it after
+// newcomerOfferDelay.
+func TestNewPeerReceivesTracksWithoutSendingMedia(t *testing.T) {
+	old := newcomerOfferDelay
+	newcomerOfferDelay = 300 * time.Millisecond
+	t.Cleanup(func() { newcomerOfferDelay = old })
+
+	s := testSFU(t)
+
+	alice := newTestClient(t, s, "room", "alice")
+	writeTestRTPLoop(t, alice.publish("camera"))
+	alice.waitConnected()
+	waitForRoomTracks(t, s, "room", 1, alice)
+
+	bob := newTestClient(t, s, "room", "bob")
+	bob.publish("mic") // negotiated, but no RTP is ever written on it
+
+	assertReceivesAll(t, bob, map[string]bool{"alice:camera": false})
+}
+
+// A subscriber that leaves and rejoins (a phone backgrounding, a reconnect) must
+// receive every other camera with live media each time. Four publishers with live
+// RTP sit in the room; a fifth client publishing mic+camera joins, leaves, and
+// rejoins under a fresh id twice. This is the pattern that regressed in
+// production (1/4 cameras, then 0/4) when the SFU began reconciling after
+// answering a client offer.
+func TestRejoiningSubscriberReceivesEveryCamera(t *testing.T) {
+	s := testSFU(t)
+
+	publishers := []string{"a", "b", "c", "d"}
+	for i, id := range publishers {
+		c := newTestClient(t, s, "room", id)
+		// The harness delivers signaling synchronously; publishers never read what
+		// they receive, so drain it or a full channel blocks the server's Send.
+		go func() {
+			for range c.gotTrack {
+			}
+		}()
+		go func() {
+			for range c.gotTracks {
+			}
+		}()
+		writeTestRTPLoop(t, c.publish("mic"))
+		writeTestRTPLoop(t, c.publish("camera"))
+		c.waitConnected()
+		waitForRoomTracks(t, s, "room", 2*(i+1), c)
+	}
+
+	for round := 1; round <= 3; round++ {
+		id := fmt.Sprintf("phone%d", round)
+		phone := newTestClient(t, s, "room", id)
+		writeTestRTPLoop(t, phone.publish("mic"))
+		writeTestRTPLoop(t, phone.publish("camera"))
+
+		want := map[string]bool{}
+		for _, p := range publishers {
+			want[p+":mic"] = false
+			want[p+":camera"] = false
+		}
+		assertReceivesAll(t, phone, want)
+
+		s.RemovePeer("room", id)
+		phone.pc.Close()
+	}
 }
 
 // assertReceivesAll drains tc.gotTrack until every expected {publisherID:kind}
