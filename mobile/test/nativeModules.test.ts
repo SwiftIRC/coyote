@@ -152,3 +152,20 @@ describe("iOS broadcast extension", () => {
     expect(new Set(builds).size).toBe(1);
   });
 });
+
+test("iOS CoyoteBackground: module, processor registration and project wiring", () => {
+  const ios = path.join(__dirname, "..", "ios");
+  const m = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.m"), "utf8");
+  expect(m).toContain("RCT_EXTERN_MODULE(CoyoteBackground, RCTEventEmitter)");
+  expect(m).toContain("RCT_EXTERN_METHOD(setEffect:(NSDictionary *)effect resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)");
+  expect(m).toContain('forName:@"coyote-background"');
+  expect(m).toContain("RTCVideoRotation_0");
+  const swift = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.swift"), "utf8");
+  expect(swift).toContain("VNGeneratePersonSegmentationRequest");
+  expect(swift).toContain('"CoyoteBackgroundTripped"');
+  expect(swift).toContain("@objc(setEffect:resolver:rejecter:)");
+  expect(swift).toContain("budgetMs = 45.0");
+  const pbx = fs.readFileSync(path.join(ios, "Coyote.xcodeproj", "project.pbxproj"), "utf8");
+  expect(pbx).toContain("CoyoteBackground.swift in Sources");
+  expect(pbx).toContain("CoyoteBackground.m in Sources");
+});
