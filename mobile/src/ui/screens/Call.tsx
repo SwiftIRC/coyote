@@ -8,6 +8,7 @@ import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../na
 import { useCall } from "../CallContext";
 import { useChat } from "../hooks";
 import { Banner } from "../components/Banner";
+import { ChatSheet } from "../components/ChatSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
 import { TopBar } from "../components/TopBar";
@@ -138,6 +139,11 @@ export function Call() {
           onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
           onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
           onLeave={leave}
+        />
+        <ChatSheet
+          visible={sheet === "chat"}
+          onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
+          send={(t) => call()?.chat.send(t) ?? "offline"}
         />
       </View>
     </View>
