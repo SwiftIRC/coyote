@@ -112,14 +112,6 @@ func (p *Peer) handleOfferLocked(sdp string) error {
 	// pliPeerSubscriptions takes s.mu and writes RTCP, neither of which should run while
 	// the caller holds p.mu.
 	go p.sfu.pliPeerSubscriptions(p)
-	// Reconcile now that this peer is stable again. Nothing else guarantees a
-	// newcomer is ever offered the room's existing tracks: the only other trigger is
-	// a track arriving — normally its own first RTP packet — so a peer that
-	// negotiates but sends no media (no microphone, a broken device, the iOS
-	// Simulator) would never receive anyone. Idempotent: a pass with nothing to
-	// change offers nobody. On a goroutine for the same reason as HandleAnswer's: the
-	// pass takes s.mu and this peer's mu, and the caller holds p.mu.
-	go p.sfu.signalPeerConnections(p.slug)
 	return nil
 }
 

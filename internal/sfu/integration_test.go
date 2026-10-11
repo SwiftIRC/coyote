@@ -68,26 +68,6 @@ func TestThreeClientsFullMesh(t *testing.T) {
 	assertReceivesAll(t, p3, want("p3"))
 }
 
-// A newcomer whose own media never reaches the server (no microphone, a broken
-// device, the iOS Simulator) must still be offered the room's existing tracks.
-// Nothing on join offered them: a newcomer got the room's tracks only from a
-// reconcile pass that some track's arrival triggered — in practice its own first
-// RTP packet (OnTrack -> addLocalTrack) — so a peer that negotiated but sent
-// nothing saw and heard nobody, with both sides reporting a stable connection.
-func TestNewPeerReceivesTracksWithoutSendingMedia(t *testing.T) {
-	s := testSFU(t)
-
-	alice := newTestClient(t, s, "room", "alice")
-	writeTestRTPLoop(t, alice.publish("camera"))
-	alice.waitConnected()
-	waitForRoomTracks(t, s, "room", 1, alice)
-
-	bob := newTestClient(t, s, "room", "bob")
-	bob.publish("mic") // negotiated, but no RTP is ever written on it
-
-	assertReceivesAll(t, bob, map[string]bool{"alice:camera": false})
-}
-
 // assertReceivesAll drains tc.gotTrack until every expected {publisherID:kind}
 // has arrived, then reads one RTP packet from each to prove the fan-out is
 // forwarding live media (not just negotiating transceivers).
