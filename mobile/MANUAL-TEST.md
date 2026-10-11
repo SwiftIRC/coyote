@@ -158,5 +158,11 @@ lock on reconnect). Run with the phone as op and a browser as the target, then s
 44. **Non-op.** As a non-op, long-press a tile: only the volume slider; ☰ has no Lock
     room or Quality. Get made op by the browser while the sheet is open: the actions
     appear.
-45. **Being moderated.** Re-run Foundation's kick/ban item and 2b's force-mute with a
-    browser op against the phone.
+45. **Being moderated.** With a browser op and the phone as the target:
+    (a) **Force-mute:** the op clicks "mute" on the phone's tile. The phone's mic
+    turns off, the in-app mic button shows muted, the browser shows the muted
+    badge, and the phone can unmute itself.
+    (b) **Kick** (as item 11): the phone returns to Home with "You were removed
+    from the call by <op>." and does not rejoin.
+    (c) **Ban:** the phone returns to Home with "You were banned from the call by
+    <op>."; joining again from PreJoin shows "You are banned from this room."
