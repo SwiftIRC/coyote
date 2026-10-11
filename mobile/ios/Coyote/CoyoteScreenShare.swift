@@ -35,15 +35,31 @@ class CoyoteScreenShare: RCTEventEmitter {
   override func startObserving() { DispatchQueue.main.async { [weak self] in self?.listening = true } }
   override func stopObserving() { DispatchQueue.main.async { [weak self] in self?.listening = false } }
 
-  @objc(showPicker)
-  func showPicker() {
+  // Resolves once the sheet's button is tapped; rejects when there is nothing to
+  // present it from, so JS reports a failure at once instead of waiting it out.
+  @objc(showPicker:rejecter:)
+  func showPicker(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async { [weak self] in
-      guard let self = self, let picker = self.picker ?? self.makePicker() else { return }
+      guard let self = self else {
+        reject("no_window", "No window to present the broadcast picker", nil)
+        return
+      }
+      // Rebuild a picker whose window has gone (or that was never made).
+      if self.picker?.window == nil {
+        self.picker?.removeFromSuperview()
+        self.picker = nil
+      }
+      guard let picker = self.picker ?? self.makePicker() else {
+        reject("no_window", "No window to present the broadcast picker", nil)
+        return
+      }
       guard let button = picker.subviews.compactMap({ $0 as? UIButton }).first else {
         NSLog("[CoyoteScreenShare] broadcast picker button not found")
+        reject("no_picker_button", "Broadcast picker button not found", nil)
         return
       }
       button.sendActions(for: .touchUpInside)
+      resolve(nil)
     }
   }
 

@@ -90,11 +90,14 @@ test("CoyoteScreenShare exports showPicker and relays the extension's started no
   const app = path.join(__dirname, "..");
   const m = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteScreenShare.m"), "utf8");
   expect(m).toContain("RCT_EXTERN_MODULE(CoyoteScreenShare, RCTEventEmitter)");
-  expect(m).toContain("RCT_EXTERN_METHOD(showPicker)");
+  expect(m).toContain("RCT_EXTERN_METHOD(showPicker:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)");
   const swift = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteScreenShare.swift"), "utf8");
   expect(swift).toContain('"net.swiftirc.coyote.broadcast.started"');
   expect(swift).toContain('"CoyoteBroadcastStarted"');
   expect(swift).toContain("RPSystemBroadcastPickerView");
+  expect(swift).toContain("@objc(showPicker:rejecter:)");
+  expect(swift).toContain('reject("no_window"');
+  expect(swift).toContain('reject("no_picker_button"');
   const pbx = fs.readFileSync(path.join(app, "ios", "Coyote.xcodeproj", "project.pbxproj"), "utf8");
   expect(pbx).toContain("CoyoteScreenShare.swift in Sources");
   expect(pbx).toContain("CoyoteScreenShare.m in Sources");
