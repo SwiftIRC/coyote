@@ -81,6 +81,11 @@ export class Peer {
 
   async start(local: Array<{ track: TrackLike; kind: Kind }>): Promise<void> {
     for (const { track, kind } of local) this.addLocal(track, kind);
+    // With nothing to publish (microphone and camera both denied or absent) the
+    // offer would have no m-lines and so no ICE credentials; the SFU rejects it
+    // ("no ice-ufrag") and the call never connects. One receive-only m-line makes
+    // it answerable; the SFU then offers the room's tracks on its own m-lines.
+    if (local.length === 0) this.pc.addTransceiver("audio", { direction: "recvonly" });
     await this.makeOffer();
   }
 

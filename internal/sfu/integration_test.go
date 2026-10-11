@@ -93,6 +93,31 @@ func TestNewPeerReceivesTracksWithoutSendingMedia(t *testing.T) {
 	assertReceivesAll(t, bob, map[string]bool{"alice:camera": false})
 }
 
+// A client with no camera or microphone offers a single receive-only audio m-line
+// (an offer with no m-lines has no ICE credentials and is rejected). The SFU must
+// answer it, connect, and — via the newcomer fallback — offer the room's tracks.
+func TestReceiveOnlyClientGetsTheRoomsTracks(t *testing.T) {
+	old := newcomerOfferDelay
+	newcomerOfferDelay = 300 * time.Millisecond
+	t.Cleanup(func() { newcomerOfferDelay = old })
+
+	s := testSFU(t)
+
+	alice := newTestClient(t, s, "room", "alice")
+	writeTestRTPLoop(t, alice.publish("camera"))
+	alice.waitConnected()
+	waitForRoomTracks(t, s, "room", 1, alice)
+
+	viewer := newTestClient(t, s, "room", "viewer")
+	if _, err := viewer.pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionRecvonly,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	assertReceivesAll(t, viewer, map[string]bool{"alice:camera": false})
+}
+
 // A subscriber that leaves and rejoins (a phone backgrounding, a reconnect) must
 // receive every other camera with live media each time. Four publishers with live
 // RTP sit in the room; a fifth client publishing mic+camera joins, leaves, and

@@ -26,6 +26,19 @@ function make() {
   return { sig, pc, timers, events, peer };
 }
 
+// With no microphone and no camera (both denied or absent) the offer would have no
+// m-lines and so no ICE credentials; the SFU rejects it ("no ice-ufrag") and the
+// call never connects. One receive-only m-line makes it answerable.
+test("start with nothing to publish offers one receive-only audio transceiver", async () => {
+  const { sig, pc, peer } = make();
+  await peer.start([]);
+  await flush();
+  expect(pc.transceivers.map((t) => [t.kind, t.direction])).toEqual([["audio", "recvonly"]]);
+  const offers = sig.ofType("offer");
+  expect(offers).toHaveLength(1);
+  expect(offers[0].kinds).toEqual({});
+});
+
 test("start publishes sendonly transceivers and one offer carrying the kinds map", async () => {
   const { sig, pc, peer } = make();
   const mic = new FakeTrack("audio");
