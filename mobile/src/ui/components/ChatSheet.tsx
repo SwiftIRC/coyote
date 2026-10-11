@@ -15,6 +15,7 @@ const ERRORS: Partial<Record<SendResult, string>> = {
 function Line({ e }: { e: ChatEntry }) {
   const time = hhmm(e.ts, Date.now());
   if (e.kind === "system") return <Text style={styles.system}>{time} {e.text}</Text>;
+  if (e.kind === "poll") return null; // rendered by Task 10
   return (
     <Text style={styles.line} selectable>
       <Text style={styles.time}>{time} </Text>

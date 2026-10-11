@@ -575,7 +575,7 @@ test("chat: frames reach the log; send goes out only while in-call and connected
   const { call } = await inCall();
   sock().receive({ type: "chat", from: "Alice", text: "hi", ts: 5 });
   sock().receive({ type: "moderation", actor: "Alice", action: "lock" });
-  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual(["hi", "Alice locked the room"]);
+  expect(call.chat.getSnapshot().entries.map((e) => (e.kind === "poll" ? "" : e.text))).toEqual(["hi", "Alice locked the room"]);
   expect(call.chat.send("hello")).toBe("sent");
   expect(framesOf("chat")).toEqual([{ type: "chat", text: "hello" }]);
   sock().drop();
@@ -593,7 +593,7 @@ test("rejoin clears chat before the server's replay, re-anchors the clock, stays
   sock().receive(joined({ roomAge: 30, peers: [{ id: "p9", name: "Alice", role: "op", mic: true, camera: false, ref: "r1" }] }));
   sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 }); // replay
   await flush();
-  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual(["old"]);
+  expect(call.chat.getSnapshot().entries.map((e) => (e.kind === "poll" ? "" : e.text))).toEqual(["old"]);
   expect(call.clock.elapsed(50_000)).toBe(30);
   expect(chimes).toEqual([]);
 });
@@ -616,7 +616,7 @@ test("in-call server errors also land in chat as notices", async () => {
   const { call, notices } = await inCall();
   sock().receive({ type: "error", code: "rate", message: "Slow down" });
   expect(notices).toHaveLength(1);
-  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual([notices[0]]);
+  expect(call.chat.getSnapshot().entries.map((e) => (e.kind === "poll" ? "" : e.text))).toEqual([notices[0]]);
 });
 
 test("chimes: arrivals and departures by ref, not on the initial roster", async () => {
