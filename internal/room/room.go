@@ -118,6 +118,13 @@ type Room struct {
 	opAccounts map[string]struct{}
 	opRefs     map[string]struct{}
 
+	// admittedRefs are the session refs of everyone this room has let in. A rejoin
+	// carrying one skips the password check, so locking a room mid-call doesn't lock
+	// out its own members on their next reconnect (they rejoin with the password they
+	// typed before the lock). It covers anyone admitted earlier in this room's life,
+	// including people who left on purpose; Kick and Ban revoke it.
+	admittedRefs map[string]struct{}
+
 	// Op-set session video caps: tier ids the clients map to a resolution/framerate
 	// cap for their camera / screenshare senders. "" means uncapped (auto).
 	qualityCamera string
@@ -151,6 +158,7 @@ func New(cfg Config) *Room {
 		bannedIPs:      map[string]struct{}{},
 		opAccounts:     map[string]struct{}{},
 		opRefs:         map[string]struct{}{},
+		admittedRefs:   map[string]struct{}{},
 		startedAt:      cfg.Now(),
 	}
 }
@@ -169,11 +177,29 @@ func (r *Room) rememberOp(p *Participant) {
 	}
 }
 
+// forgetRef drops a removed participant's session ref from admittedRefs, so the old
+// session can't rejoin past a lock. After a reconnect the stale old participant can
+// linger holding the live session's ref; if any other participant still holds it,
+// the ref is kept so kicking that ghost doesn't revoke the live session's bypass.
+func (r *Room) forgetRef(targetID, ref string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if ref != "" {
+		for id, p := range r.parts {
+			if id != targetID && p.Ref == ref {
+				return
+			}
+		}
+	}
+	delete(r.admittedRefs, ref)
+}
+
 func (r *Room) Slug() string { r.mu.Lock(); defer r.mu.Unlock(); return r.cfg.Slug }
 
 func (r *Room) Join(p *Participant, password string) error {
 	r.mu.Lock()
-	if r.locked && subtle.ConstantTimeCompare([]byte(password), []byte(r.password)) != 1 {
+	_, admitted := r.admittedRefs[p.Ref]
+	if r.locked && !(p.Ref != "" && admitted) && subtle.ConstantTimeCompare([]byte(password), []byte(r.password)) != 1 {
 		r.mu.Unlock()
 		return ErrBadPassword
 	}
@@ -207,6 +233,9 @@ func (r *Room) Join(p *Participant, password string) error {
 		}
 	}
 	r.hasBeenJoined = true
+	if p.Ref != "" {
+		r.admittedRefs[p.Ref] = struct{}{}
+	}
 	// Media defaults ON unless the client reported its true state (which may be
 	// muted, e.g. a pre-join toggle) in the join frame via SetInitialMedia.
 	if !p.mediaProvided {
@@ -220,11 +249,12 @@ func (r *Room) Join(p *Participant, password string) error {
 	replay := append([]signal.ChatEvent(nil), r.chat...)
 	quality := signal.Quality{Camera: r.qualityCamera, Screen: r.qualityScreen}
 	pollSnap := r.pollSnapshot(p)
+	locked := r.locked
 	r.parts[p.ID] = p
 	r.emptySince = time.Time{}
 	r.mu.Unlock()
 
-	p.Conn.Send(signal.Joined{SelfID: p.ID, Role: string(p.Role), Peers: roster, Quality: quality, RoomAgeSec: int64(r.cfg.Now().Sub(r.startedAt).Seconds()), Poll: pollSnap})
+	p.Conn.Send(signal.Joined{SelfID: p.ID, Role: string(p.Role), Peers: roster, Quality: quality, RoomAgeSec: int64(r.cfg.Now().Sub(r.startedAt).Seconds()), Poll: pollSnap, Locked: locked})
 	for _, ce := range replay {
 		p.Conn.Send(ce)
 	}
@@ -416,6 +446,7 @@ func (r *Room) Kick(actorID, targetID string) error {
 	if err != nil {
 		return err
 	}
+	r.forgetRef(tgt.ID, tgt.Ref)
 	tgt.Conn.Send(signal.Kicked{By: actorName})
 	// Do not close the socket here: closing cancels the target's read context,
 	// which hard-closes the connection and would race (drop) the frame just
@@ -444,6 +475,7 @@ func (r *Room) Ban(actorID, targetID string) error {
 	} else if tgt.IP != "" {
 		r.bannedIPs[tgt.IP] = struct{}{}
 	}
+	delete(r.admittedRefs, tgt.Ref) // inline: r.mu is already held (Kick uses forgetRef)
 	r.mu.Unlock()
 	tgt.Conn.Send(signal.Banned{By: actorName})
 	// Same as Kick: deliver the frame, don't close. The ban is recorded above,

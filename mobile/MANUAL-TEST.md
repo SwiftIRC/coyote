@@ -132,3 +132,37 @@ Server prerequisite: a deploy that serves `GET /api/soundboard`.
 37. **Data saver during a screenshare.** While someone is screensharing, turn ☰ → Data
     saver on. Note what the screen tile shows (known risk: a frozen last frame rather
     than an avatar) and that the screenshare's audio keeps playing.
+
+## Op moderation (1.3.0)
+
+Server prerequisite: a deploy whose `joined` frame carries `locked` (members survive a
+lock on reconnect). Run with the phone as op and a browser as the target, then swap.
+
+38. **Mute and make op.** Long-press the browser's tile: the sheet shows the volume
+    slider and Mute mic / Make op / Kick / Ban. Mute mic: the browser's mic turns off
+    and the button reads "Muted"; the browser can unmute. Make op: a confirm appears;
+    after it, the tile shows "@" and Make op disappears.
+39. **Kick and ban.** Kick (confirm "Kick <name>?"): the browser is removed, the sheet
+    closes, chat shows the moderation line. Rejoin from the browser, then Ban: the
+    browser can't rejoin ("You are banned from this room.").
+40. **Stop share.** The browser shares its screen; open it on the phone: Stop share
+    ends it and the viewer closes. A non-op phone shows no Stop share button.
+41. **Lock.** ☰ → Lock room…, enter a password, Lock: 🔒 appears in the phone's top
+    bar and the browser shows "Room locked". A third client is refused without the
+    password and admitted with it. Airplane mode on the phone for 10 s: it rejoins the
+    locked room without asking for the password. ☰ → Unlock room: 🔒 goes away.
+42. **Late joiner sees the lock.** Lock the room from the browser, then join from the
+    phone (with the password): 🔒 shows immediately.
+43. **Quality.** ☰ → Quality… → Camera → Low: the browser's camera visibly drops to
+    360p·15 and the check moves; back to Auto. Repeat for Screen with a share running.
+44. **Non-op.** As a non-op, long-press a tile: only the volume slider; ☰ has no Lock
+    room or Quality. Get made op by the browser while the sheet is open: the actions
+    appear.
+45. **Being moderated.** With a browser op and the phone as the target:
+    (a) **Force-mute:** the op clicks "mute" on the phone's tile. The phone's mic
+    turns off, the in-app mic button shows muted, the browser shows the muted
+    badge, and the phone can unmute itself.
+    (b) **Kick** (as item 11): the phone returns to Home with "You were removed
+    from the call by <op>." and does not rejoin.
+    (c) **Ban:** the phone returns to Home with "You were banned from the call by
+    <op>."; joining again from PreJoin shows "You are banned from this room."

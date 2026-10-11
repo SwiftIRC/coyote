@@ -592,3 +592,129 @@ func TestBroadcastRestartingThenCloseConns(t *testing.T) {
 		t.Errorf("shutdown: restarting=%v closed=%v", found, closed)
 	}
 }
+
+// A member admitted before the lock rejoins (same session ref) with the password it
+// joined with — "" — and must get back in; anyone new still needs the password.
+func TestLockAdmitsKnownRefOnRejoin(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	op.Ref = "rop"
+	if err := r.Join(op, ""); err != nil {
+		t.Fatal(err)
+	}
+	bob, _ := member("p2", "bob", RoleUser)
+	bob.Ref = "rbob"
+	if err := r.Join(bob, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetLock("p1", "sesame"); err != nil {
+		t.Fatal(err)
+	}
+	r.Leave("p2") // bob's connection drops
+	bob2, _ := member("p3", "bob", RoleUser)
+	bob2.Ref = "rbob"
+	if err := r.Join(bob2, ""); err != nil {
+		t.Errorf("known ref rejoin while locked: %v", err)
+	}
+	eve, _ := member("p4", "eve", RoleUser)
+	eve.Ref = "reve"
+	if err := r.Join(eve, ""); err != ErrBadPassword {
+		t.Errorf("new ref without password: %v, want ErrBadPassword", err)
+	}
+	if err := r.Join(eve, "sesame"); err != nil {
+		t.Errorf("new ref with password: %v", err)
+	}
+}
+
+// An empty ref is never remembered, so ref-less joiners can't share a bypass.
+func TestLockEmptyRefNeverBypasses(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	r.Join(op, "")
+	anon, _ := member("p2", "anon", RoleUser) // Ref ""
+	r.Join(anon, "")
+	r.SetLock("p1", "sesame")
+	anon2, _ := member("p3", "anon2", RoleUser)
+	if err := r.Join(anon2, ""); err != ErrBadPassword {
+		t.Errorf("empty ref while locked: %v, want ErrBadPassword", err)
+	}
+}
+
+// Kick and ban forget the target's ref, so the old session can't slip past a lock.
+func TestLockKickedOrBannedRefRefused(t *testing.T) {
+	for _, action := range []string{"kick", "ban"} {
+		r := New(Config{Slug: "s", Adhoc: true})
+		op, _ := member("p1", "op", RoleUser)
+		op.Ref = "rop"
+		r.Join(op, "")
+		bob, _ := member("p2", "bob", RoleUser)
+		bob.Ref = "rbob"
+		bob.IP = "198.51.100.7"
+		r.Join(bob, "")
+		var err error
+		if action == "kick" {
+			err = r.Kick("p1", "p2")
+		} else {
+			err = r.Ban("p1", "p2")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.SetLock("p1", "sesame")
+		bob2, _ := member("p3", "bob", RoleUser)
+		bob2.Ref = "rbob"
+		bob2.IP = "198.51.100.7"
+		if err := r.Join(bob2, ""); err != ErrBadPassword {
+			t.Errorf("%s: rejoin while locked = %v, want ErrBadPassword", action, err)
+		}
+		if action == "ban" {
+			r.SetLock("p1", "")
+			bob3, _ := member("p4", "bob", RoleUser)
+			bob3.Ref = "rbob"
+			bob3.IP = "198.51.100.7"
+			if err := r.Join(bob3, ""); err != ErrBanned {
+				t.Errorf("ban: rejoin while unlocked = %v, want ErrBanned", err)
+			}
+		}
+	}
+}
+
+func TestKickGhostKeepsLiveRefBypass(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	r.Join(op, "")
+	ghost, _ := member("p2", "bob", RoleUser)
+	ghost.Ref = "r"
+	r.Join(ghost, "")
+	live, _ := member("p3", "bob", RoleUser)
+	live.Ref = "r"
+	r.Join(live, "")
+	r.SetLock("p1", "sesame")
+	if err := r.Kick("p1", "p2"); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := member("p4", "bob", RoleUser)
+	again.Ref = "r"
+	if err := r.Join(again, ""); err != nil {
+		t.Errorf("rejoin after kicking the ghost = %v, want admitted", err)
+	}
+}
+
+func TestJoinedCarriesLocked(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	r.Join(op, "")
+	early, ec := member("p2", "early", RoleUser)
+	r.Join(early, "")
+	if j := ec.msgs[0].(signal.Joined); j.Locked {
+		t.Error("joined.locked true before lock")
+	}
+	r.SetLock("p1", "sesame")
+	late, lc := member("p3", "late", RoleUser)
+	if err := r.Join(late, "sesame"); err != nil {
+		t.Fatal(err)
+	}
+	if j := lc.msgs[0].(signal.Joined); !j.Locked {
+		t.Error("joined.locked false for a joiner of a locked room")
+	}
+}

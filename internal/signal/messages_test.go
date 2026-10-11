@@ -225,3 +225,13 @@ func TestJoinedCarriesPollSnapshot(t *testing.T) {
 		t.Errorf("Joined with no poll should omit the field: %s", raw)
 	}
 }
+
+func TestJoinedLockedAlwaysEncoded(t *testing.T) {
+	b, err := json.Marshal(Joined{SelfID: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"locked":false`) {
+		t.Errorf("joined JSON %s lacks \"locked\":false — it must not be omitempty", b)
+	}
+}

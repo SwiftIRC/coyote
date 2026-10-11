@@ -17,6 +17,14 @@ export function joinErrorText(code: string, message = ""): string {
   return JOIN_ERROR_TEXT[code] || serverErrorDisposition({ code, message, inCall: false }).text;
 }
 
+// No "rejoining will pick it back up": a guest op's rejoin on mobile uses a new session,
+// so it would not regain op. State the fact only.
+const IN_CALL_OVERRIDES: Record<string, string> = {
+  "not-op": "That needs op, and the server says you don't have it.",
+};
+
+export const LOCKED_WHILE_AWAY_TEXT = "The room was locked while you were reconnecting. Enter the password to rejoin.";
+
 export function inCallErrorText(code: string, message = ""): string {
-  return serverErrorDisposition({ code, message, inCall: true }).text;
+  return IN_CALL_OVERRIDES[code] || serverErrorDisposition({ code, message, inCall: true }).text;
 }

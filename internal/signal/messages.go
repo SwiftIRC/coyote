@@ -153,6 +153,7 @@ type Joined struct {
 	Quality    Quality       `json:"quality"`           // current session video caps, so a late joiner applies them
 	RoomAgeSec int64         `json:"roomAge,omitempty"` // seconds the room has existed, as of this join
 	Poll       *PollSnapshot `json:"poll,omitempty"`    // the room's active poll, or absent
+	Locked     bool          `json:"locked"`            // room is password-locked; never omitempty so "false" is distinguishable from an older server
 }
 
 // Quality is the session's outbound-video caps: each field is a tier id the client

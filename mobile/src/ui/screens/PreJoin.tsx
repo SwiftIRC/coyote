@@ -135,7 +135,7 @@ export function PreJoin() {
       } catch (e) {
         console.warn("saving prefs or recent room failed", e);
       }
-      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera, dataSaver });
+      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera, dataSaver, locked: !!room?.locked });
       nav.navigate("Call"); // after join() has synchronously cleared the previous call's state
       await joined;
     } catch (e) {

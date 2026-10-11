@@ -793,3 +793,67 @@ test("data saver off at join sends nothing", async () => {
   await inCall();
   expect(framesOf("set-receive-video")).toEqual([]);
 });
+
+test("moderation: seeded from joined, follows lock and quality broadcasts, commands go out", async () => {
+  const t = setup();
+  await t.call.join(req());
+  sock().open();
+  sock().receive(joined({ role: "op", locked: true }));
+  await flush();
+  expect(t.call.moderation.getSnapshot()).toEqual({ locked: true, quality: { camera: "low", screen: "auto" } });
+  sock().receive({ type: "room-unlocked" });
+  expect(t.call.moderation.getSnapshot().locked).toBe(false);
+  sock().receive({ type: "room-locked" });
+  expect(t.call.moderation.getSnapshot().locked).toBe(true);
+  sock().receive({ type: "quality", camera: "high", screen: "low" });
+  expect(t.call.moderation.getSnapshot().quality).toEqual({ camera: "high", screen: "low" });
+  expect(t.peers[0].quality).toEqual(["high", "low"]); // still applied to the peer
+  expect(t.call.moderation.kick("p1")).toBe("sent");
+  expect(framesOf("kick")).toEqual([{ type: "kick", id: "p1" }]);
+});
+
+test("moderation: non-op is refused locally; offline while reconnecting", async () => {
+  const t = await inCall(); // role "user"
+  expect(t.call.moderation.kick("p1")).toBe("not-op");
+  sock().receive({ type: "role", id: "me", role: "op" });
+  expect(t.call.moderation.kick("p1")).toBe("sent");
+  sock().drop();
+  expect(t.call.moderation.kick("p1")).toBe("offline");
+});
+
+test("moderation: older server falls back to the PreJoin peek on first join only", async () => {
+  const t = setup();
+  await t.call.join(req({ locked: true }));
+  sock().open();
+  sock().receive(joined()); // no `locked` field
+  await flush();
+  expect(t.call.moderation.getSnapshot().locked).toBe(true);
+  sock().receive({ type: "room-unlocked" });
+  sock().drop();
+  t.timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(t.call.moderation.getSnapshot().locked).toBe(false);
+});
+
+test("bad-password on a rejoin: the room was locked while away; back to PreJoin, no loop", async () => {
+  const { call, timers, ends } = await inCall();
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive({ type: "error", code: "bad-password", message: "x" });
+  expect(ends).toEqual([{
+    kind: "rejected", code: "locked-while-away",
+    text: "The room was locked while you were reconnecting. Enter the password to rejoin.",
+  }]);
+  timers.advance(60_000);
+  expect(FakeSocket.all).toHaveLength(2);
+  expect(call.getState().phase).toBe("ended");
+});
+
+test("not-op in a call uses the app's wording", async () => {
+  const { notices } = await inCall();
+  sock().receive({ type: "error", code: "not-op", message: "x" });
+  expect(notices).toEqual(["That needs op, and the server says you don't have it."]);
+});
