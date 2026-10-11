@@ -309,3 +309,17 @@ test("another store reconfiguring the shared native processor voids the memo", a
   expect(calls.filter((c) => c.startsWith("set"))).toEqual(["set blur 0.012", "set blur 0.012"]);
   expect(calls.at(-1)).toBe(`attach ${t.id}`);
 });
+
+test("a trip arriving after camera off voids the memo: the next track configures again", async () => {
+  const { bg, calls, notices } = setup();
+  const a = new FakeTrack("video");
+  await bg.setTrack(a);
+  await bg.select("blur");
+  await bg.setTrack(null); // camera off keeps the memo
+  bg.onTripped("slow"); // from a's last frames: the native engine is now tripped
+  expect(notices).toEqual([]); // nothing was showing: no notice, and not sticky
+  const c = new FakeTrack("video");
+  await bg.setTrack(c);
+  expect(calls.slice(-2)).toEqual(["set blur 0.012", `attach ${c.id}`]);
+  expect(bg.getSnapshot()).toMatchObject({ applied: "blur", busy: false });
+});

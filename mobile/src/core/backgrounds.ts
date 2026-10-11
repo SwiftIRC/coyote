@@ -131,6 +131,9 @@ export class Backgrounds {
   }
 
   onTripped(reason: TripReason): void {
+    // The native engine is tripped whatever this store shows (the trip may come from
+    // a track already gone): never attach to it again without reconfiguring.
+    this.configured = null;
     if (this.snap.applied === "none" && !this.snap.busy) return;
     this.gen++;
     this.tripped = true;
