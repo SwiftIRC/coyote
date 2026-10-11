@@ -277,6 +277,7 @@ function onJoined(msg) {
     // buttons whose actions the server now rejects. Mirrors the "role" handler below.
     if (grid.selfId) grid.setPeerRole(grid.selfId, msg.role);
     if (msg.role === "op") controls.becomeOp();
+    controls.onLock(!!msg.locked); // a late joiner (or a reconnect) learns the lock from joined, not only from broadcasts
     return;
   }
   if (prejoin) {
@@ -343,6 +344,7 @@ function renderInCall(msg) {
 
   // Controls first: the grid asks it for each remote tile's op-action group.
   controls = new Controls({ media, peer, signaling, role: msg.role, onLeave: leave, lowBandwidth, onLowBandwidth: setLowBandwidth });
+  controls.onLock(!!msg.locked); // a late joiner learns the lock from joined, not only from broadcasts
   grid = new Grid({
     selfId: msg.selfId,
     selfName,
