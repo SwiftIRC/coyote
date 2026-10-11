@@ -121,7 +121,8 @@ type Room struct {
 	// admittedRefs are the session refs of everyone this room has let in. A rejoin
 	// carrying one skips the password check, so locking a room mid-call doesn't lock
 	// out its own members on their next reconnect (they rejoin with the password they
-	// typed before the lock). Kick and Ban forget the target's ref.
+	// typed before the lock). It covers anyone admitted earlier in this room's life,
+	// including people who left on purpose; Kick and Ban revoke it.
 	admittedRefs map[string]struct{}
 
 	// Op-set session video caps: tier ids the clients map to a resolution/framerate
@@ -177,11 +178,20 @@ func (r *Room) rememberOp(p *Participant) {
 }
 
 // forgetRef drops a removed participant's session ref from admittedRefs, so the old
-// session can't rejoin past a lock.
-func (r *Room) forgetRef(ref string) {
+// session can't rejoin past a lock. After a reconnect the stale old participant can
+// linger holding the live session's ref; if any other participant still holds it,
+// the ref is kept so kicking that ghost doesn't revoke the live session's bypass.
+func (r *Room) forgetRef(targetID, ref string) {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+	if ref != "" {
+		for id, p := range r.parts {
+			if id != targetID && p.Ref == ref {
+				return
+			}
+		}
+	}
 	delete(r.admittedRefs, ref)
-	r.mu.Unlock()
 }
 
 func (r *Room) Slug() string { r.mu.Lock(); defer r.mu.Unlock(); return r.cfg.Slug }
@@ -436,7 +446,7 @@ func (r *Room) Kick(actorID, targetID string) error {
 	if err != nil {
 		return err
 	}
-	r.forgetRef(tgt.Ref)
+	r.forgetRef(tgt.ID, tgt.Ref)
 	tgt.Conn.Send(signal.Kicked{By: actorName})
 	// Do not close the socket here: closing cancels the target's read context,
 	// which hard-closes the connection and would race (drop) the frame just
@@ -465,7 +475,7 @@ func (r *Room) Ban(actorID, targetID string) error {
 	} else if tgt.IP != "" {
 		r.bannedIPs[tgt.IP] = struct{}{}
 	}
-	delete(r.admittedRefs, tgt.Ref)
+	delete(r.admittedRefs, tgt.Ref) // inline: r.mu is already held (Kick uses forgetRef)
 	r.mu.Unlock()
 	tgt.Conn.Send(signal.Banned{By: actorName})
 	// Same as Kick: deliver the frame, don't close. The ban is recorded above,

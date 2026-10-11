@@ -667,6 +667,36 @@ func TestLockKickedOrBannedRefRefused(t *testing.T) {
 		if err := r.Join(bob2, ""); err != ErrBadPassword {
 			t.Errorf("%s: rejoin while locked = %v, want ErrBadPassword", action, err)
 		}
+		if action == "ban" {
+			r.SetLock("p1", "")
+			bob3, _ := member("p4", "bob", RoleUser)
+			bob3.Ref = "rbob"
+			bob3.IP = "198.51.100.7"
+			if err := r.Join(bob3, ""); err != ErrBanned {
+				t.Errorf("ban: rejoin while unlocked = %v, want ErrBanned", err)
+			}
+		}
+	}
+}
+
+func TestKickGhostKeepsLiveRefBypass(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	r.Join(op, "")
+	ghost, _ := member("p2", "bob", RoleUser)
+	ghost.Ref = "r"
+	r.Join(ghost, "")
+	live, _ := member("p3", "bob", RoleUser)
+	live.Ref = "r"
+	r.Join(live, "")
+	r.SetLock("p1", "sesame")
+	if err := r.Kick("p1", "p2"); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := member("p4", "bob", RoleUser)
+	again.Ref = "r"
+	if err := r.Join(again, ""); err != nil {
+		t.Errorf("rejoin after kicking the ghost = %v, want admitted", err)
 	}
 }
 

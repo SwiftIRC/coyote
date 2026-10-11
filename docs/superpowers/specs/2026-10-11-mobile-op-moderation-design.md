@@ -72,6 +72,9 @@ One release, **app 1.3.0** (iOS build 6, Android versionCode 6):
 - `Kick` and `Ban` delete the target's ref, so a kicked person cannot slip back past a
   lock with their old session. (While unlocked, a kicked person may rejoin, as today.)
 - The set lives and dies with the `Room`, like `opRefs`. A `""` ref is never stored.
+- It covers anyone admitted earlier in the room's life, including people who left on
+  purpose; only `Kick`/`Ban` revoke it. Kicking a stale session (a ghost left behind by
+  a reconnect) keeps the ref if another participant still holds it.
 
 The ref is `sessionRef(join.Session)` — derived from the client's per-call session
 nonce, stable across a reconnect, never the nonce itself. A fresh browser tab or a new
