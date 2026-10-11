@@ -229,10 +229,12 @@ browser in the call to watch the result.
 63. **Flip and camera off/on.** With an effect on, flip to the back camera and back;
     turn the camera off and on; background the app and return: the effect stays on.
 64. **Android resolution.** With an effect on, the browser's stats (or the tile) show
-    a 640×360 / 360×640 camera from the Android phone; with None, the normal 720p.
+    a 640×360 / 360×640 camera from the Android phone (640×480 / 480×640 on a 4:3
+    camera, not stretched); with None, the normal 720p.
 65. **Slow phone.** On an older phone, pick Blur+: if it cannot keep up, within a few
     seconds the effect turns off with "Background effect turned off: this phone
-    couldn't keep up." Picking it again tries again.
+    couldn't keep up." Flipping or turning the camera off and on keeps it off (no
+    second notice); picking it again tries again.
 66. **Offline / older server.** In airplane mode (or against a server without
     `/api/scenes`), the sheet shows None/Blur/Blur+ and "Scenes unavailable offline.";
     a saved scene choice joins with no effect and no error.
@@ -240,3 +242,5 @@ browser in the call to watch the result.
     the scene.
 68. **Battery and heat.** Ten minutes with Blur on: the call stays smooth and the
     phone does not get uncomfortably hot.
+69. **Colour.** Switch between None and Blur on iOS: skin tones and colours look the
+    same (a colour shift means the composite's pixel format needs BGRA).
