@@ -44,3 +44,10 @@ export function useSoundboard(): BoardSnapshot {
   const { call } = useCall();
   return useStore(call()?.soundboard ?? null, EMPTY_BOARD);
 }
+
+const EMPTY_VOLUMES: Record<string, number> = {};
+
+export function useVolumes(): Record<string, number> {
+  const { call } = useCall();
+  return useStore(call()?.volumes ?? null, EMPTY_VOLUMES);
+}

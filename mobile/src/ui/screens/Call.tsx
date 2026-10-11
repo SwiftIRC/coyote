@@ -7,7 +7,7 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat, usePoll } from "../hooks";
+import { useChat, usePoll, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
@@ -16,6 +16,7 @@ import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
 import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
+import { VolumeSheet } from "../components/VolumeSheet";
 import { ScreenTile } from "../components/ScreenTile";
 import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
@@ -36,6 +37,8 @@ export function Call() {
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
   const chat = useChat();
   const pollNow = usePoll();
+  const volumes = useVolumes();
+  const [volumeFor, setVolumeFor] = useState<string | null>(null);
   const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
@@ -138,7 +141,11 @@ export function Call() {
           ) : (
             tiles.map((t) => t.kind === "screen"
               ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
-              : <Tile key={t.key} p={t.p} width={tileW} height={tileH} />)
+              : <Tile
+                key={t.key} p={t.p} width={tileW} height={tileH}
+                volume={volumes[t.p.id] ?? 1}
+                onLongPress={() => setVolumeFor(t.p.id)}
+              />)
           )}
         </View>
         <TopBar slug={state.slug} />
@@ -180,6 +187,12 @@ export function Call() {
           onClose={() => setSheet(null)}
           replacing={!!pollNow?.open}
           create={(q, o) => call()?.polls.create(q, o) ?? "offline"}
+        />
+        <VolumeSheet
+          p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}
+          volume={volumeFor ? volumes[volumeFor] ?? 1 : 1}
+          onChange={(v) => { if (volumeFor) call()?.volumes.set(volumeFor, v); }}
+          onClose={() => setVolumeFor(null)}
         />
         <ScreenViewer p={viewed} onClose={() => setViewing(null)} />
       </View>
