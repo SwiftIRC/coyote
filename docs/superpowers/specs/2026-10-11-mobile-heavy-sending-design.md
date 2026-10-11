@@ -223,8 +223,8 @@ helpers; applied on every join after the camera track exists.
   then one thumbnail per server scene. The current choice is ticked; a scene being
   applied shows a spinner on its tile. Selecting applies immediately and saves the
   pref.
-  Offline / fetch failure: the built-in three only, with a line "Scenes unavailable
-  offline."
+  Offline / fetch failure (including an older server without `/api/scenes`): the
+  built-in three only, with a line "Scenes currently unavailable".
 - **PreJoin:** a **Background** row beside the self-preview opens the sheet; the
   preview shows the effect live.
 - **☰ More sheet:** **Background…** opens the sheet.

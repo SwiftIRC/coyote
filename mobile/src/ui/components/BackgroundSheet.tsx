@@ -37,7 +37,7 @@ export function BackgroundSheet({ visible, onClose, snap, onSelect, onOpen }: {
         {BUILTIN_EFFECTS.map((b) => tile(b.id, b.label))}
         {snap.scenes.map((s) => tile(s.id, s.label, s.url))}
         {snap.scenesState === "loading" ? <ActivityIndicator style={styles.loading} color={colors.muted} /> : null}
-        {snap.scenesState === "unavailable" ? <Text style={styles.msg}>Scenes unavailable offline.</Text> : null}
+        {snap.scenesState === "unavailable" ? <Text style={styles.msg}>Scenes currently unavailable</Text> : null}
       </ScrollView>
     </Sheet>
   );

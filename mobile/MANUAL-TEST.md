@@ -237,7 +237,7 @@ browser in the call to watch the result.
     couldn't keep up." Flipping or turning the camera off and on keeps it off (no
     second notice); picking it again tries again.
 66. **Offline / older server.** In airplane mode (or against a server without
-    `/api/scenes`), the sheet shows None/Blur/Blur+ and "Scenes unavailable offline.";
+    `/api/scenes`), the sheet shows None/Blur/Blur+ and "Scenes currently unavailable";
     a saved scene choice joins with no effect and no error.
 67. **Quick changes.** Tap a scene and immediately Blur: you end up blurred, not on
     the scene.
