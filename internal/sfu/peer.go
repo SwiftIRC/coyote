@@ -3,6 +3,8 @@ package sfu
 import (
 	"encoding/json"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 
@@ -23,6 +25,12 @@ type Peer struct {
 	// takes mu to coordinate its own offers with the server's renegotiations.
 	mu          sync.Mutex
 	makingOffer bool
+
+	// offered is set once the server has sent this peer an offer of its own; the
+	// newcomer fallback (AddPeer) only acts on a peer that has never been offered.
+	// newcomerTimer runs that fallback and is stopped by RemovePeer.
+	offered       atomic.Bool
+	newcomerTimer *time.Timer
 
 	// receiveVideo is this subscriber's inbound-video gate (default true). When a
 	// client enables "low bandwidth" mode it sends set-receive-video{enabled:false};
