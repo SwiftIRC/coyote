@@ -11,6 +11,7 @@ import { useChat, usePoll, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
+import { loadPrefs, savePrefs } from "../../native/storage";
 import { MoreSheet } from "../components/MoreSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
@@ -45,6 +46,8 @@ export function Call() {
     setSheet(open ? "chat" : null);
     call()?.chat.setOpen(open);
   };
+  const [hideSelf, setHideSelf] = useState(false);
+  useEffect(() => { loadPrefs().then((p) => setHideSelf(p.hideSelf)).catch(() => {}); }, []);
   const [viewing, setViewing] = useState<string | null>(null);
   const audioStarted = useRef(false);
   const phase = state?.phase;
@@ -144,12 +147,13 @@ export function Call() {
               : <Tile
                 key={t.key} p={t.p} width={tileW} height={tileH}
                 volume={volumes[t.p.id] ?? 1}
+                dataSaver={state.dataSaver}
                 onLongPress={() => setVolumeFor(t.p.id)}
               />)
           )}
         </View>
         <TopBar slug={state.slug} />
-        <SelfView stream={state.camera ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
+        <SelfView stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
         <Controls
           mic={state.mic}
@@ -181,6 +185,10 @@ export function Call() {
           rename={(n) => call()?.rename(n) ?? "offline"}
           isOp={state.role === "op"}
           onNewPoll={() => setSheet("poll-form")}
+          dataSaver={state.dataSaver}
+          onDataSaver={(v) => { call()?.setDataSaver(v); savePrefs({ dataSaver: v }).catch(() => {}); }}
+          hideSelf={hideSelf}
+          onHideSelf={(v) => { setHideSelf(v); savePrefs({ hideSelf: v }).catch(() => {}); }}
         />
         <PollForm
           visible={sheet === "poll-form"}

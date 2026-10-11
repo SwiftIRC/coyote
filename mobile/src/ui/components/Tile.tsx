@@ -6,13 +6,13 @@ import { setStreamVolume } from "../../native/volume";
 import { colors } from "../theme";
 import { Avatar } from "./Avatar";
 
-export const Tile = memo(function TileView({ p, width, height, volume, onLongPress }: {
-  p: Participant; width: number; height: number; volume: number; onLongPress(): void;
+export const Tile = memo(function TileView({ p, width, height, volume, dataSaver, onLongPress }: {
+  p: Participant; width: number; height: number; volume: number; dataSaver: boolean; onLongPress(): void;
 }) {
   useEffect(() => {
     setStreamVolume(p.audio, volume);
   }, [p.audio, volume]);
-  const showVideo = p.camera && p.video?.toURL;
+  const showVideo = !dataSaver && p.camera && p.video?.toURL;
   return (
     <Pressable
       style={[styles.tile, { width, height }]}

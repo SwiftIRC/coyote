@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { NAME_MAX } from "../../core/call";
 import { colors, radius } from "../theme";
 import { Sheet } from "./Sheet";
+import { Toggle } from "./Toggle";
 
 type RenameResult = "sent" | "empty" | "unchanged" | "offline";
 const MESSAGES: Partial<Record<RenameResult, string>> = {
@@ -10,8 +11,9 @@ const MESSAGES: Partial<Record<RenameResult, string>> = {
   offline: "Not connected — name not changed.",
 };
 
-export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll }: {
+export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf }: {
   visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult; isOp: boolean; onNewPoll(): void;
+  dataSaver: boolean; onDataSaver(v: boolean): void; hideSelf: boolean; onHideSelf(v: boolean): void;
 }) {
   const [draft, setDraft] = useState(name);
   const [msg, setMsg] = useState("");
@@ -27,7 +29,7 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll }: {
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.35}>
+    <Sheet visible={visible} onClose={onClose} heightFraction={0.55}>
       <View style={styles.body}>
         <Text style={styles.label}>Name</Text>
         <View style={styles.row}>
@@ -53,6 +55,9 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll }: {
           </Pressable>
         </View>
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+        <Toggle label="Data saver" value={dataSaver} onChange={onDataSaver} />
+        <Text style={styles.msg}>Stops receiving video; audio keeps playing.</Text>
+        <Toggle label="Hide self-view" value={hideSelf} onChange={onHideSelf} />
         {isOp ? (
           <Pressable onPress={onNewPoll} accessibilityRole="button" style={styles.row2}>
             <Text style={styles.saveText}>New poll…</Text>
