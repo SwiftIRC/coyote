@@ -4,6 +4,7 @@ import { Signaling } from "../core/signaling";
 import type { SocketLike } from "../core/types";
 import { uuidV4 } from "../core/uuid";
 import { watchLifecycle } from "./lifecycle";
+import { playChime } from "./sounds";
 import { createSystemCall } from "./systemCall";
 import { createCandidate, createPeerConnection, createStream, media, videoCodecs } from "./webrtc";
 
@@ -28,6 +29,9 @@ export function createCall(events: CallEvents): { call: Call; dispose(): void } 
     system: system.port,
     uuid: () => uuidV4(Math.random),
     log: console,
+    timers,
+    now: () => Date.now(),
+    playChime,
   }, events);
   const stopLifecycle = watchLifecycle(call);
   return {
