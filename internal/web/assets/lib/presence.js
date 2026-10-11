@@ -18,6 +18,9 @@
 // reconnect). A "" ref (client sent no session nonce) is untrackable, so it always
 // chimes — the pre-existing behaviour.
 export class Presence {
+  /**
+   * @param {{ onJoinChime?: () => void, onDropChime?: () => void, graceMs?: number, timers?: typeof globalThis }} [opts]
+   */
   constructor({ onJoinChime, onDropChime, graceMs = 6000, timers = globalThis } = {}) {
     this._join = onJoinChime || (() => {});
     this._drop = onDropChime || (() => {});

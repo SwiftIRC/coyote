@@ -1,6 +1,7 @@
 import {
   encode, decode, parseInvite, parseToken, backoffDelay, handleRemoteOffer,
   serverErrorDisposition, qualityTier, encodingCaps, stacksNarrow, avatarFor, gravatarUrl,
+  formatDuration, linkSegments, Presence,
 } from "../src/shared/web";
 
 test("the web client's pure modules load under Jest", () => {
@@ -15,4 +16,24 @@ test("the web client's pure modules load under Jest", () => {
   expect(stacksNarrow(400, 800, 3)).toBe(true);
   expect(avatarFor("bob").initial).toBe("B");
   expect(gravatarUrl("nope", 10)).toBe("");
+});
+
+test("room-feature modules load: linkify, duration, presence", () => {
+  expect(linkSegments("see https://x.io/a). ok")).toEqual([
+    { text: "see " }, { text: "https://x.io/a", href: "https://x.io/a" }, { text: "). ok" },
+  ]);
+  expect(linkSegments("javascript:alert(1)")).toEqual([{ text: "javascript:alert(1)" }]);
+  expect(linkSegments("www.example.com")).toEqual([{ text: "www.example.com", href: "https://www.example.com" }]);
+  expect(formatDuration(65)).toBe("1:05");
+  expect(formatDuration(3661)).toBe("1:01:01");
+  let joins = 0;
+  // presence.js defaults `timers` to globalThis, so allowJs infers that type; a plain
+  // {setTimeout, clearTimeout} is all it uses.
+  const p = new Presence({ onJoinChime: () => joins++, timers: { setTimeout, clearTimeout } as unknown as typeof globalThis });
+  p.seed([{ ref: "a" }]);
+  p.joined("a");
+  expect(joins).toBe(0);
+  p.joined("b");
+  expect(joins).toBe(1);
+  p.clear();
 });
