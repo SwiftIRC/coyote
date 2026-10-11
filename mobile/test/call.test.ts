@@ -11,6 +11,7 @@ class FakePeer {
   quality: string[] = [];
   published: Array<[Kind, TrackLike]> = [];
   replaced: Array<[Kind, TrackLike | null]> = [];
+  unpublished: Kind[] = [];
   private senders = new Set<Kind>();
   constructor(public events: PeerEvents) {}
   async start(local: Array<{ track: TrackLike; kind: Kind }>) {
@@ -25,6 +26,10 @@ class FakePeer {
     if (!this.senders.has(k)) return false;
     this.replaced.push([k, t]);
     return true;
+  }
+  unpublish(k: Kind) {
+    this.unpublished.push(k);
+    this.senders.delete(k);
   }
   setQuality(c: string, s: string) {
     this.quality = [c, s];
@@ -48,6 +53,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const states: CallState[] = [];
   const mics: FakeTrack[] = [];
   const cams: FakeTrack[] = [];
+  const screens: FakeTrack[] = [];
   const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void> };
   let ids = 0;
   const call = new Call({
@@ -88,13 +94,20 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
     playChime: (n) => chimes.push(n),
     clips: { load: (id) => clipCalls.push(`load ${id}`), play: (id) => clipCalls.push(`play ${id}`), stop: (id) => clipCalls.push(`stop ${id}`) },
     fetchBoard: async () => board,
+    screen: {
+      start: async () => {
+        const t = new FakeTrack("video");
+        screens.push(t);
+        return t;
+      },
+    },
   }, {
     change: (s) => states.push(s),
     end: (o) => ends.push(o),
     notice: (t) => notices.push(t),
     selfRenamed: (n) => renames.push(n),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, screens, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
@@ -856,4 +869,64 @@ test("not-op in a call uses the app's wording", async () => {
   const { notices } = await inCall();
   sock().receive({ type: "error", code: "not-op", message: "x" });
   expect(notices).toEqual(["That needs op, and the server says you don't have it."]);
+});
+
+test("screenshare: start publishes kind screen; stop unpublishes", async () => {
+  const { call, peers, screens } = await inCall();
+  await call.screenShare.start();
+  expect(peers[0].published).toContainEqual(["screen", screens[0]]);
+  call.screenShare.stop("user");
+  expect(peers[0].unpublished).toEqual(["screen"]);
+  expect(screens[0].stopped).toBe(true);
+});
+
+test("screenshare: an op's muted{screen} stops the share with a notice", async () => {
+  const { call, peers, notices, screens } = await inCall();
+  await call.screenShare.start();
+  sock().receive({ type: "muted", kind: "screen" });
+  await flush();
+  expect(call.screenShare.getSnapshot().status).toBe("idle");
+  expect(peers[0].unpublished).toEqual(["screen"]);
+  expect(screens[0].stopped).toBe(true);
+  expect(notices).toContain("An op stopped your screen share.");
+});
+
+test("screenshare: a reconnect republishes a live share on the rebuilt peer", async () => {
+  const { call, timers, peers, screens, mics, cams } = await inCall();
+  await call.screenShare.start();
+  sock().drop();
+  timers.advance(500); // reconnect backoff
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(peers[1].started).toEqual([
+    { track: mics[0], kind: "mic" }, { track: cams[0], kind: "camera" }, { track: screens[0], kind: "screen" },
+  ]);
+});
+
+test("screenshare: a share ended while offline is not republished", async () => {
+  const { call, timers, peers, screens } = await inCall();
+  await call.screenShare.start();
+  sock().drop();
+  screens[0].end();
+  timers.advance(500); // reconnect backoff
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(peers[1].started?.some((l) => l.kind === "screen")).toBe(false);
+});
+
+test("screenshare: leaving stops the share", async () => {
+  const { call, screens } = await inCall();
+  await call.screenShare.start();
+  call.leave();
+  expect(screens[0].stopped).toBe(true);
+  expect(call.screenShare.getSnapshot().status).toBe("idle");
+});
+
+test("screenshare: cannot start before the call is up", async () => {
+  const t = setup();
+  await t.call.join(req());
+  await t.call.screenShare.start();
+  expect(t.screens).toEqual([]);
 });

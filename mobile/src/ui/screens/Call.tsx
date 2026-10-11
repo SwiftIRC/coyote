@@ -7,7 +7,7 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat, useModeration, usePoll, useVolumes } from "../hooks";
+import { useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
@@ -19,6 +19,8 @@ import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
 import { PersonSheet } from "../components/PersonSheet";
 import { ScreenTile } from "../components/ScreenTile";
+import { SharingPill } from "../components/SharingPill";
+import { OwnShareTile } from "../components/OwnShareTile";
 import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
 import { colors } from "../theme";
@@ -40,6 +42,7 @@ export function Call() {
   const pollNow = usePoll();
   const volumes = useVolumes();
   const mod = useModeration();
+  const share = useScreenShare();
   const [volumeFor, setVolumeFor] = useState<string | null>(null);
   const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
   const toggleChat = () => {
@@ -133,7 +136,7 @@ export function Call() {
     );
   }
   const people = state.participants;
-  const tiles = gridTiles(people);
+  const tiles = gridTiles(people, share.status === "sharing");
   const gridH = height - CONTROLS_H;
   const cols = gridColumns(width, gridH, tiles.length);
   const rows = Math.max(1, Math.ceil(tiles.length / cols));
@@ -148,7 +151,9 @@ export function Call() {
           {tiles.length === 0 ? (
             <Text style={styles.waiting}>{state.phase === "connecting" ? "Connecting…" : `Waiting for others in #${state.slug}…`}</Text>
           ) : (
-            tiles.map((t) => t.kind === "screen"
+            tiles.map((t) => t.kind === "own-screen"
+              ? <OwnShareTile key={t.key} width={tileW} height={tileH} />
+              : t.kind === "screen"
               ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
               : <Tile
                 key={t.key} p={t.p} width={tileW} height={tileH}
@@ -161,6 +166,9 @@ export function Call() {
         <TopBar slug={state.slug} locked={mod.locked} />
         <SelfView stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
+        {share.status === "sharing" ? (
+          <SharingPill bottom={CONTROLS_H + 8} onStop={() => call()?.screenShare.stop("user")} />
+        ) : null}
         <Controls
           mic={state.mic}
           camera={state.camera}
@@ -193,6 +201,10 @@ export function Call() {
           onNewPoll={() => setSheet("poll-form")}
           locked={mod.locked}
           quality={mod.quality}
+          share={share.status}
+          canShare={state.phase === "in-call"}
+          onShare={() => { setSheet(null); call()?.screenShare.start().catch(warn("screen share")); }}
+          onStopShare={() => { setSheet(null); call()?.screenShare.stop("user"); }}
           mod={{
             lock: (pw) => call()?.moderation.lock(pw) ?? "offline",
             unlock: () => call()?.moderation.unlock() ?? "offline",

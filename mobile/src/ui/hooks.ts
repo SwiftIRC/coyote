@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ChatSnapshot } from "../core/chat";
 import type { ModSnapshot } from "../core/moderation";
 import type { PollView } from "../core/polls";
+import type { ShareSnapshot } from "../core/screenShare";
 import type { BoardSnapshot } from "../core/soundboard";
 import { formatDuration } from "../shared/web";
 import { useCall } from "./CallContext";
@@ -47,6 +48,13 @@ export function useSoundboard(): BoardSnapshot {
 }
 
 const EMPTY_MOD: ModSnapshot = { locked: false, quality: { camera: "auto", screen: "auto" } };
+
+const EMPTY_SHARE: ShareSnapshot = { status: "idle" };
+
+export function useScreenShare(): ShareSnapshot {
+  const { call } = useCall();
+  return useStore(call()?.screenShare ?? null, EMPTY_SHARE);
+}
 
 export function useModeration(): ModSnapshot {
   const { call } = useCall();

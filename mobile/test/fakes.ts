@@ -104,10 +104,14 @@ export class FakeTrack implements TrackLike {
   readonly id = `t${++trackSeq}`;
   enabled = true;
   stopped = false;
+  released = false;
   private ended: Array<() => void> = [];
   constructor(readonly kind: string, private height = 720) {}
   stop() {
     this.stopped = true;
+  }
+  release() {
+    this.released = true;
   }
   getSettings() {
     return { height: this.height };

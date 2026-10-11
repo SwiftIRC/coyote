@@ -20,3 +20,10 @@ test("screenFor returns the sharer only while they still share", () => {
   expect(screenFor([person("a")], "a")).toBeNull();
   expect(screenFor([], "a")).toBeNull();
 });
+
+test("your own share is the first tile, only while sharing", () => {
+  expect(gridTiles([person("a")], true).map((t) => t.key)).toEqual(["self:screen", "a"]);
+  expect(gridTiles([person("a")], true)[0].kind).toBe("own-screen");
+  expect(gridTiles([person("a")]).map((t) => t.key)).toEqual(["a"]);
+  expect(gridTiles([], true).map((t) => t.key)).toEqual(["self:screen"]);
+});

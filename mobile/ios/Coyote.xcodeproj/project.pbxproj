@@ -13,11 +13,41 @@
 		761780EF2CA45674006654EE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EE /* SceneDelegate.swift */; };
 		761780F12CA45674006654EE /* CoyoteSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780F02CA45674006654EE /* CoyoteSounds.swift */; };
 		761780F32CA45674006654EE /* CoyoteSounds.m in Sources */ = {isa = PBXBuildFile; fileRef = 761780F22CA45674006654EE /* CoyoteSounds.m */; };
+		C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */; };
+		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
 		761780F52CA45674006654EE /* door_open.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F42CA45674006654EE /* door_open.mp3 */; };
 		761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F62CA45674006654EE /* sounds_drop.mp3 */; };
 		761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F82CA45674006654EE /* sounds_bloop.mp3 */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		C0B0AD132E00000000000001 /* CoyoteBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C0B0AD142E00000000000001 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD042E00000000000001 /* SampleHandler.swift */; };
+		C0B0AD152E00000000000001 /* SocketConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD052E00000000000001 /* SocketConnection.swift */; };
+		C0B0AD162E00000000000001 /* SampleUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD062E00000000000001 /* SampleUploader.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C0B0AD322E00000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0B0AD312E00000000000001;
+			remoteInfo = CoyoteBroadcast;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C0B0AD242E00000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C0B0AD132E00000000000001 /* CoyoteBroadcast.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* Coyote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Coyote.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -31,11 +61,19 @@
 		761780EE2CA45674006654EE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = Coyote/SceneDelegate.swift; sourceTree = "<group>"; };
 		761780F02CA45674006654EE /* CoyoteSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteSounds.swift; path = Coyote/CoyoteSounds.swift; sourceTree = "<group>"; };
 		761780F22CA45674006654EE /* CoyoteSounds.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteSounds.m; path = Coyote/CoyoteSounds.m; sourceTree = "<group>"; };
+		C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteScreenShare.swift; path = Coyote/CoyoteScreenShare.swift; sourceTree = "<group>"; };
+		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
 		761780F42CA45674006654EE /* door_open.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = door_open.mp3; path = Coyote/Sounds/door_open.mp3; sourceTree = "<group>"; };
 		761780F62CA45674006654EE /* sounds_drop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_drop.mp3; path = Coyote/Sounds/sounds_drop.mp3; sourceTree = "<group>"; };
 		761780F82CA45674006654EE /* sounds_bloop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_bloop.mp3; path = Coyote/Sounds/sounds_bloop.mp3; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Coyote/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoyoteBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0B0AD042E00000000000001 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
+		C0B0AD052E00000000000001 /* SocketConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketConnection.swift; sourceTree = "<group>"; };
+		C0B0AD062E00000000000001 /* SampleUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleUploader.swift; sourceTree = "<group>"; };
+		C0B0AD092E00000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C0B0AD0A2E00000000000001 /* CoyoteBroadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoyoteBroadcast.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,6 +82,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C80B921A6F3F58F76C31292 /* libPods-Coyote.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0B0AD222E00000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +103,8 @@
 				761780EE2CA45674006654EE /* SceneDelegate.swift */,
 				761780F02CA45674006654EE /* CoyoteSounds.swift */,
 				761780F22CA45674006654EE /* CoyoteSounds.m */,
+				C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */,
+				C0B0AD022E00000000000001 /* CoyoteScreenShare.m */,
 				761780F42CA45674006654EE /* door_open.mp3 */,
 				761780F62CA45674006654EE /* sounds_drop.mp3 */,
 				761780F82CA45674006654EE /* sounds_bloop.mp3 */,
@@ -88,6 +135,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* Coyote */,
+				C0B0AD512E00000000000001 /* CoyoteBroadcast */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -102,6 +150,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* Coyote.app */,
+				C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +164,18 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
+		C0B0AD512E00000000000001 /* CoyoteBroadcast */ = {
+			isa = PBXGroup;
+			children = (
+				C0B0AD042E00000000000001 /* SampleHandler.swift */,
+				C0B0AD052E00000000000001 /* SocketConnection.swift */,
+				C0B0AD062E00000000000001 /* SampleUploader.swift */,
+				C0B0AD092E00000000000001 /* Info.plist */,
+				C0B0AD0A2E00000000000001 /* CoyoteBroadcast.entitlements */,
+			);
+			path = CoyoteBroadcast;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -126,6 +187,7 @@
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
+				C0B0AD242E00000000000001 /* Embed Foundation Extensions */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
@@ -133,11 +195,29 @@
 			buildRules = (
 			);
 			dependencies = (
+				C0B0AD332E00000000000001 /* PBXTargetDependency */,
 			);
 			name = Coyote;
 			productName = Coyote;
 			productReference = 13B07F961A680F5B00A75B9A /* Coyote.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C0B0AD312E00000000000001 /* CoyoteBroadcast */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0B0AD432E00000000000001 /* Build configuration list for PBXNativeTarget "CoyoteBroadcast" */;
+			buildPhases = (
+				C0B0AD212E00000000000001 /* Sources */,
+				C0B0AD222E00000000000001 /* Frameworks */,
+				C0B0AD232E00000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CoyoteBroadcast;
+			productName = CoyoteBroadcast;
+			productReference = C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -149,6 +229,9 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
+					};
+					C0B0AD312E00000000000001 = {
+						CreatedOnToolsVersion = 16.0;
 					};
 				};
 			};
@@ -166,6 +249,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* Coyote */,
+				C0B0AD312E00000000000001 /* CoyoteBroadcast */,
 			);
 		};
 /* End PBXProject section */
@@ -180,6 +264,13 @@
 				761780F52CA45674006654EE /* door_open.mp3 in Resources */,
 				761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */,
 				761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0B0AD232E00000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,10 +360,30 @@
 				761780EF2CA45674006654EE /* SceneDelegate.swift in Sources */,
 				761780F12CA45674006654EE /* CoyoteSounds.swift in Sources */,
 				761780F32CA45674006654EE /* CoyoteSounds.m in Sources */,
+				C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */,
+				C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0B0AD212E00000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0B0AD142E00000000000001 /* SampleHandler.swift in Sources */,
+				C0B0AD152E00000000000001 /* SocketConnection.swift in Sources */,
+				C0B0AD162E00000000000001 /* SampleUploader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C0B0AD332E00000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0B0AD312E00000000000001 /* CoyoteBroadcast */;
+			targetProxy = C0B0AD322E00000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -281,7 +392,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_BITCODE = NO;
 				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				INFOPLIST_FILE = Coyote/Info.plist;
@@ -290,7 +401,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -312,7 +423,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				INFOPLIST_FILE = Coyote/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -320,7 +431,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -479,6 +590,57 @@
 			};
 			name = Release;
 		};
+		C0B0AD412E00000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CoyoteBroadcast/CoyoteBroadcast.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				INFOPLIST_FILE = CoyoteBroadcast/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.swiftirc.coyote.broadcast;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		C0B0AD422E00000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CoyoteBroadcast/CoyoteBroadcast.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				INFOPLIST_FILE = CoyoteBroadcast/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.swiftirc.coyote.broadcast;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -496,6 +658,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0B0AD432E00000000000001 /* Build configuration list for PBXNativeTarget "CoyoteBroadcast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0B0AD412E00000000000001 /* Debug */,
+				C0B0AD422E00000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

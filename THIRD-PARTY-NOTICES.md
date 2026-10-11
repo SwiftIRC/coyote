@@ -21,6 +21,16 @@ Google's `@mediapipe/tasks-vision` runtime plus the `selfie_segmenter` model, wh
 power the background blur and virtual backgrounds. **Apache-2.0.** Sources and
 checksums are recorded in that directory's `README.md`.
 
+### Screen-sharing broadcast extension — `mobile/ios/CoyoteBroadcast/`
+
+`SampleHandler.swift`, `SocketConnection.swift` and `SampleUploader.swift` are adapted
+from the screen-sharing broadcast extension sample in Jitsi Meet
+(<https://github.com/jitsi/jitsi-meet>, `ios/broadcast-extension/`), Copyright © 8x8,
+Inc., licensed under the Apache License 2.0
+(<https://www.apache.org/licenses/LICENSE-2.0>). Changes: reduced to video only,
+"started" posted once the socket connects, gives up when no call is listening, no
+`Atomic` helper.
+
 ### Noise-suppression worklet — `internal/web/assets/vendor/noise-suppressor-worklet.min.js`
 
 A pre-minified bundle. It has no provenance README and no licence header, which is

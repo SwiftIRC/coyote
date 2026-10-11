@@ -76,6 +76,10 @@
 	<string>Coyote uses the microphone so others in the call can hear you.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Coyote uses Bluetooth to route call audio to your headset.</string>
+	<key>RTCAppGroupIdentifier</key>
+	<string>group.net.swiftirc.coyote</string>
+	<key>RTCScreenSharingExtension</key>
+	<string>net.swiftirc.coyote.broadcast</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
