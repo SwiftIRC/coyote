@@ -77,7 +77,7 @@ describe("Android", () => {
     const env = load("android");
     const boom = new Error("boom");
     env.getDisplayMedia.mockRejectedValueOnce(boom);
-    const e = await env.start().catch((x) => x);
+    const e = await env.start().catch((x: Error) => x) as Error;
     expect(e).toBe(boom);
     expect(e.name).not.toBe("CaptureCancelled");
   });
@@ -100,7 +100,7 @@ describe("iOS", () => {
     jest.useFakeTimers();
     const env = load("ios");
     const p = env.start();
-    const out = p.catch((e) => e);
+    const out = p.catch((e: Error) => e) as Promise<Error>;
     await settle();
     jest.advanceTimersByTime(env.waitMs - 1);
     expect(env.track.stopped).toBe(false);
@@ -115,7 +115,7 @@ describe("iOS", () => {
   test("a picker failure rejects at once with a plain error; track stopped and released, timer cleared", async () => {
     jest.useFakeTimers();
     const env = load("ios", { picker: async () => Promise.reject(new Error("Broadcast picker button not found")) });
-    const e = await env.start().catch((x) => x);
+    const e = await env.start().catch((x: Error) => x) as Error;
     expect(e).toBeInstanceOf(Error);
     expect(e.name).not.toBe("CaptureCancelled");
     expect(env.track.stopped).toBe(true);
