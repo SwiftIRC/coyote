@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { RoomLink } from "../core/link";
-import { mergeRecent, type RecentRoom } from "../core/recent";
+import { mergeRecent, removeRecent, type RecentRoom } from "../core/recent";
 
 export interface Prefs {
   name: string;
@@ -42,6 +42,12 @@ export async function loadRecent(): Promise<RecentRoom[]> {
 
 export async function rememberRoom(link: RoomLink): Promise<RecentRoom[]> {
   const next = mergeRecent(await loadRecent(), link, Date.now());
+  await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  return next;
+}
+
+export async function forgetRoom(room: Pick<RecentRoom, "host" | "slug">): Promise<RecentRoom[]> {
+  const next = removeRecent(await loadRecent(), room);
   await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
   return next;
 }
