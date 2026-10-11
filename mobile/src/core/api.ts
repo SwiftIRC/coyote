@@ -51,3 +51,15 @@ export async function fetchSoundboard(f: Fetcher, origin: string): Promise<unkno
     return null;
   }
 }
+
+// GET /api/scenes -> [{id, label, src}]; null when unreachable or malformed.
+export async function fetchScenes(f: Fetcher, origin: string): Promise<unknown[] | null> {
+  try {
+    const res = await f(`${origin}/api/scenes`);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return Array.isArray(j) ? j : null;
+  } catch {
+    return null;
+  }
+}
