@@ -12,6 +12,7 @@ class FakePeer {
   published: Array<[Kind, TrackLike]> = [];
   replaced: Array<[Kind, TrackLike | null]> = [];
   unpublished: Kind[] = [];
+  heights: Array<number | null> = [];
   private senders = new Set<Kind>();
   constructor(public events: PeerEvents) {}
   async start(local: Array<{ track: TrackLike; kind: Kind }>) {
@@ -30,6 +31,9 @@ class FakePeer {
   unpublish(k: Kind) {
     this.unpublished.push(k);
     this.senders.delete(k);
+  }
+  setCameraSourceHeight(h: number | null) {
+    this.heights.push(h);
   }
   setQuality(c: string, s: string) {
     this.quality = [c, s];
@@ -111,6 +115,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
       clear: () => effects.push("clear"),
     },
     fetchScenes: async () => [{ id: "carina", label: "Carina", src: "/v/1/img/bg/carina.webp" }],
+    effectMaxLongSide: 640,
   }, {
     change: (s) => states.push(s),
     end: (o) => ends.push(o),
@@ -981,4 +986,28 @@ test("background: a trip shows its notice", async () => {
   const { call, notices } = await inCall({ background: "blur" });
   call.background.onTripped("slow");
   expect(notices).toContain("Background effect turned off: this phone couldn't keep up.");
+});
+
+test("quality cap: an effect's smaller output height reaches the peer, and None clears it", async () => {
+  const { call, peers } = await inCall({ background: "blur" });
+  expect(peers[0].heights.at(-1)).toBe(360);
+  await call.background.select("none");
+  expect(peers[0].heights.at(-1)).toBeNull();
+});
+
+test("quality cap: a rebuilt peer gets the current override", async () => {
+  const { timers, peers } = await inCall({ background: "blur" });
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(peers[1].heights.at(-1)).toBe(360);
+});
+
+test("quality cap: camera off clears it", async () => {
+  const { call, peers } = await inCall({ background: "blur" });
+  await call.setCamera(false);
+  await flush();
+  expect(peers[0].heights.at(-1)).toBeNull();
 });

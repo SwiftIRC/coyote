@@ -1,4 +1,4 @@
-import { Backgrounds, BG_TEXT, labelFor, parseScenes, type EffectPort, type NativeEffect, type Scene } from "../src/core/backgrounds";
+import { Backgrounds, BG_TEXT, effectOutputHeight, labelFor, parseScenes, type EffectPort, type NativeEffect, type Scene } from "../src/core/backgrounds";
 import type { TrackLike } from "../src/core/types";
 import { FakeTrack, flush, silentLog } from "./fakes";
 
@@ -322,4 +322,13 @@ test("a trip arriving after camera off voids the memo: the next track configures
   await bg.setTrack(c);
   expect(calls.slice(-2)).toEqual(["set blur 0.012", `attach ${c.id}`]);
   expect(bg.getSnapshot()).toMatchObject({ applied: "blur", busy: false });
+});
+
+test("effectOutputHeight: the short side of a frame scaled to the effect's long-side limit", () => {
+  expect(effectOutputHeight({ width: 1280, height: 720 }, 640)).toBe(360);
+  expect(effectOutputHeight({ width: 720, height: 1280 }, 640)).toBe(360);
+  expect(effectOutputHeight({ width: 1280, height: 960 }, 640)).toBe(480);
+  expect(effectOutputHeight({ width: 640, height: 480 }, 640)).toBe(480); // the long side is already the limit
+  expect(effectOutputHeight({ width: 1280, height: 720 }, null)).toBeNull(); // no limit (iOS)
+  expect(effectOutputHeight({ height: 720 }, 640)).toBeNull(); // unknown width: no override
 });

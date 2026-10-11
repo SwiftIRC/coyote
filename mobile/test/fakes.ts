@@ -106,7 +106,7 @@ export class FakeTrack implements TrackLike {
   stopped = false;
   released = false;
   private ended: Array<() => void> = [];
-  constructor(readonly kind: string, private height = 720) {}
+  constructor(readonly kind: string, private height = 720, private width = 1280) {}
   stop() {
     this.stopped = true;
   }
@@ -114,7 +114,7 @@ export class FakeTrack implements TrackLike {
     this.released = true;
   }
   getSettings() {
-    return { height: this.height };
+    return { height: this.height, width: this.width };
   }
   addEventListener(_t: "ended", fn: () => void) {
     this.ended.push(fn);

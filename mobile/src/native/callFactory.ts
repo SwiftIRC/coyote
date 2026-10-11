@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { fetchScenes, fetchSoundboard } from "../core/api";
 import { Call, type CallEvents } from "../core/call";
 import { Peer } from "../core/peer";
@@ -40,6 +41,7 @@ export function createCall(events: CallEvents): { call: Call; dispose(): void } 
     screen: screenCapture,
     effects: effectPort,
     fetchScenes: (origin) => fetchScenes(fetch, origin),
+    effectMaxLongSide: Platform.OS === "android" ? 640 : null, // BackgroundEngine.kt LONG_SIDE
   }, events);
   const stopLifecycle = watchLifecycle(call);
   const stopLoaded = onSoundLoaded((id, ok) => call?.soundboard.onLoaded(id, ok));

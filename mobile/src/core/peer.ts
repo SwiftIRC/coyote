@@ -46,6 +46,9 @@ export class Peer {
   private kindByStreamId = new Map<string, Kind>();
   private streamIdByKind = new Map<Kind, string>();
   private quality = { camera: "auto", screen: "auto" };
+  // The camera's real outgoing height when a native effect resizes its frames
+  // (Android background effects); quality tiers scale from this instead.
+  private cameraSourceHeight: number | null = null;
   private trackInfo = new Map<string, { participantId: string; kind: string }>();
   private incoming = new Map<string, { stream: StreamLike; emitted: boolean; info: { participantId: string; kind: string } | null }>();
   private restartedIce = false;
@@ -125,6 +128,11 @@ export class Peer {
     this.applyQuality("screen");
   }
 
+  setCameraSourceHeight(h: number | null): void {
+    this.cameraSourceHeight = h;
+    this.applyQuality("camera");
+  }
+
   close(): void {
     for (const [t, fn] of this.sigHandlers) this.sig.off(t, fn);
     this.sigHandlers = [];
@@ -162,7 +170,7 @@ export class Peer {
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) return; // not negotiated yet
     const enc = params.encodings[0];
-    const h = sender.track.getSettings?.().height || 0;
+    const h = (kind === "camera" && this.cameraSourceHeight) || sender.track.getSettings?.().height || 0;
     const caps: { scaleResolutionDownBy: number; maxFramerate?: number } = encodingCaps(qualityTier(this.quality[kind]), h);
     enc.scaleResolutionDownBy = caps.scaleResolutionDownBy;
     if (caps.maxFramerate) enc.maxFramerate = caps.maxFramerate;

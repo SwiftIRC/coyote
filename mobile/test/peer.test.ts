@@ -144,6 +144,18 @@ test("quality caps are applied once the sender has an encoding", async () => {
   expect(p.encodings[0]).toMatchObject({ scaleResolutionDownBy: 2, maxFramerate: 15 });
 });
 
+test("a camera source-height override replaces the track's height in the quality caps", async () => {
+  const { sig, pc, peer } = make();
+  peer.setQuality("low", "auto");
+  await peer.start([{ track: new FakeTrack("video", 720), kind: "camera" }]);
+  sig.receive({ type: "answer", sdp: "a1" });
+  await flush();
+  peer.setCameraSourceHeight(360);
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0]).toMatchObject({ scaleResolutionDownBy: 1 });
+  peer.setCameraSourceHeight(null);
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0]).toMatchObject({ scaleResolutionDownBy: 2 });
+});
+
 test("close detaches every signaling handler and closes the connection", async () => {
   const { sig, pc, peer } = make();
   expect(sig.handlerCount()).toBe(4);
