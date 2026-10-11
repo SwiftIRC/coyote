@@ -37,3 +37,16 @@ test("room-feature modules load: linkify, duration, presence", () => {
   expect(joins).toBe(1);
   p.clear();
 });
+
+import { boardButtonState, normalizeBoard, tallyPercents, totalVotes } from "../src/shared/web";
+
+test("poll and soundboard modules load", () => {
+  expect(totalVotes([1, "x", 2])).toBe(3);
+  expect(tallyPercents([1, 1, 1])).toEqual([34, 33, 33]);
+  expect(tallyPercents([0, 0])).toEqual([0, 0]);
+  expect(normalizeBoard([{ id: "a", label: "🚀", src: "/s.mp3" }, { id: "", label: "x", src: "y" }, null]))
+    .toEqual([{ id: "a", label: "🚀", src: "/s.mp3" }]);
+  expect(boardButtonState("a", "🚀", "", false)).toEqual({ active: false, disabled: false, title: "Play 🚀 for everyone" });
+  expect(boardButtonState("a", "🚀", "a", true)).toMatchObject({ active: true, disabled: false });
+  expect(boardButtonState("b", "🧪", "a", false)).toMatchObject({ active: false, disabled: true });
+});
