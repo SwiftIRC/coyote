@@ -81,7 +81,7 @@ first join or rejoin — it resets or seeds them before the server's replay arri
 chat is cleared (the server replays its last 200 messages as individual `chat`
 frames right after `joined`), the poll is seeded from `joined.poll`, the clock
 re-anchors to `joined.roomAge`, and `Presence` is re-seeded from `joined.peers`.
-`CallState` gains no new fields.
+`CallState` gains only `name` (your confirmed display name, for the ☰ Name row); chat and other room traffic stay out of it.
 
 ### UI access
 
@@ -145,8 +145,7 @@ shared `formatDuration` (`m:ss` / `h:mm:ss`).
   reconnect.
 
 **☰ More sheet**
-- 2a: **Name** — edit in place, 24 characters, trimmed; sends `rename` when
-  changed. The displayed name updates when `peer-renamed` arrives for self; the
+- 2a: **Name** — edit in place, 24 characters, trimmed; sends `rename` on Done or Save (closing the sheet cancels the edit). The displayed name updates when `peer-renamed` arrives for self; the
   name is then saved as the default join name and used by the next rejoin
   (already handled for the join request in `Call.onRenamed`).
 - 2b adds **Data saver**, **Hide self-view**, and, for ops, **New poll…**.
@@ -207,8 +206,8 @@ Covered by a Go handler test.
 ## Sound playback: `CoyoteSounds`
 
 A small in-house native module:
-- **iOS:** Swift, `AVAudioPlayer`. **Android:** Kotlin, `SoundPool` for the short
-  chimes and `MediaPlayer` for board clips.
+- **iOS:** Swift, `AVAudioPlayer`. **Android:** Kotlin, `MediaPlayer` for both chimes
+  and board clips.
 - **JS API:** `preload(id, uri)`, `play(id)`, `stop(id)`, and an `ended(id)` event
   (so the soundboard knows when to send `stop`).
 - **It never sets the audio category or mode and never activates the audio
