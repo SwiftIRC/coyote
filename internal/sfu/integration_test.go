@@ -175,7 +175,7 @@ func assertReceivesAll(t *testing.T, tc *testClient, want map[string]bool) {
 	for remaining > 0 {
 		select {
 		case tr := <-tc.gotTrack:
-			key := tr.ID() // "publisherID:kind"
+			key := roomKeyOf(tr.ID()) // "publisherID:kind"
 			if seen, expected := want[key]; expected && !seen {
 				want[key] = true
 				tracks[key] = tr
