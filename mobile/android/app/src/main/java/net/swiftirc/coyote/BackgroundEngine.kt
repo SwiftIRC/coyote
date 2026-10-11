@@ -16,12 +16,14 @@ import org.webrtc.JavaI420Buffer
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoFrame
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 // The "coyote-background" processor. Segments the person with ML Kit and composites
-// them over a blurred copy of the frame or a scene, on the CPU at 640×360, output
-// upright with rotation 0. Returning null passes the frame through untouched
+// them over a blurred copy of the frame or a scene, on the CPU with the long side at
+// 640 and the camera's aspect (640×360 for 16:9, 640×480 for 4:3), output upright
+// with rotation 0. Returning null passes the frame through untouched
 // (react-native-webrtc then forwards the original); a returned frame is new and
 // owned by the caller.
 object BackgroundEngine : VideoFrameProcessor {
@@ -32,7 +34,6 @@ object BackgroundEngine : VideoFrameProcessor {
 
   private const val TAG = "CoyoteBackground"
   private const val LONG_SIDE = 640
-  private const val SHORT_SIDE = 360
   private const val BUDGET_MS = 45.0
   private const val WARMUP_MS = 2_000L
   private const val SLOW_FOR_MS = 3_000L
@@ -76,6 +77,14 @@ object BackgroundEngine : VideoFrameProcessor {
       val out = render(frame, e, t0)
       watch(t0)
       out
+    } catch (timeout: TimeoutException) {
+      // ML Kit loads its model on the first frames: pass them through until there is
+      // a mask. A timeout once segmenting works (after the warm-up) is a failure.
+      if (mask != null && t0 - armedAt >= WARMUP_MS) {
+        Log.w(TAG, "segmentation timed out", timeout)
+        trip("failed")
+      }
+      null
     } catch (t: Throwable) {
       Log.w(TAG, "background frame failed", t)
       trip("failed")
@@ -86,15 +95,17 @@ object BackgroundEngine : VideoFrameProcessor {
   private fun render(frame: VideoFrame, e: Effect, now: Long): VideoFrame {
     val buffer = frame.buffer
     val landscape = buffer.width >= buffer.height
-    val sw = if (landscape) LONG_SIDE else SHORT_SIDE
-    val sh = if (landscape) SHORT_SIDE else LONG_SIDE
-    val scaled = buffer.cropAndScale(0, 0, buffer.width, buffer.height, sw, sh)
-    val i420 = try { scaled.toI420() } finally { scaled.release() } ?: throw IllegalStateException("toI420 failed")
+    // Keep the camera's aspect; I420 needs even dimensions.
+    val shortSide = max(2, (LONG_SIDE.toDouble() * minOf(buffer.width, buffer.height) / max(1, maxOf(buffer.width, buffer.height))).roundToInt() and 1.inv())
+    val sw = if (landscape) LONG_SIDE else shortSide
+    val sh = if (landscape) shortSide else LONG_SIDE
     val rot = ((frame.rotation % 360) + 360) % 360
     val sideways = rot == 90 || rot == 270
     val uw = if (sideways) sh else sw
     val uh = if (sideways) sw else sh
-    ensureScratch(sw, sh, uw, uh)
+    ensureScratch(sw, sh, uw, uh) // before any buffer exists that a throw here could leak
+    val scaled = buffer.cropAndScale(0, 0, buffer.width, buffer.height, sw, sh)
+    val i420 = try { scaled.toI420() } finally { scaled.release() } ?: throw IllegalStateException("toI420 failed")
     try { Yuv.i420ToArgb(i420, argb) } finally { i420.release() }
     val rawBmp = raw!!
     val up = upright!!

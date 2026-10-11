@@ -62,6 +62,7 @@ final class CoyoteBackgroundEngine: NSObject {
   private var slowSince: CFTimeInterval?
   private var mask: CIImage?
   private var maskAt: CFTimeInterval = 0
+  private var maskExtent = CGRect.zero // the upright frame the mask was made for
 
   private let context = CIContext(options: [.cacheIntermediates: false])
   private let request: VNGeneratePersonSegmentationRequest = {
@@ -95,6 +96,7 @@ final class CoyoteBackgroundEngine: NSObject {
     let oriented = CIImage(cvPixelBuffer: src).oriented(Self.orientation(for: rotation))
     let frame = oriented.transformed(by: CGAffineTransform(translationX: -oriented.extent.origin.x, y: -oriented.extent.origin.y))
     let extent = frame.extent
+    if extent.size != maskExtent.size { mask = nil } // rotated or resized: segment again now
     if mask == nil || t0 - maskAt >= Self.segmentEvery {
       guard let fresh = segment(frame) else {
         trip("failed")
@@ -102,6 +104,7 @@ final class CoyoteBackgroundEngine: NSObject {
       }
       mask = fresh
       maskAt = t0
+      maskExtent = extent
     }
     guard let mask = mask,
           let out = outPool.make(Int(extent.width), Int(extent.height), CVPixelBufferGetPixelFormatType(src))
@@ -241,6 +244,16 @@ class CoyoteBackground: RCTEventEmitter {
     }
   }
 
+  // Nothing uses the effect: drop the scene image and mask. Bumping the token keeps a
+  // scene download still in flight from installing itself afterwards.
+  @objc(clear)
+  func clear() {
+    DispatchQueue.main.async {
+      self.token += 1
+      CoyoteBackgroundEngine.shared.configure(nil)
+    }
+  }
+
   // Decode once into a bitmap so the per-frame composite doesn't re-decode the file.
   private static func rasterize(_ file: URL) -> CIImage? {
     guard let lazy = CIImage(contentsOf: file),
@@ -282,6 +295,12 @@ class CoyoteBackground: RCTEventEmitter {
         try? fm.removeItem(at: file)
         done(nil)
         return
+      }
+      // Only the newest scene is kept; older ones are stale versions or other choices.
+      if let others = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+        for other in others where other.lastPathComponent != file.lastPathComponent {
+          try? fm.removeItem(at: other)
+        }
       }
       done(image)
     }.resume()

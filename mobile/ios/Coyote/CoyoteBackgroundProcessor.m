@@ -1,3 +1,5 @@
+#import <CoreVideo/CoreVideo.h>
+#import <Foundation/Foundation.h>
 #import <React/RCTEventEmitter.h>
 #import <WebRTC/RTCCVPixelBuffer.h>
 #import <WebRTC/RTCVideoFrame.h>
@@ -8,7 +10,13 @@
 #else
 #import "ProcessorProvider.h"
 #endif
-#import "Coyote-Swift.h"
+
+// The Swift engine (@objc(CoyoteBackgroundEngine) in CoyoteBackground.swift), declared
+// here rather than through the generated Coyote-Swift.h.
+@interface CoyoteBackgroundEngine : NSObject
+@property (class, nonatomic, readonly, strong) CoyoteBackgroundEngine *shared;
+- (nullable CVPixelBufferRef)process:(CVPixelBufferRef)src rotation:(NSInteger)rotation;
+@end
 
 // The camera-frame hook react-native-webrtc calls for tracks with the
 // "coyote-background" effect. It must always return a frame: react-native-webrtc

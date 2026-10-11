@@ -4,7 +4,7 @@ import org.webrtc.JavaI420Buffer
 import org.webrtc.VideoFrame
 
 // BT.601 limited-range conversions between I420 and packed ARGB ints, sized for
-// the 640×360 frames the background effect works on.
+// the frames (640 on the long side) the background effect works on.
 object Yuv {
   fun i420ToArgb(src: VideoFrame.I420Buffer, out: IntArray) {
     val w = src.width

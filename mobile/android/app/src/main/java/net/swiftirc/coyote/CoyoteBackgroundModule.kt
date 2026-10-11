@@ -59,6 +59,14 @@ class CoyoteBackgroundModule(private val ctx: ReactApplicationContext) : ReactCo
     }
   }
 
+  // Nothing uses the effect: drop the scene bitmap and mask. Bumping the token keeps a
+  // scene download still in flight from installing itself afterwards.
+  @ReactMethod
+  fun clear() {
+    token.incrementAndGet()
+    BackgroundEngine.configure(null)
+  }
+
   @ReactMethod fun addListener(eventName: String) {}
   @ReactMethod fun removeListeners(count: Int) {}
 
@@ -66,7 +74,8 @@ class CoyoteBackgroundModule(private val ctx: ReactApplicationContext) : ReactCo
     val dir = File(ctx.cacheDir, "backgrounds").apply { mkdirs() }
     val hash = MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
     val file = File(dir, "$hash.webp")
-    if (!file.exists()) {
+    val downloaded = !file.exists()
+    if (downloaded) {
       val part = File(dir, "$hash.part")
       val conn = (URL(url).openConnection() as HttpURLConnection).apply { connectTimeout = 10_000; readTimeout = 15_000 }
       try {
@@ -83,10 +92,13 @@ class CoyoteBackgroundModule(private val ctx: ReactApplicationContext) : ReactCo
         throw java.io.IOException("rename failed")
       }
     }
-    return BitmapFactory.decodeFile(file.path) ?: run {
+    val image = BitmapFactory.decodeFile(file.path) ?: run {
       file.delete()
       throw java.io.IOException("decode failed")
     }
+    // Only the newest scene is kept; older ones are stale versions or other choices.
+    if (downloaded) dir.listFiles()?.forEach { if (it.name != file.name) it.delete() }
+    return image
   }
 
   private fun emitTripped(reason: String) {
