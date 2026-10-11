@@ -1,10 +1,12 @@
 import React, { useRef, useState } from "react";
-import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import type { PollResult, PollView } from "../../core/polls";
 import { CHAT_MAX, type ChatEntry, type SendResult } from "../../core/chat";
 import { hhmm } from "../../core/chatText";
 import { linkSegments } from "../../shared/web";
-import { useChat } from "../hooks";
+import { useChat, usePoll } from "../hooks";
 import { colors, radius } from "../theme";
+import { PollCard } from "./PollCard";
 import { Sheet } from "./Sheet";
 
 const ERRORS: Partial<Record<SendResult, string>> = {
@@ -12,10 +14,16 @@ const ERRORS: Partial<Record<SendResult, string>> = {
   "too-long": `Messages are limited to ${CHAT_MAX} characters.`,
 };
 
-function Line({ e }: { e: ChatEntry }) {
+type PollActions = { vote(i: number): PollResult; close(): PollResult };
+
+function Line({ e, poll, isOp, polls }: { e: ChatEntry; poll: PollView | null; isOp: boolean; polls: PollActions }) {
   const time = hhmm(e.ts, Date.now());
   if (e.kind === "system") return <Text style={styles.system}>{time} {e.text}</Text>;
-  if (e.kind === "poll") return null; // rendered by Task 10
+  if (e.kind === "poll") {
+    return poll
+      ? <PollCard poll={poll} isOp={isOp} stale={poll.id !== e.pollId} onVote={polls.vote} onClose={polls.close} />
+      : <Text style={styles.system}>Poll</Text>;
+  }
   return (
     <Text style={styles.line} selectable>
       <Text style={styles.time}>{time} </Text>
@@ -31,8 +39,12 @@ function Line({ e }: { e: ChatEntry }) {
   );
 }
 
-export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClose(): void; send(text: string): SendResult }) {
+export function ChatSheet({ visible, onClose, send, isOp, polls }: {
+  visible: boolean; onClose(): void; send(text: string): SendResult; isOp: boolean; polls: PollActions;
+}) {
   const chat = useChat();
+  const poll = usePoll();
+  const [tab, setTab] = useState<"chat" | "poll">("chat");
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const list = useRef<FlatList<ChatEntry>>(null);
@@ -50,11 +62,26 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={styles.body}>
+        <View style={styles.header}>
+          {(["chat", "poll"] as const).map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} accessibilityRole="tab" accessibilityState={{ selected: tab === t }}>
+              <Text style={[styles.tab, { color: tab === t ? colors.text : colors.muted }]}>{t === "chat" ? "Chat" : "Poll"}</Text>
+            </Pressable>
+          ))}
+          <View style={styles.spacer} />
+        </View>
+        {tab === "poll" ? (
+          <ScrollView contentContainerStyle={styles.list}>
+            {poll
+              ? <PollCard poll={poll} isOp={isOp} onVote={polls.vote} onClose={polls.close} />
+              : <Text style={styles.system}>No poll in this room.</Text>}
+          </ScrollView>
+        ) : (<>
         <FlatList
           ref={list}
           data={chat.entries}
           keyExtractor={(e) => String(e.key)}
-          renderItem={({ item }) => <Line e={item} />}
+          renderItem={({ item }) => <Line e={item} poll={poll} isOp={isOp} polls={polls} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.system}>No messages yet.</Text>}
           onScroll={(ev) => {
@@ -83,6 +110,7 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
             <Text style={styles.sendText}>➤</Text>
           </Pressable>
         </View>
+        </>)}
       </View>
     </Sheet>
   );
@@ -90,6 +118,9 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
 
 const styles = StyleSheet.create({
   body: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 12, paddingBottom: 6 },
+  spacer: { flex: 1 },
+  tab: { fontSize: 15, fontWeight: "700" },
   list: { paddingHorizontal: 12, paddingBottom: 8, gap: 4 },
   line: { color: colors.text, fontSize: 15 },
   time: { color: colors.muted, fontSize: 12 },

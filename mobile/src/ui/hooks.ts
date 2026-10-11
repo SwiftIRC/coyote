@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ChatSnapshot } from "../core/chat";
+import type { PollView } from "../core/polls";
 import { formatDuration } from "../shared/web";
 import { useCall } from "./CallContext";
 
@@ -29,4 +30,9 @@ export function useElapsed(): string | null {
     return () => clearInterval(id);
   }, [start]);
   return start === null ? null : formatDuration((now - start) / 1000);
+}
+
+export function usePoll(): PollView | null {
+  const { call } = useCall();
+  return useStore(call()?.polls ?? null, null as PollView | null);
 }

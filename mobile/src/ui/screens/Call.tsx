@@ -7,9 +7,10 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat } from "../hooks";
+import { useChat, usePoll } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
+import { PollForm } from "../components/PollForm";
 import { MoreSheet } from "../components/MoreSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
@@ -34,7 +35,8 @@ export function Call() {
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
   const chat = useChat();
-  const [sheet, setSheet] = useState<"chat" | "more" | null>(null);
+  const pollNow = usePoll();
+  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
     setSheet(open ? "chat" : null);
@@ -158,12 +160,22 @@ export function Call() {
           visible={sheet === "chat"}
           onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
           send={(t) => call()?.chat.send(t) ?? "offline"}
+          isOp={state.role === "op"}
+          polls={{ vote: (i) => call()?.polls.vote(i) ?? "offline", close: () => call()?.polls.close() ?? "offline" }}
         />
         <MoreSheet
           visible={sheet === "more"}
           onClose={() => setSheet(null)}
           name={state.name}
           rename={(n) => call()?.rename(n) ?? "offline"}
+          isOp={state.role === "op"}
+          onNewPoll={() => setSheet("poll-form")}
+        />
+        <PollForm
+          visible={sheet === "poll-form"}
+          onClose={() => setSheet(null)}
+          replacing={!!pollNow?.open}
+          create={(q, o) => call()?.polls.create(q, o) ?? "offline"}
         />
         <ScreenViewer p={viewed} onClose={() => setViewing(null)} />
       </View>

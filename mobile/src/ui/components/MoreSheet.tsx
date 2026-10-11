@@ -10,8 +10,8 @@ const MESSAGES: Partial<Record<RenameResult, string>> = {
   offline: "Not connected — name not changed.",
 };
 
-export function MoreSheet({ visible, onClose, name, rename }: {
-  visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult;
+export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll }: {
+  visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult; isOp: boolean; onNewPoll(): void;
 }) {
   const [draft, setDraft] = useState(name);
   const [msg, setMsg] = useState("");
@@ -53,6 +53,11 @@ export function MoreSheet({ visible, onClose, name, rename }: {
           </Pressable>
         </View>
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+        {isOp ? (
+          <Pressable onPress={onNewPoll} accessibilityRole="button" style={styles.row2}>
+            <Text style={styles.saveText}>New poll…</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Sheet>
   );
@@ -67,5 +72,6 @@ const styles = StyleSheet.create({
   save: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: radius, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
   saveOff: { opacity: 0.5 },
   saveText: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  row2: { paddingVertical: 12 },
   msg: { color: colors.muted },
 });
