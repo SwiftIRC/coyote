@@ -240,6 +240,7 @@ export class Peer {
   private onTracks(msg: Frame) {
     const next = new Map<string, { participantId: string; kind: string }>();
     for (const t of msg.tracks || []) next.set(t.mid, { participantId: t.participantId, kind: t.kind });
+    this.deps.log.info("[peer] tracks", JSON.stringify(msg.tracks || []), "held mids", JSON.stringify([...this.incoming.keys()]));
     if (next.size === 0) return;
     for (const mid of [...this.incoming.keys()]) if (!next.has(mid)) this.onStreamGone(mid);
     this.trackInfo = next;
@@ -248,6 +249,7 @@ export class Peer {
 
   private onTrack(ev: TrackEventLike) {
     const mid = ev.transceiver.mid;
+    this.deps.log.info("[peer] track", ev.track.kind, "mid", mid, mid != null && this.incoming.has(mid) ? "(dup)" : "");
     if (mid == null || this.incoming.has(mid)) return;
     // The SFU bundles a publisher's tracks under one stream id; wrap just this track.
     const stream = this.deps.createStream([ev.track]);
@@ -262,6 +264,7 @@ export class Peer {
     if (!info || !rec || rec.emitted) return;
     rec.emitted = true;
     rec.info = info;
+    this.deps.log.info("[peer] mid", mid, "->", info.participantId, info.kind);
     this.events.remoteTrack({ participantId: info.participantId, kind: info.kind, stream: rec.stream });
   }
 
