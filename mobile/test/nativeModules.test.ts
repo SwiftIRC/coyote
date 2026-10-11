@@ -158,8 +158,10 @@ test("iOS CoyoteBackground: module, processor registration and project wiring", 
   const m = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.m"), "utf8");
   expect(m).toContain("RCT_EXTERN_MODULE(CoyoteBackground, RCTEventEmitter)");
   expect(m).toContain("RCT_EXTERN_METHOD(setEffect:(NSDictionary *)effect resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)");
-  expect(m).toContain('forName:@"coyote-background"');
-  expect(m).toContain("RTCVideoRotation_0");
+  expect(m).not.toContain("Coyote-Swift.h");
+  const proc = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackgroundProcessor.m"), "utf8");
+  expect(proc).toContain('forName:@"coyote-background"');
+  expect(proc).toContain("RTCVideoRotation_0");
   const swift = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.swift"), "utf8");
   expect(swift).toContain("VNGeneratePersonSegmentationRequest");
   expect(swift).toContain('"CoyoteBackgroundTripped"');
@@ -168,4 +170,5 @@ test("iOS CoyoteBackground: module, processor registration and project wiring", 
   const pbx = fs.readFileSync(path.join(ios, "Coyote.xcodeproj", "project.pbxproj"), "utf8");
   expect(pbx).toContain("CoyoteBackground.swift in Sources");
   expect(pbx).toContain("CoyoteBackground.m in Sources");
+  expect(pbx).toContain("CoyoteBackgroundProcessor.m in Sources");
 });

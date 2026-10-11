@@ -241,6 +241,14 @@ class CoyoteBackground: RCTEventEmitter {
     }
   }
 
+  // Decode once into a bitmap so the per-frame composite doesn't re-decode the file.
+  private static func rasterize(_ file: URL) -> CIImage? {
+    guard let lazy = CIImage(contentsOf: file),
+          let cg = CIContext().createCGImage(lazy, from: lazy.extent)
+    else { return nil }
+    return CIImage(cgImage: cg)
+  }
+
   // Cached under Caches/backgrounds by a hash of the URL (the server version-stamps
   // scene URLs, so a changed image has a new URL).
   private func loadScene(_ url: URL, done: @escaping (CIImage?) -> Void) {
@@ -250,7 +258,7 @@ class CoyoteBackground: RCTEventEmitter {
     let name = SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
     let file = dir.appendingPathComponent(name + ".webp")
     if fm.fileExists(atPath: file.path) {
-      if let image = CIImage(contentsOf: file) {
+      if let image = Self.rasterize(file) {
         done(image)
         return
       }
@@ -270,7 +278,7 @@ class CoyoteBackground: RCTEventEmitter {
         done(nil)
         return
       }
-      guard let image = CIImage(contentsOf: file) else {
+      guard let image = Self.rasterize(file) else {
         try? fm.removeItem(at: file)
         done(nil)
         return

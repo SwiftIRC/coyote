@@ -17,6 +17,7 @@
 		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
 		C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE012E00000000000001 /* CoyoteBackground.swift */; };
 		C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE022E00000000000001 /* CoyoteBackground.m */; };
+		C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */; };
 		761780F52CA45674006654EE /* door_open.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F42CA45674006654EE /* door_open.mp3 */; };
 		761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F62CA45674006654EE /* sounds_drop.mp3 */; };
 		761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F82CA45674006654EE /* sounds_bloop.mp3 */; };
@@ -67,6 +68,7 @@
 		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
 		C0B0AE012E00000000000001 /* CoyoteBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteBackground.swift; path = Coyote/CoyoteBackground.swift; sourceTree = "<group>"; };
 		C0B0AE022E00000000000001 /* CoyoteBackground.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackground.m; path = Coyote/CoyoteBackground.m; sourceTree = "<group>"; };
+		C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackgroundProcessor.m; path = Coyote/CoyoteBackgroundProcessor.m; sourceTree = "<group>"; };
 		761780F42CA45674006654EE /* door_open.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = door_open.mp3; path = Coyote/Sounds/door_open.mp3; sourceTree = "<group>"; };
 		761780F62CA45674006654EE /* sounds_drop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_drop.mp3; path = Coyote/Sounds/sounds_drop.mp3; sourceTree = "<group>"; };
 		761780F82CA45674006654EE /* sounds_bloop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_bloop.mp3; path = Coyote/Sounds/sounds_bloop.mp3; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				C0B0AD022E00000000000001 /* CoyoteScreenShare.m */,
 				C0B0AE012E00000000000001 /* CoyoteBackground.swift */,
 				C0B0AE022E00000000000001 /* CoyoteBackground.m */,
+				C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */,
 				761780F42CA45674006654EE /* door_open.mp3 */,
 				761780F62CA45674006654EE /* sounds_drop.mp3 */,
 				761780F82CA45674006654EE /* sounds_bloop.mp3 */,
@@ -370,6 +373,7 @@
 				C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */,
 				C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */,
 				C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */,
+				C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
