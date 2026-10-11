@@ -4,6 +4,7 @@ type Listener = (e: unknown) => void;
 function load(os: "ios" | "android", opts: { module?: boolean } = {}) {
   jest.resetModules();
   const setEffect = jest.fn(async () => null);
+  const clear = jest.fn();
   const listeners = new Set<Listener>();
   class NativeEventEmitter {
     addListener(_name: string, fn: Listener) {
@@ -13,14 +14,14 @@ function load(os: "ios" | "android", opts: { module?: boolean } = {}) {
   }
   jest.doMock("react-native", () => ({
     Platform: { OS: os },
-    NativeModules: opts.module === false ? {} : { CoyoteBackground: { setEffect } },
+    NativeModules: opts.module === false ? {} : { CoyoteBackground: { setEffect, clear } },
     NativeEventEmitter,
   }));
   let mod: typeof import("../src/native/background") | undefined;
   jest.isolateModules(() => {
     mod = require("../src/native/background");
   });
-  return { mod: mod!, setEffect, emit: (e: unknown) => listeners.forEach((fn) => fn(e)), listeners };
+  return { mod: mod!, setEffect, clear, emit: (e: unknown) => listeners.forEach((fn) => fn(e)), listeners };
 }
 
 function track() {
@@ -37,6 +38,18 @@ test("setEffect forwards the effect to the native module", async () => {
 test("setEffect rejects when the native module is missing", async () => {
   const { mod } = load("android", { module: false });
   await expect(mod.effectPort.setEffect({ kind: "blur", radius: 0.012 })).rejects.toThrow();
+});
+
+test("clear frees the native effect; harmless without the module", () => {
+  const { mod, clear } = load("android");
+  mod.effectPort.clear();
+  expect(clear).toHaveBeenCalledTimes(1);
+  clear.mockImplementation(() => {
+    throw new Error("native");
+  });
+  expect(() => mod.effectPort.clear()).not.toThrow();
+  const missing = load("ios", { module: false });
+  expect(() => missing.mod.effectPort.clear()).not.toThrow();
 });
 
 test("attach installs the coyote-background processor", () => {

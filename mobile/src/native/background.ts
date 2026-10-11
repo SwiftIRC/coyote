@@ -26,6 +26,13 @@ export const effectPort: EffectPort = {
   // Android: null removes the processor (an empty list over-releases frames in
   // react-native-webrtc 124). iOS: the native side takes a nonnull array.
   detach: (track) => setVideoEffects(track, Platform.OS === "android" ? null : []),
+  clear: () => {
+    try {
+      CoyoteBackground?.clear?.();
+    } catch (e) {
+      console.warn("clearing the background effect failed", e);
+    }
+  },
 };
 
 export function onBackgroundTripped(fn: (reason: TripReason) => void): () => void {

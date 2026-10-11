@@ -108,6 +108,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
       },
       attach: (t) => effects.push(`attach ${t.id}`),
       detach: (t) => effects.push(`detach ${t.id}`),
+      clear: () => effects.push("clear"),
     },
     fetchScenes: async () => [{ id: "carina", label: "Carina", src: "/v/1/img/bg/carina.webp" }],
   }, {
@@ -947,7 +948,7 @@ test("background: the join's choice is applied to the camera track", async () =>
 
 test("background: none by default — the track is detached, nothing configured", async () => {
   const { effects, cams } = await inCall();
-  expect(effects).toEqual([`detach ${cams[0].id}`]);
+  expect(effects).toEqual([`detach ${cams[0].id}`, "clear"]);
 });
 
 test("background: follows the camera through flip and off/on", async () => {
