@@ -172,3 +172,19 @@ test("iOS CoyoteBackground: module, processor registration and project wiring", 
   expect(pbx).toContain("CoyoteBackground.m in Sources");
   expect(pbx).toContain("CoyoteBackgroundProcessor.m in Sources");
 });
+
+test("Android CoyoteBackground: exports, registration, ML Kit, frame ownership", () => {
+  const dir = path.join(__dirname, "..", "android", "app", "src", "main", "java", "net", "swiftirc", "coyote");
+  const mod = fs.readFileSync(path.join(dir, "CoyoteBackgroundModule.kt"), "utf8");
+  expect(exportedNames(mod).sort()).toEqual(["addListener", "removeListeners", "setEffect"]);
+  expect(mod).toContain('"CoyoteBackgroundTripped"');
+  const app = fs.readFileSync(path.join(dir, "MainApplication.kt"), "utf8");
+  expect(app).toContain('ProcessorProvider.addProcessor("coyote-background"');
+  expect(app).toContain("CoyoteBackgroundPackage()");
+  const engine = fs.readFileSync(path.join(dir, "BackgroundEngine.kt"), "utf8");
+  expect(engine).toContain("SelfieSegmenterOptions.STREAM_MODE");
+  expect(engine).toContain("BUDGET_MS = 45.0");
+  expect(engine).not.toMatch(/return\s+frame\b/); // never hand the input frame back
+  const gradle = fs.readFileSync(path.join(__dirname, "..", "android", "app", "build.gradle"), "utf8");
+  expect(gradle).toContain("com.google.mlkit:segmentation-selfie:16.0.0-beta6");
+});

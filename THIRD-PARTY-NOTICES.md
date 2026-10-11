@@ -109,6 +109,13 @@ from this source tree but present in a compiled binary. The significant ones:
 Run `go list -m all` for the full set, and `go-licenses` or equivalent if a complete
 audit is needed for a distribution.
 
+### Android app — Google ML Kit Selfie Segmentation
+
+The Android app links `com.google.mlkit:segmentation-selfie` (Gradle), used for
+on-device person segmentation by the background effects. It is distributed under
+the ML Kit Terms of Service (<https://developers.google.com/ml-kit/terms>); the model
+runs on the device and no frames leave it.
+
 ---
 
 ## The Anope module

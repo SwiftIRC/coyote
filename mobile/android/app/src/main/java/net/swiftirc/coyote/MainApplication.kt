@@ -6,6 +6,8 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.oney.WebRTCModule.videoEffects.ProcessorProvider
+import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
 
 class MainApplication : Application(), ReactApplication {
 
@@ -18,12 +20,15 @@ class MainApplication : Application(), ReactApplication {
           // add(MyReactNativePackage())
           add(CallServicePackage())
           add(CoyoteSoundsPackage())
+          add(CoyoteBackgroundPackage())
         },
     )
   }
 
   override fun onCreate() {
     super.onCreate()
+    // The camera-frame hook for background effects (JS attaches it by this name).
+    ProcessorProvider.addProcessor("coyote-background", VideoFrameProcessorFactoryInterface { BackgroundEngine })
     loadReactNative(this)
   }
 }
