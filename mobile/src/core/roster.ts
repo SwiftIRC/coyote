@@ -21,10 +21,13 @@ export interface Participant {
   gravatar: string;
   video: StreamLike | null;
   audio: StreamLike | null;
+  screen: StreamLike | null;
+  screenAudio: StreamLike | null;
 }
 
-type StreamSlot = "video" | "audio";
-const slotFor = (kind: "camera" | "mic"): StreamSlot => (kind === "camera" ? "video" : "audio");
+export type StreamKind = "camera" | "mic" | "screen" | "screen-audio";
+type StreamSlot = "video" | "audio" | "screen" | "screenAudio";
+const SLOT: Record<StreamKind, StreamSlot> = { camera: "video", mic: "audio", screen: "screen", "screen-audio": "screenAudio" };
 
 // The other participants in the room (the server never lists self). Objects are
 // replaced on every change so UI memoisation can compare by identity.
@@ -58,8 +61,8 @@ export class Roster {
     this.notify();
   }
 
-  setStream(id: string, kind: "camera" | "mic", stream: StreamLike | null): void {
-    const slot = slotFor(kind);
+  setStream(id: string, kind: StreamKind, stream: StreamLike | null): void {
+    const slot = SLOT[kind];
     const p = this.map.get(id);
     if (!p) {
       if (stream) this.early.set(id, { ...this.early.get(id), [slot]: stream });
@@ -71,6 +74,14 @@ export class Roster {
 
   list(): Participant[] {
     return [...this.map.values()];
+  }
+
+  get(id: string): Participant | undefined {
+    return this.map.get(id);
+  }
+
+  refOf(id: string): string {
+    return this.map.get(id)?.ref || "";
   }
 
   subscribe(fn: () => void): () => void {
@@ -91,6 +102,8 @@ export class Roster {
       gravatar: p.gravatar || "",
       video: early?.video ?? prev?.video ?? null,
       audio: early?.audio ?? prev?.audio ?? null,
+      screen: early?.screen ?? prev?.screen ?? null,
+      screenAudio: early?.screenAudio ?? prev?.screenAudio ?? null,
     };
   }
 
