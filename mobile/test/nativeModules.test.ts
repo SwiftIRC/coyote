@@ -57,3 +57,14 @@ test("callkeep's ConnectionService never calls getPhoneAccount unguarded", () =>
   }
   expect(unguarded).toEqual([]);
 });
+
+test("CoyoteSounds exports preload/play/stop on both platforms and never touches the audio session", () => {
+  const app = path.join(__dirname, "..");
+  const kt = fs.readFileSync(path.join(app, "android", "app", "src", "main", "java", "net", "swiftirc", "coyote", "CoyoteSoundsModule.kt"), "utf8");
+  expect(exportedNames(kt).sort()).toEqual(["addListener", "play", "preload", "removeListeners", "stop"]);
+  const m = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteSounds.m"), "utf8");
+  for (const sig of ["preload:(NSString *)id uri:(NSString *)uri", "play:(NSString *)id", "stop:(NSString *)id"]) expect(m).toContain(sig);
+  const swift = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteSounds.swift"), "utf8");
+  expect(swift).not.toMatch(/setCategory|setMode|setActive/);
+  expect(kt).not.toMatch(/setMode\(|requestAudioFocus|setSpeakerphoneOn/);
+});
