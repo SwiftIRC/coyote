@@ -53,10 +53,29 @@ index 5d58692..77a02a6 100644
                  connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
              }
 diff --git a/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m b/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
-index 786045f..c90b43f 100644
+index 786045f..875da38 100644
 --- a/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
 +++ b/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
-@@ -913,7 +913,7 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
+@@ -31,6 +31,18 @@ static NSString *const RNCallKeepDidActivateAudioSession = @"RNCallKeepDidActiva
+ static NSString *const RNCallKeepDidDeactivateAudioSession = @"RNCallKeepDidDeactivateAudioSession";
+ static NSString *const RNCallKeepDidDisplayIncomingCall = @"RNCallKeepDidDisplayIncomingCall";
+ static NSString *const RNCallKeepDidPerformSetMutedCallAction = @"RNCallKeepDidPerformSetMutedCallAction";
++
++// Serial queue for AVAudioSession configuration, which can block and so must stay
++// off the main thread (the CXProvider delegate queue).
++static dispatch_queue_t RNCallKeepAudioSessionQueue(void)
++{
++    static dispatch_queue_t queue;
++    static dispatch_once_t once;
++    dispatch_once(&once, ^{
++        queue = dispatch_queue_create("io.wazo.callkeep.audiosession", DISPATCH_QUEUE_SERIAL);
++    });
++    return queue;
++}
+ static NSString *const RNCallKeepPerformPlayDTMFCallAction = @"RNCallKeepDidPerformDTMFAction";
+ static NSString *const RNCallKeepDidToggleHoldAction = @"RNCallKeepDidToggleHoldAction";
+ static NSString *const RNCallKeepProviderReset = @"RNCallKeepProviderReset";
+@@ -913,7 +925,7 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
  - (void)configureAudioSession
  {
  #ifdef DEBUG
@@ -65,7 +84,7 @@ index 786045f..c90b43f 100644
  #endif
  
      NSUInteger categoryOptions = AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionAllowBluetoothA2DP;
-@@ -940,7 +940,9 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
+@@ -940,7 +952,9 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
  
      NSTimeInterval bufferDuration = .005;
      [audioSession setPreferredIOBufferDuration:bufferDuration error:nil];
@@ -76,7 +95,44 @@ index 786045f..c90b43f 100644
  }
  
  + (BOOL)application:(UIApplication *)application
-@@ -1142,7 +1144,8 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
+@@ -1053,11 +1067,15 @@ continueUserActivity:(NSUserActivity *)userActivity
+ #ifdef DEBUG
+     NSLog(@"[RNCallKeep][CXProviderDelegate][provider:performStartCallAction]");
+ #endif
+-    //do this first, audio sessions are flakey
+-    [self configureAudioSession];
+-    //tell the JS to actually make the call
+-    [self sendEventWithNameWrapper:RNCallKeepDidReceiveStartCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString], @"handle": action.handle.value }];
+-    [action fulfill];
++    // Configure off the main thread, then fulfill: CallKit activates the session
++    // only once the action is fulfilled, so the order is unchanged.
++    dispatch_async(RNCallKeepAudioSessionQueue(), ^{
++        //do this first, audio sessions are flakey
++        [self configureAudioSession];
++        //tell the JS to actually make the call
++        [self sendEventWithNameWrapper:RNCallKeepDidReceiveStartCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString], @"handle": action.handle.value }];
++        [action fulfill];
++    });
+ }
+ 
+ // Update call contact info
+@@ -1080,9 +1098,12 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
+ #ifdef DEBUG
+     NSLog(@"[RNCallKeep][CXProviderDelegate][provider:performAnswerCallAction]");
+ #endif
+-    [self configureAudioSession];
+-    [self sendEventWithNameWrapper:RNCallKeepPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+-    [action fulfill];
++    // As for start: configure off the main thread, then fulfill.
++    dispatch_async(RNCallKeepAudioSessionQueue(), ^{
++        [self configureAudioSession];
++        [self sendEventWithNameWrapper:RNCallKeepPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
++        [action fulfill];
++    });
+ }
+ 
+ // Ending incoming call
+@@ -1142,7 +1163,8 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
      };
      [[NSNotificationCenter defaultCenter] postNotificationName:AVAudioSessionInterruptionNotification object:nil userInfo:userInfo];
  
