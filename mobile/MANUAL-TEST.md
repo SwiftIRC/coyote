@@ -210,3 +210,33 @@ Run with the phone in a call with a browser (and a second phone if available).
     still there on unlock.
 59. **A second phone sees the share.** With another phone in the call, it shows the
     sharing phone's screen tile and can open it full screen.
+
+## Background effects (1.5.0)
+
+Server prerequisite: a deploy with `GET /api/scenes`. Run on both platforms with a
+browser in the call to watch the result.
+
+60. **PreJoin.** The Background row reads "None". Open it: None, Blur, Blur+, then
+    the server's scenes (thumbnails). Pick Blur: the preview blurs behind you within
+    a second; Blur+ is stronger; a scene replaces the background. The choice is
+    remembered after leaving and reopening PreJoin.
+61. **In the call.** Join with Blur: the browser sees you blurred. ☰ → Background… →
+    a scene: the browser sees the scene, upright, filling the frame (not stretched).
+    Back to None: the plain camera returns.
+62. **Orientation.** With an effect on, hold the phone in portrait, then landscape:
+    the person cut-out lines up with you in both (a rotated or offset cut-out means
+    the frame rotation is handled wrongly).
+63. **Flip and camera off/on.** With an effect on, flip to the back camera and back;
+    turn the camera off and on; background the app and return: the effect stays on.
+64. **Android resolution.** With an effect on, the browser's stats (or the tile) show
+    a 640×360 / 360×640 camera from the Android phone; with None, the normal 720p.
+65. **Slow phone.** On an older phone, pick Blur+: if it cannot keep up, within a few
+    seconds the effect turns off with "Background effect turned off: this phone
+    couldn't keep up." Picking it again tries again.
+66. **Offline / older server.** In airplane mode (or against a server without
+    `/api/scenes`), the sheet shows None/Blur/Blur+ and "Scenes unavailable offline.";
+    a saved scene choice joins with no effect and no error.
+67. **Quick changes.** Tap a scene and immediately Blur: you end up blurred, not on
+    the scene.
+68. **Battery and heat.** Ten minutes with Blur on: the call stays smooth and the
+    phone does not get uncomfortably hot.
