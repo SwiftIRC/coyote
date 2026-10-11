@@ -79,8 +79,9 @@ Join tap in the app is a new session and needs the password.
 
 ### `joined.locked`
 
-`signal.Joined` gains `Locked bool \`json:"locked,omitempty"\``, filled from
-`r.locked` under the room lock in `Join`.
+`signal.Joined` gains `Locked bool \`json:"locked"\`` — deliberately **not**
+`omitempty`, so a new server always sends it and the app can tell "unlocked" from
+"older server, unknown". Filled from `r.locked` under the room lock in `Join`.
 
 ### Web
 
@@ -95,7 +96,7 @@ and the op's Lock/Unlock button are right for a late joiner.
   admitted.
 - Kicked, then locked: the kicked ref is refused `bad-password`. Same for banned (still
   refused, `bad-password` first while locked; `banned` when unlocked).
-- `joined.locked` is true for a joiner of a locked room and absent when unlocked.
+- `joined.locked` is true for a joiner of a locked room and `false` (present) when unlocked.
 
 ## App core (`mobile/src/core/`)
 
@@ -105,9 +106,10 @@ A plain class, no React Native imports, `subscribe()` / snapshot like `Polls`.
 
 - **Snapshot:** `{ locked: boolean, quality: { camera: string, screen: string } }`.
 - **Seeding,** on every `joined` (first join and rejoin):
-  - `locked` from `joined.locked`. If the field is absent (older server), from the
-    `locked` flag of PreJoin's last `GET /api/rooms/{slug}` peek, passed in the join
-    request; the next `room-locked` / `room-unlocked` corrects it.
+  - `locked` from `joined.locked`. If the field is absent (older server): on the
+    first join, the `locked` flag of PreJoin's last `GET /api/rooms/{slug}` peek,
+    passed in the join request; on a rejoin, the value it already holds. The next
+    `room-locked` / `room-unlocked` corrects it.
   - `quality` from `joined.quality` (empty → `"auto"`).
 - **Listens:** `room-locked` → `locked = true`; `room-unlocked` → `locked = false`;
   `quality {camera, screen}` → `quality`.
@@ -132,7 +134,7 @@ A plain class, no React Native imports, `subscribe()` / snapshot like `Polls`.
 
 ### `Call` wiring
 
-- Creates the store, exposes it as `call.moderation`, disposes it on leave.
+- Creates the store and exposes it as `call.moderation`.
 - Seeds it on every `joined` before replayed frames are processed.
 - Continues to apply quality caps to the peer itself (`onQuality`, join-time caps);
   the store only mirrors the value for display.
@@ -213,7 +215,7 @@ UI (Lock is disabled until a password is entered) and is not shown.
   the person is still present (matched by participant id — a rejoin changes ids, so in
   practice it closes).
 - **Background:** lock and quality broadcasts are still tracked.
-- **Leave:** the store is disposed; nothing is saved.
+- **Leave:** the store goes away with the `Call`; nothing is saved.
 
 ## Testing
 
@@ -224,8 +226,7 @@ UI (Lock is disabled until a password is entered) and is not shown.
   unlock / quality broadcasts; each action's exact frame; `not-op`, `invalid` and
   `offline` results; no state change on send.
 - **`call`:** rejoin `bad-password` → `rejected` with `locked-while-away`; first-join
-  `bad-password` unchanged; the store is seeded on every `joined` and disposed on
-  leave; the `not-op` override text.
+  `bad-password` unchanged; the store is seeded on every `joined`; the `not-op` override text.
 
 **Manual** — new items in `mobile/MANUAL-TEST.md`, run on both platforms with a phone
 as op and a browser as the target, then the reverse:
