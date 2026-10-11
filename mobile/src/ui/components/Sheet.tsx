@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Keyboard, PanResponder, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius } from "../theme";
 
@@ -10,14 +10,28 @@ export function Sheet({ visible, onClose, heightFraction = 0.55, children }: {
 }) {
   const win = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const height = Math.round(win.height * heightFraction);
-  const y = useRef(new Animated.Value(height)).current;
+  // iOS does not resize the window for the keyboard, so lift the sheet above it.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const show = Keyboard.addListener("keyboardWillShow", (e) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener("keyboardWillHide", () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  const base = Math.round(win.height * heightFraction);
+  const height = kb > 0 ? Math.min(base, win.height - kb - insets.top - 8) : base;
+  const pad = kb > 0 ? 0 : insets.bottom;
+  const total = height + pad;
+  const closedY = total + kb;
+  const y = useRef(new Animated.Value(closedY)).current;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    Animated.timing(y, { toValue: visible ? 0 : height, duration: 200, useNativeDriver: true }).start();
-  }, [visible, height, y]);
+    Animated.timing(y, { toValue: visible ? 0 : closedY, duration: 200, useNativeDriver: true }).start();
+  }, [visible, closedY, y]);
+
+  useEffect(() => { if (!visible) Keyboard.dismiss(); }, [visible]);
 
   const pan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
@@ -31,7 +45,7 @@ export function Sheet({ visible, onClose, heightFraction = 0.55, children }: {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={visible ? "box-none" : "none"}>
       {visible ? <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" /> : null}
-      <Animated.View style={[styles.sheet, { height: height + insets.bottom, paddingBottom: insets.bottom, transform: [{ translateY: y }] }]}>
+      <Animated.View style={[styles.sheet, { bottom: kb, height: total, paddingBottom: pad, transform: [{ translateY: y }] }]}>
         <View {...pan.panHandlers} style={styles.handleArea}>
           <View style={styles.handle} />
         </View>

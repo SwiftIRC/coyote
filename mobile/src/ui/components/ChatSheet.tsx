@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CHAT_MAX, type ChatEntry, type SendResult } from "../../core/chat";
 import { hhmm } from "../../core/chatText";
 import { linkSegments } from "../../shared/web";
@@ -48,7 +48,7 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
 
   return (
     <Sheet visible={visible} onClose={onClose}>
-      <KeyboardAvoidingView style={styles.body} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={styles.body}>
         <FlatList
           ref={list}
           data={chat.entries}
@@ -82,7 +82,7 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
             <Text style={styles.sendText}>➤</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Sheet>
   );
 }
