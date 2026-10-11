@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { routeLabel, type AudioRoutes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
@@ -18,7 +19,12 @@ const warn = (what: string) => (e: unknown) => console.warn(`${what} failed`, e)
 export function Call() {
   const nav = useNavigation<NavigationProp<RootStack>>();
   const { state, notices, leave, call, outcome, takePendingLink, busy } = useCall();
-  const { width, height } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // The call area inside the system bars; measured once laid out, estimated before.
+  const [area, setArea] = useState<{ width: number; height: number } | null>(null);
+  const width = area?.width ?? window.width - insets.left - insets.right;
+  const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
   const audioStarted = useRef(false);
   const phase = state?.phase;
@@ -100,32 +106,35 @@ export function Call() {
   const tileH = Math.floor(gridH / rows);
 
   return (
-    <View style={styles.root}>
-      <View style={[styles.grid, { height: gridH }]}>
-        {people.length === 0 ? (
-          <Text style={styles.waiting}>{state.phase === "connecting" ? "Connecting…" : `Waiting for others in #${state.slug}…`}</Text>
-        ) : (
-          people.map((p) => <Tile key={p.id} p={p} width={tileW} height={tileH} />)
-        )}
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+      <View style={styles.area} onLayout={(e) => setArea(e.nativeEvent.layout)}>
+        <View style={[styles.grid, { height: gridH }]}>
+          {people.length === 0 ? (
+            <Text style={styles.waiting}>{state.phase === "connecting" ? "Connecting…" : `Waiting for others in #${state.slug}…`}</Text>
+          ) : (
+            people.map((p) => <Tile key={p.id} p={p} width={tileW} height={tileH} />)
+          )}
+        </View>
+        <SelfView stream={state.camera ? state.localStream : null} />
+        <Banner kind={state.banner} notices={notices} />
+        <Controls
+          mic={state.mic}
+          camera={state.camera}
+          routeLabel={routeLabel(routes.selected)}
+          onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
+          onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
+          onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }}
+          onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
+          onLeave={leave}
+        />
       </View>
-      <SelfView stream={state.camera ? state.localStream : null} />
-      <Banner kind={state.banner} notices={notices} />
-      <Controls
-        mic={state.mic}
-        camera={state.camera}
-        routeLabel={routeLabel(routes.selected)}
-        onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
-        onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
-        onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }}
-        onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
-        onLeave={leave}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  area: { flex: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },
   waiting: { color: colors.muted, textAlign: "center", width: "100%", marginTop: "50%" },
   setup: { alignItems: "center", justifyContent: "center", gap: 24 },

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { RTCView } from "react-native-webrtc";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { peekInvite, peekRoom } from "../../core/api";
 import { gravatarHash } from "../../core/gravatar";
 import { nickFromToken } from "../../core/token";
@@ -20,6 +21,7 @@ export function PreJoin() {
   const { params } = useRoute<RouteProp<RootStack, "PreJoin">>();
   const { link } = params;
   const { join } = useCall();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [lockedName, setLockedName] = useState("");
   const [email, setEmail] = useState("");
@@ -138,7 +140,7 @@ export function PreJoin() {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: 20 + insets.bottom }]} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>#{link.slug}</Text>
       <Text style={styles.muted}>
         {room ? `${room.count} in call${room.locked ? " · password required" : ""}` : link.host}

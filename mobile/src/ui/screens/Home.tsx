@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, TextInput } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, type NavigationProp, useNavigation, type RouteProp, useRoute } from "@react-navigation/native";
 import { serverVersion } from "../../core/api";
 import { DEFAULT_HOST, parseRoomInput } from "../../core/link";
@@ -34,7 +35,7 @@ export function Home() {
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
       <Text style={styles.title}>Coyote</Text>
       {route.params?.message ? <Text style={styles.message}>{route.params.message}</Text> : null}
       <TextInput
@@ -65,12 +66,12 @@ export function Home() {
         )}
       />
       <Text style={styles.about}>Server {DEFAULT_HOST}{version ? ` · ${version}` : ""}</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg, padding: 20, paddingTop: 48 },
+  root: { flex: 1, backgroundColor: colors.bg, padding: 20, paddingTop: 28 },
   title: { color: colors.text, fontSize: 32, fontWeight: "700", marginBottom: 16 },
   message: { color: colors.text, backgroundColor: colors.surface, padding: 12, borderRadius: radius, marginBottom: 12 },
   input: { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius, padding: 14, fontSize: 16 },
