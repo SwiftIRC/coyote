@@ -158,11 +158,11 @@ func (s *SFU) AddPeer(slug, peerID string, sig Signaler) (*Peer, error) {
 // the track can remember its origin (its slug, id, remote SSRC, and PC) — the
 // SSRC and PC are what a PLI keyframe request is written against.
 func (s *SFU) addLocalTrack(pub *Peer, kind string, remote *webrtc.TrackRemote) (*webrtc.TrackLocalStaticRTP, error) {
-	local, err := webrtc.NewTrackLocalStaticRTP(remote.Codec().RTPCodecCapability, kind, pub.id)
+	key := trackKey(pub.id, kind)
+	local, err := webrtc.NewTrackLocalStaticRTP(remote.Codec().RTPCodecCapability, key, pub.id)
 	if err != nil {
 		return nil, err
 	}
-	key := pub.id + ":" + kind
 
 	s.mu.Lock()
 	// Don't resurrect a room the publisher has already been removed from — doing
@@ -448,21 +448,29 @@ func peerTrackInfos(p *Peer) []signal.TrackInfo {
 		infos = append(infos, signal.TrackInfo{
 			Mid:           tr.Mid(),
 			ParticipantID: t.StreamID(),
-			Kind:          t.ID(),
+			Kind:          strings.TrimPrefix(t.ID(), t.StreamID()+":"),
 		})
 	}
 	return infos
 }
 
-// senderKey derives a sender's track key ("streamID:trackID", i.e.
-// "publisherID:kind"), matching the room's track-map keys. Returns false for a
-// sender with no track.
+// trackKey is a forward's room key, "publisherID:kind", and also its track id.
+// The id must not be the bare kind: it has to be unique on each subscriber's
+// PeerConnection, and react-native-webrtc binds receivers by it (two "camera"
+// tracks from different publishers landed on the same transceiver).
+func trackKey(publisherID, kind string) string {
+	return publisherID + ":" + kind
+}
+
+// senderKey returns a sender's track key ("publisherID:kind"), which is the
+// forwarded track's id and the room's track-map key. Returns false for a sender
+// with no track.
 func senderKey(snd *webrtc.RTPSender) (string, bool) {
 	t := snd.Track()
 	if t == nil {
 		return "", false
 	}
-	return t.StreamID() + ":" + t.ID(), true
+	return t.ID(), true
 }
 
 // stripDemuxExtensions removes the header extensions that make Chrome set up

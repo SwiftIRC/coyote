@@ -134,3 +134,53 @@ func count(ch <-chan signal.Tracks) int {
 		}
 	}
 }
+
+// Forwarded track ids must be unique per subscriber PeerConnection. They were the
+// bare kind ("camera", "mic"), so a subscriber with two other publishers saw two
+// remote tracks both called "camera". Browsers key ontrack by transceiver and
+// never noticed; react-native-webrtc keys receivers by track id and bound the
+// second publisher's tracks to the first's transceivers, so the mobile app showed
+// one participant of three. The kind still travels, bare, in the tracks labels.
+func TestForwardedTrackIDsAreUnique(t *testing.T) {
+	s := testSFU(t)
+
+	pubs := []*testClient{newTestClient(t, s, "room", "p1"), newTestClient(t, s, "room", "p2")}
+	for i, p := range pubs {
+		writeTestRTPLoop(t, p.publish("camera"))
+		writeTestRTPLoop(t, p.publish("mic"))
+		p.waitConnected()
+		want := 2 * (i + 1)
+		waitFor(t, func() bool { return s.trackCount("room") == want })
+	}
+	sub := newTestClient(t, s, "room", "p3")
+	writeTestRTPLoop(t, sub.publish("mic"))
+	sub.waitConnected()
+
+	ids := map[string]string{}
+	deadline := time.After(10 * time.Second)
+	for len(ids) < 4 {
+		select {
+		case tr := <-sub.gotTrack:
+			if prev, dup := ids[tr.ID()]; dup {
+				t.Fatalf("track id %q forwarded twice (streams %s and %s)", tr.ID(), prev, tr.StreamID())
+			}
+			ids[tr.ID()] = tr.StreamID()
+		case <-deadline:
+			t.Fatalf("subscriber got %d of 4 forwarded tracks: %v", len(ids), ids)
+		}
+	}
+
+	for {
+		select {
+		case tks := <-sub.gotTracks:
+			for _, ti := range tks.Tracks {
+				if ti.Kind != "camera" && ti.Kind != "mic" {
+					t.Errorf("label kind %q is not a bare kind: %+v", ti.Kind, ti)
+				}
+			}
+			continue
+		default:
+		}
+		break
+	}
+}

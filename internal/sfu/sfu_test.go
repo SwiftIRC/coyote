@@ -590,8 +590,9 @@ func TestGlareScreenshareConverges(t *testing.T) {
 		select {
 		case tr := <-p2.gotTrack:
 			if tr.StreamID() == "p1" {
-				if _, ok := got[tr.ID()]; ok {
-					got[tr.ID()] = true
+				kind := strings.TrimPrefix(tr.ID(), "p1:")
+				if _, ok := got[kind]; ok {
+					got[kind] = true
 				}
 			}
 		case <-deadline:
@@ -906,7 +907,7 @@ func TestReceiveVideoOffSkipsVideoForwards(t *testing.T) {
 		if kind == "mic" || kind == "screen-audio" {
 			mime = webrtc.MimeTypeOpus
 		}
-		local, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: mime}, kind, pub.id)
+		local, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: mime}, trackKey(pub.id, kind), pub.id)
 		if err != nil {
 			t.Fatal(err)
 		}

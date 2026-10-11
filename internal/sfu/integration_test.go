@@ -68,7 +68,7 @@ func TestThreeClientsFullMesh(t *testing.T) {
 	assertReceivesAll(t, p3, want("p3"))
 }
 
-// assertReceivesAll drains tc.gotTrack until every expected {streamID:trackID}
+// assertReceivesAll drains tc.gotTrack until every expected {publisherID:kind}
 // has arrived, then reads one RTP packet from each to prove the fan-out is
 // forwarding live media (not just negotiating transceivers).
 func assertReceivesAll(t *testing.T, tc *testClient, want map[string]bool) {
@@ -79,7 +79,7 @@ func assertReceivesAll(t *testing.T, tc *testClient, want map[string]bool) {
 	for remaining > 0 {
 		select {
 		case tr := <-tc.gotTrack:
-			key := tr.StreamID() + ":" + tr.ID()
+			key := tr.ID() // "publisherID:kind"
 			if seen, expected := want[key]; expected && !seen {
 				want[key] = true
 				tracks[key] = tr
