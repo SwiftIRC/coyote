@@ -68,3 +68,15 @@ test("CoyoteSounds exports preload/play/stop on both platforms and never touches
   expect(swift).not.toMatch(/setCategory|setMode|setActive/);
   expect(kt).not.toMatch(/setMode\(|requestAudioFocus|setSpeakerphoneOn/);
 });
+
+test("CoyoteSounds downloads remote clips off the main thread and reports loads", () => {
+  const app = path.join(__dirname, "..");
+  const kt = fs.readFileSync(path.join(app, "android", "app", "src", "main", "java", "net", "swiftirc", "coyote", "CoyoteSoundsModule.kt"), "utf8");
+  const swift = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteSounds.swift"), "utf8");
+  expect(kt).toContain("CoyoteSoundLoaded");
+  expect(kt).toMatch(/Executors\.newSingleThreadExecutor/);
+  expect(swift).toContain("CoyoteSoundLoaded");
+  expect(swift).toMatch(/downloadTask/);
+  expect(swift).not.toMatch(/methodQueue/); // 2a Ruling: main-thread confinement
+  expect(swift).not.toMatch(/setCategory|setMode|setActive/);
+});

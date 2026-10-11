@@ -30,7 +30,35 @@ export function onSoundEnded(fn: (id: string) => void): () => void {
   return () => sub.remove();
 }
 
-// Soundboard clips: stubs until the native implementation lands (Task 9).
-export function loadClip(_id: string, _url: string): void {}
-export function playClip(_id: string): void {}
-export function stopClip(_id: string): void {}
+export function loadClip(id: string, url: string): void {
+  try {
+    CoyoteSounds?.preload(id, url);
+  } catch (e) {
+    console.warn("clip load failed", e);
+  }
+}
+
+export function playClip(id: string): void {
+  try {
+    CoyoteSounds?.play(id);
+  } catch (e) {
+    console.warn("clip play failed", e);
+  }
+}
+
+export function stopClip(id: string): void {
+  try {
+    CoyoteSounds?.stop(id);
+  } catch (e) {
+    console.warn("clip stop failed", e);
+  }
+}
+
+export function onSoundLoaded(fn: (id: string, ok: boolean) => void): () => void {
+  if (!CoyoteSounds) return () => {};
+  const sub = new NativeEventEmitter(CoyoteSounds).addListener("CoyoteSoundLoaded", (e) => {
+    const ev = e as { id?: unknown; ok?: unknown };
+    if (typeof ev.id === "string") fn(ev.id, ev.ok === true);
+  });
+  return () => sub.remove();
+}
