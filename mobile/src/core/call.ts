@@ -5,7 +5,8 @@
 // in internal/web/assets/app.js, plus the mobile lifecycle rules from the spec.
 import { ChatLog } from "./chat";
 import { Chimes, type ChimeName } from "./chimes";
-import { inCallErrorText, joinErrorText } from "./errors";
+import { inCallErrorText, joinErrorText, LOCKED_WHILE_AWAY_TEXT } from "./errors";
+import { Moderation } from "./moderation";
 import { wsUrl, type RoomLink } from "./link";
 import { Polls } from "./polls";
 import type { Peer, PeerEvents } from "./peer";
@@ -55,6 +56,7 @@ export interface JoinRequest {
   mic: boolean;
   camera: boolean;
   dataSaver: boolean;
+  locked?: boolean; // PreJoin's last peek; used only if the server's joined omits it
 }
 
 export type Phase = "idle" | "connecting" | "in-call" | "reconnecting" | "ended";
@@ -96,6 +98,7 @@ export class Call {
   readonly clock = new RoomClock();
   readonly chat: ChatLog;
   readonly polls: Polls;
+  readonly moderation: Moderation;
   readonly soundboard: Soundboard;
   readonly volumes = new Volumes();
   private boardRequested = false;
@@ -134,6 +137,7 @@ export class Call {
     this.roster.subscribe(() => this.update({ participants: this.roster.list() }));
     this.chat = new ChatLog((type, fields) => this.trySend(type, fields), () => deps.now());
     this.polls = new Polls((type, fields) => this.trySend(type, fields), () => this.state.role === "op");
+    this.moderation = new Moderation((type, fields) => this.trySend(type, fields), () => this.state.role === "op");
     this.soundboard = new Soundboard((type, fields) => this.trySend(type, fields), deps.clips);
     this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
@@ -209,6 +213,8 @@ export class Call {
       this.onForceMuted(m.kind).catch((err) => this.deps.log.warn("[call] force-mute failed", err));
     });
     sig.on("quality", (m) => this.onQuality(m));
+    sig.on("room-locked", () => this.moderation.onLocked(true));
+    sig.on("room-unlocked", () => this.moderation.onLocked(false));
     sig.connect();
   }
 
@@ -403,6 +409,7 @@ export class Call {
     // Reset before the server's chat replay, which follows this frame.
     this.chat.clear();
     this.polls.seed(m.poll);
+    this.moderation.seed(m, !!this.req?.locked, first);
     if (m.poll?.id) this.chat.addPollCard(m.poll.id);
     this.soundboard.reset();
     if (this.state.dataSaver) this.sig?.send("set-receive-video", { enabled: false });
@@ -424,6 +431,12 @@ export class Call {
 
   private onServerError(m: Frame) {
     if (this.awaitingJoined || !this.joinedOnce) {
+      // A rejoin refused for the password: the room was locked while we were away
+      // (an older server; a current one admits members it already let in).
+      if (this.joinedOnce && m.code === "bad-password") {
+        this.finish({ kind: "rejected", code: "locked-while-away", text: LOCKED_WHILE_AWAY_TEXT });
+        return;
+      }
       this.finish({ kind: "rejected", code: m.code || "error", text: joinErrorText(m.code || "", m.message || "") });
       return;
     }
@@ -456,6 +469,7 @@ export class Call {
   private onQuality(m: Frame) {
     this.quality = { camera: m.camera || "auto", screen: m.screen || "auto" };
     this.peer?.setQuality(this.quality.camera, this.quality.screen);
+    this.moderation.onQuality(m);
   }
 
   // --- media ---
