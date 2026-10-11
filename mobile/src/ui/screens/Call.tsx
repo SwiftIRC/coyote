@@ -202,6 +202,7 @@ export function Call() {
           locked={mod.locked}
           quality={mod.quality}
           share={share.status}
+          canShare={state.phase === "in-call"}
           onShare={() => { setSheet(null); call()?.screenShare.start().catch(warn("screen share")); }}
           onStopShare={() => { setSheet(null); call()?.screenShare.stop("user"); }}
           mod={{

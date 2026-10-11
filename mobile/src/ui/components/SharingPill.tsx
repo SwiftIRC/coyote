@@ -7,6 +7,7 @@ export function SharingPill({ bottom, onStop }: { bottom: number; onStop(): void
   return (
     <Pressable
       onPress={onStop}
+      hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel="Stop sharing your screen"
       style={[styles.pill, { bottom }]}

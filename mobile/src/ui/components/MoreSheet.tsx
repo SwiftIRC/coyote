@@ -14,11 +14,11 @@ const MESSAGES: Partial<Record<RenameResult, string>> = {
   offline: "Not connected — name not changed.",
 };
 
-export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod, share, onShare, onStopShare }: {
+export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod, share, canShare, onShare, onStopShare }: {
   visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult; isOp: boolean; onNewPoll(): void;
   dataSaver: boolean; onDataSaver(v: boolean): void; hideSelf: boolean; onHideSelf(v: boolean): void;
   locked: boolean; quality: { camera: string; screen: string };
-  share: ShareStatus; onShare(): void; onStopShare(): void;
+  share: ShareStatus; canShare: boolean; onShare(): void; onStopShare(): void;
   mod: { lock(pw: string): ModResult; unlock(): ModResult; setQuality(t: QualityTarget, tier: string): ModResult };
 }) {
   const [draft, setDraft] = useState(name);
@@ -39,6 +39,8 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
   useEffect(() => { setDraft(name); setMsg(""); }, [name, visible]);
 
   // Renames only on keyboard Done or Save; closing the sheet discards the draft (see effect above).
+  // Share needs a live call; Stop sharing is always available while sharing.
+  const shareOff = share === "starting" || (share === "idle" && !canShare);
   const canSave = draft.trim() !== "" && draft.trim() !== name;
   const submit = () => {
     const r = rename(draft);
@@ -106,12 +108,12 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
         <Toggle label="Hide self-view" value={hideSelf} onChange={onHideSelf} />
         <Pressable
           onPress={share === "sharing" ? onStopShare : onShare}
-          disabled={share === "starting"}
+          disabled={shareOff}
           accessibilityRole="button"
-          accessibilityState={{ disabled: share === "starting" }}
+          accessibilityState={{ disabled: shareOff }}
           style={styles.row2}
         >
-          <Text style={[styles.saveText, share === "starting" && { color: colors.muted }]}>
+          <Text style={[styles.saveText, shareOff && { color: colors.muted }]}>
             {share === "sharing" ? "Stop sharing" : share === "starting" ? "Starting…" : "Share screen"}
           </Text>
         </Pressable>

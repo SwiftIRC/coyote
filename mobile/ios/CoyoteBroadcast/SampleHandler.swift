@@ -1,7 +1,8 @@
 import ReplayKit
 
 // The broadcast extension: connects to the Coyote app's screen-capture socket and
-// streams every third video frame to it. Posts "started" once connected (the app
+// streams every video frame to it (SampleUploader sends one at a time and skips
+// frames while one is in flight; ReplayKit only delivers frames on change). Posts "started" once connected (the app
 // waits for that to confirm the share); gives up after 5 s if no call is listening.
 // Based on the Jitsi Meet sample (Apache-2.0).
 class SampleHandler: RPBroadcastSampleHandler {
@@ -11,7 +12,6 @@ class SampleHandler: RPBroadcastSampleHandler {
 
   private var connection: SocketConnection?
   private var uploader: SampleUploader?
-  private var frameCount = 0
   private var connectAttempts = 0
   private var connectTimer: DispatchSourceTimer?
 
@@ -32,7 +32,6 @@ class SampleHandler: RPBroadcastSampleHandler {
   }
 
   override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
-    frameCount = 0
     connectAttempts = 0
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "net.swiftirc.coyote.broadcast.connect"))
     timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(50))
@@ -60,8 +59,7 @@ class SampleHandler: RPBroadcastSampleHandler {
 
   override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
     guard sampleBufferType == .video else { return } // video only: app and mic audio are ignored
-    frameCount += 1
-    if frameCount % 3 == 0 { uploader?.send(sample: sampleBuffer) }
+    uploader?.send(sample: sampleBuffer)
   }
 
   private func finish(_ message: String) {
