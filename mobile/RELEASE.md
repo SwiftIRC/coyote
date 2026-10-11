@@ -6,8 +6,14 @@ Claude maintains the code on Linux; builds are signed and shipped from a Mac.
 
 - Xcode (current), CocoaPods (`sudo gem install cocoapods` or `brew install cocoapods`),
   Node 22 (`nvm use` in the repo root), JDK 17 and Android Studio (for its SDK).
-- Apple Developer team with the App ID `net.swiftirc.coyote` and these capabilities:
-  Associated Domains, Background Modes (Audio; Voice over IP).
+- Apple Developer team with:
+  - the App ID `net.swiftirc.coyote` and these capabilities: Associated Domains,
+    Background Modes (Audio; Voice over IP), **App Groups** (`group.net.swiftirc.coyote`);
+  - the App ID `net.swiftirc.coyote.broadcast` (the screen-sharing extension) with
+    **App Groups** (`group.net.swiftirc.coyote`);
+  - the App Group `group.net.swiftirc.coyote` itself (Identifiers → App Groups).
+  With automatic signing, Xcode creates both provisioning profiles once you select your
+  team on **both** the Coyote and CoyoteBroadcast targets.
 - Play Console app `net.swiftirc.coyote` with Play App Signing enabled; keep your upload
   keystore outside the repo and reference it from `~/.gradle/gradle.properties`:
 
@@ -30,7 +36,8 @@ Claude maintains the code on Linux; builds are signed and shipped from a Mac.
 ## Version
 
 Bump both in one commit before each release:
-- iOS: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `ios/Coyote.xcodeproj/project.pbxproj`.
+- iOS: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `ios/Coyote.xcodeproj/project.pbxproj`
+  — four places each (Coyote and CoyoteBroadcast, Debug and Release); they must match.
 - Android: `versionName` and `versionCode` in `android/app/build.gradle`.
 
 ## iOS → TestFlight
@@ -40,7 +47,7 @@ cd mobile && npm ci && bundle install && (cd ios && bundle exec pod install)
 open ios/Coyote.xcworkspace
 ```
 
-Select your team on the Coyote target (Signing & Capabilities), choose
+Select your team on the Coyote and CoyoteBroadcast targets (Signing & Capabilities), choose
 "Any iOS Device", Product → Archive, then Distribute App → TestFlight & App Store.
 
 ## Android → Play internal testing
