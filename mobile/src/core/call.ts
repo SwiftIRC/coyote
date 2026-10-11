@@ -199,7 +199,9 @@ export class Call {
   }
 
   rename(name: string): "sent" | "empty" | "unchanged" | "offline" {
-    const n = [...name.trim()].slice(0, NAME_MAX).join("").trim();
+    // Mirror the server's sanitizeName so its echo matches pendingRename.
+    const clean = [...name].filter((c) => !/\p{Cc}/u.test(c)).join("").trim().split(/\s+/).join(" ");
+    const n = [...clean].slice(0, NAME_MAX).join("").trim();
     if (!n) return "empty";
     if (n === this.state.name) return "unchanged";
     if (!this.trySend("rename", { name: n })) return "offline";

@@ -598,6 +598,20 @@ test("rejoin clears chat before the server's replay, re-anchors the clock, stays
   expect(chimes).toEqual([]);
 });
 
+test("a rejoin's chat replay does not re-count read history as unread", async () => {
+  const { call, timers } = await inCall();
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 });
+  call.chat.setOpen(true);
+  call.chat.setOpen(false);
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 });
+  await flush();
+  expect(call.chat.getSnapshot().unread).toBe(0);
+});
+
 test("in-call server errors also land in chat as notices", async () => {
   const { call, notices } = await inCall();
   sock().receive({ type: "error", code: "rate", message: "Slow down" });
@@ -629,6 +643,22 @@ test("screen tracks go to the roster's screen slots and bloop once", async () =>
   expect(call.getState().participants.find((p) => p.id === "p2")).toMatchObject({ screen: null, screenAudio: null });
 });
 
+test("a screenshare survives a reconnect: one bloop, slot refilled", async () => {
+  const { call, peers, chimes, timers } = await inCall();
+  sock().receive({ type: "peer-joined", id: "p2", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" });
+  peers[0].events.remoteTrack({ participantId: "p2", kind: "screen", stream: new FakeStream([]) });
+  expect(chimes.filter((c) => c === "bloop")).toHaveLength(1);
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive(joined({ peers: [{ id: "p3", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" }] }));
+  await flush();
+  const scr = new FakeStream([]);
+  peers[peers.length - 1].events.remoteTrack({ participantId: "p3", kind: "screen", stream: scr });
+  expect(call.getState().participants.find((p) => p.id === "p3")).toMatchObject({ screen: scr });
+  expect(chimes.filter((c) => c === "bloop")).toHaveLength(1);
+});
+
 test("rename: validates, sends, updates state and saves only on our own confirmed echo", async () => {
   const { call, renames } = await inCall();
   expect(call.getState().name).toBe("Ryan");
@@ -643,6 +673,10 @@ test("rename: validates, sends, updates state and saves only on our own confirme
   sock().receive({ type: "peer-renamed", id: "me", name: "ServerSide" }); // not our request
   expect(call.getState().name).toBe("ServerSide");
   expect(renames).toHaveLength(1);
+  expect(call.rename("a \t  b\u0007c")).toBe("sent");
+  expect(framesOf("rename").pop()).toEqual({ type: "rename", name: "a bc" });
+  sock().receive({ type: "peer-renamed", id: "me", name: "a bc" });
+  expect(renames).toEqual(["x".repeat(24), "a bc"]);
   sock().drop();
   expect(call.rename("Offline")).toBe("offline");
 });

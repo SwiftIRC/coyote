@@ -55,13 +55,42 @@ test("the log keeps at most LOG_MAX entries, dropping the oldest", () => {
   expect(e[0].text).toBe("5");
 });
 
-test("clear empties the log and unread (rejoin: the server replays history)", () => {
+const msg = (ts: number) => ({ type: "chat", from: "A", text: "m" + ts, ts });
+
+test("clear empties the log but keeps unread; a read history replayed stays read", () => {
   const { log } = make();
-  log.onChat({ type: "chat", from: "A", text: "x", ts: 1 });
+  log.onChat(msg(1));
+  log.onChat(msg(2));
+  log.setOpen(true);
+  log.setOpen(false);
   log.clear();
   expect(log.getSnapshot()).toMatchObject({ entries: [], unread: 0 });
-  log.onChat({ type: "chat", from: "A", text: "x", ts: 1 }); // replay
-  expect(log.getSnapshot().entries).toHaveLength(1);
+  log.onChat(msg(1)); // replay
+  log.onChat(msg(2));
+  expect(log.getSnapshot()).toMatchObject({ unread: 0 });
+  expect(log.getSnapshot().entries).toHaveLength(2);
+});
+
+test("unread messages replayed after clear are not counted twice", () => {
+  const { log } = make();
+  log.onChat(msg(1));
+  log.onChat(msg(2));
+  log.clear();
+  expect(log.getSnapshot().unread).toBe(2);
+  log.onChat(msg(1));
+  log.onChat(msg(2));
+  expect(log.getSnapshot().unread).toBe(2);
+});
+
+test("a genuinely newer message after clear counts", () => {
+  const { log } = make();
+  log.onChat(msg(1));
+  log.setOpen(true);
+  log.setOpen(false);
+  log.clear();
+  log.onChat(msg(1));
+  log.onChat(msg(5));
+  expect(log.getSnapshot().unread).toBe(1);
 });
 
 test("send trims, refuses empty and over-long, reports offline, never echoes locally", () => {

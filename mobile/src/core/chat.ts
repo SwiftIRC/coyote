@@ -23,13 +23,17 @@ export function unreadLabel(n: number): string {
 export class ChatLog {
   private snap: ChatSnapshot = { entries: [], unread: 0, open: false };
   private seq = 0;
+  private lastSeenTs = 0;
   private listeners = new Set<() => void>();
 
   constructor(private sender: Sender, private nowMs: () => number) {}
 
   onChat(m: Frame): void {
     const entry: ChatEntry = { key: ++this.seq, kind: "message", from: String(m.from ?? ""), text: String(m.text ?? ""), ts: Number(m.ts) || 0 };
-    this.push(entry, !this.snap.open);
+    // After a rejoin the server replays history we already counted: only newer
+    // messages (or ones without a timestamp) add to the unread count.
+    const fresh = entry.ts === 0 || entry.ts > this.lastSeenTs;
+    this.push(entry, !this.snap.open && fresh);
   }
 
   onModeration(m: Frame): void {
@@ -41,7 +45,9 @@ export class ChatLog {
   }
 
   clear(): void {
-    this.set({ ...this.snap, entries: [], unread: 0 });
+    // Keep the unread count; remember how far we got so the replay is not recounted.
+    for (const e of this.snap.entries) if (e.kind === "message" && e.ts > this.lastSeenTs) this.lastSeenTs = e.ts;
+    this.set({ ...this.snap, entries: [] });
   }
 
   setOpen(open: boolean): void {
