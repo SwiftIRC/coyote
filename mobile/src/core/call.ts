@@ -3,12 +3,15 @@
 // roster and the system-call integration (CallKit / ConnectionService), and exposes
 // one immutable CallState snapshot for the UI. Port of the join/rejoin/removal flow
 // in internal/web/assets/app.js, plus the mobile lifecycle rules from the spec.
+import { ChatLog } from "./chat";
+import { Chimes, type ChimeName } from "./chimes";
 import { inCallErrorText, joinErrorText } from "./errors";
 import { wsUrl, type RoomLink } from "./link";
 import type { Peer, PeerEvents } from "./peer";
+import { RoomClock } from "./roomClock";
 import { Roster, type Participant, type PeerInfo } from "./roster";
 import type { Signaling } from "./signaling";
-import type { Frame, Kind, Logger, StreamLike, TrackLike } from "./types";
+import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types";
 
 export type Facing = "user" | "environment";
 export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "setQuality" | "close">;
@@ -34,6 +37,9 @@ export interface CallDeps {
   system: SystemCallPort;
   uuid(): string;
   log: Logger;
+  timers: Timers;
+  now(): number; // ms, wall clock
+  playChime(n: ChimeName): void;
 }
 
 export interface JoinRequest {
@@ -54,6 +60,7 @@ export interface CallState {
   slug: string;
   selfId: string;
   role: string;
+  name: string;
   mic: boolean;
   camera: boolean;
   facing: Facing;
@@ -70,12 +77,19 @@ export interface CallEvents {
   change(state: CallState): void;
   end(outcome: CallOutcome): void;
   notice(text: string): void;
+  selfRenamed?(name: string): void;
 }
+
+export const NAME_MAX = 24;
 
 export class Call {
   private sig: SignalingLike | null = null;
   private peer: PeerLike | null = null;
   private roster = new Roster();
+  readonly clock = new RoomClock();
+  readonly chat: ChatLog;
+  private chimes: Chimes;
+  private pendingRename: string | null = null;
   private req: JoinRequest | null = null;
   private session = "";
   private callId = "";
@@ -101,12 +115,14 @@ export class Call {
   private micBeforeHold: boolean | null = null;
   private quality = { camera: "auto", screen: "auto" };
   private state: CallState = {
-    phase: "idle", banner: "", slug: "", selfId: "", role: "", mic: false, camera: false,
+    phase: "idle", banner: "", slug: "", selfId: "", role: "", name: "", mic: false, camera: false,
     facing: "user", localStream: null, participants: [],
   };
 
   constructor(private deps: CallDeps, private events: CallEvents) {
     this.roster.subscribe(() => this.update({ participants: this.roster.list() }));
+    this.chat = new ChatLog((type, fields) => this.trySend(type, fields), () => deps.now());
+    this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
 
   getState(): CallState {
@@ -118,7 +134,7 @@ export class Call {
     this.req = req;
     this.session = this.deps.uuid(); // binds a #i= invite to this call, across reconnects
     this.callId = this.deps.uuid();
-    this.update({ phase: "connecting", slug: req.link.slug });
+    this.update({ phase: "connecting", slug: req.link.slug, name: req.name });
     this.deps.system.start(this.callId, req.link.slug, req.camera);
 
     this.micTrack = await this.deps.media.getMic();
@@ -157,8 +173,17 @@ export class Call {
     sig.on("kicked", (m) => this.finish({ kind: "removed", reason: "kicked", by: m.by || "" }));
     sig.on("banned", (m) => this.finish({ kind: "removed", reason: "banned", by: m.by || "" }));
     sig.on("server-restarting", () => this.update({ banner: "reconnecting" }));
-    sig.on("peer-joined", (m) => this.roster.upsert(m as unknown as PeerInfo));
-    sig.on("peer-left", (m) => this.roster.remove(m.id));
+    sig.on("peer-joined", (m) => {
+      this.roster.upsert(m as unknown as PeerInfo);
+      this.chimes.joined(String(m.ref || ""));
+    });
+    sig.on("peer-left", (m) => {
+      const ref = this.roster.refOf(m.id);
+      this.roster.remove(m.id);
+      this.chimes.left(ref);
+    });
+    sig.on("chat", (m) => this.chat.onChat(m));
+    sig.on("moderation", (m) => this.chat.onModeration(m));
     sig.on("peer-media-state", (m) => this.roster.patch(m.id, { mic: !!m.mic, camera: !!m.camera }));
     sig.on("peer-renamed", (m) => this.onRenamed(m));
     sig.on("role", (m) => this.onRole(m));
@@ -171,6 +196,17 @@ export class Call {
 
   leave(): void {
     this.finish({ kind: "left" });
+  }
+
+  rename(name: string): "sent" | "empty" | "unchanged" | "offline" {
+    // Mirror the server's sanitizeName so its echo matches pendingRename.
+    const clean = [...name].filter((c) => !/\p{Cc}/u.test(c)).join("").trim().split(/\s+/).join(" ");
+    const n = [...clean].slice(0, NAME_MAX).join("").trim();
+    if (!n) return "empty";
+    if (n === this.state.name) return "unchanged";
+    if (!this.trySend("rename", { name: n })) return "offline";
+    this.pendingRename = n;
+    return "sent";
   }
 
   async setMic(on: boolean, fromSystem = false): Promise<void> {
@@ -339,6 +375,10 @@ export class Call {
     const first = !this.joinedOnce;
     this.joinedOnce = true;
     if (m.quality) this.quality = { camera: m.quality.camera || "auto", screen: m.quality.screen || "auto" };
+    // Reset before the server's chat replay, which follows this frame.
+    this.chat.clear();
+    this.clock.anchor(m.roomAge, this.deps.now());
+    this.chimes.seed(m.peers || []);
     this.roster.seed((m.peers || []) as PeerInfo[]);
     this.update({ phase: "in-call", banner: "", selfId: m.selfId, role: m.role || "" });
     if (first) this.deps.system.connected(this.callId);
@@ -350,12 +390,17 @@ export class Call {
       this.finish({ kind: "rejected", code: m.code || "error", text: joinErrorText(m.code || "", m.message || "") });
       return;
     }
-    this.events.notice(inCallErrorText(m.code || "", m.message || ""));
+    const text = inCallErrorText(m.code || "", m.message || "");
+    this.events.notice(text);
+    this.chat.notice(text);
   }
 
   private onRenamed(m: Frame) {
     if (m.id === this.state.selfId) {
       if (this.req) this.req = { ...this.req, name: m.name }; // the next join must carry it
+      this.update({ name: m.name });
+      if (this.pendingRename !== null && m.name === this.pendingRename) this.events.selfRenamed?.(m.name);
+      this.pendingRename = null;
       return;
     }
     this.roster.patch(m.id, { name: m.name });
@@ -384,10 +429,18 @@ export class Call {
     this.peer?.close();
     const peer = this.deps.createPeer(this.sig!, {
       remoteTrack: (e) => {
-        if (e.kind === "camera" || e.kind === "mic") this.roster.setStream(e.participantId, e.kind, e.stream);
+        if (e.kind === "camera" || e.kind === "mic" || e.kind === "screen" || e.kind === "screen-audio") {
+          this.roster.setStream(e.participantId, e.kind, e.stream);
+        }
+        if (e.kind === "screen" || e.kind === "screen-audio") this.chimes.shareStarted(this.roster.refOf(e.participantId));
       },
       peerGone: (e) => {
-        if (e.participantId && (e.kind === "camera" || e.kind === "mic")) this.roster.setStream(e.participantId, e.kind, null);
+        if (!e.participantId) return;
+        if (e.kind === "camera" || e.kind === "mic" || e.kind === "screen" || e.kind === "screen-audio") {
+          this.roster.setStream(e.participantId, e.kind, null);
+        }
+        const p = this.roster.get(e.participantId);
+        if (p && !p.screen && !p.screenAudio) this.chimes.shareStopped(p.ref);
       },
       error: (e) => this.deps.log.warn(`[call] peer ${e.phase} failed`, e.error),
       mediaFailed: () => {
@@ -405,6 +458,14 @@ export class Call {
 
   private sendMediaState() {
     if (this.state.phase === "in-call") this.sig?.send("media-state", { mic: this.state.mic, camera: this.state.camera });
+  }
+
+  // Sends only when the server can receive it; Signaling drops frames sent while
+  // reconnecting, so callers must be told rather than lose the user's input.
+  private trySend(type: string, fields: Record<string, unknown>): boolean {
+    if (this.state.phase !== "in-call" || !this.sig?.isOpen) return false;
+    this.sig.send(type, fields);
+    return true;
   }
 
   private joinFrame() {
@@ -437,6 +498,7 @@ export class Call {
     this.peer?.close();
     this.peer = null;
     this.releaseTracks();
+    this.chimes.dispose();
     if (this.callId) this.deps.system.end(this.callId);
     this.update({ phase: "ended", banner: "" });
     this.events.end(outcome);

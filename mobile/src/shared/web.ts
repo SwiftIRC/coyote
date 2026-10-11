@@ -10,3 +10,6 @@ export { QUALITY_TIERS, qualityTier, encodingCaps } from "../../../internal/web/
 export { stacksNarrow } from "../../../internal/web/assets/lib/gridLayout.js";
 // avatar.js also has DOM helpers, but only inside functions we never call.
 export { avatarFor, gravatarUrl, IRC_AVATAR_COLORS } from "../../../internal/web/assets/lib/avatar.js";
+export { linkSegments } from "../../../internal/web/assets/lib/linkify.js";
+export { formatDuration } from "../../../internal/web/assets/lib/duration.js";
+export { Presence } from "../../../internal/web/assets/lib/presence.js";

@@ -60,3 +60,39 @@ Each change that touches iOS-only native code or configuration names the items t
 20. **Android: deny the microphone permission.** callkeep cannot register the call
     with Telecom, but the call should still work in-app (audio and video as granted,
     leave button works). Expect no system call notification.
+
+## Room features (2a)
+
+Solo setup: the phone plus a browser on a computer **with headphones** (prevents
+feedback), both in the same room.
+
+21. **Chat.** Open chat (💬). The history sent before you joined is there once, in
+    order. Send a message from each side; each appears on both. Close the sheet, send
+    from the browser: the badge counts up; open: it clears. A link such as
+    `https://example.com/a_(b).` opens the browser at `https://example.com/a_(b)`;
+    `javascript:alert(1)` is plain text.
+22. **Chat while reconnecting.** Turn on airplane mode for 5 s, type a message, send:
+    "Not connected — message not sent", text kept. Reconnect: the history is not
+    duplicated.
+23. **Rename.** ☰ → Name → change it → Save (or Done). The browser shows the new name;
+    leave and rejoin: the lobby has the new name. Change it again and close the sheet
+    without saving: the name is unchanged. Joining with an invite that locks your
+    name does not overwrite your saved default name; an explicit in-call rename
+    (Save/Done) does become the new default.
+    Focus the chat input, then the ☰ Name field (both platforms): each stays visible
+    above the keyboard while typing (Android: if it is hidden behind the keyboard,
+    report it — the sheet then needs the iOS keyboard-lift path).
+24. **Room timer.** The top bar shows `#room · m:ss`, matching the browser's timer.
+25. **Chimes.** Browser joins: door chime on the phone. Browser leaves: drop chime
+    ~6 s later. Browser reloads quickly: no chimes. Chimes follow the current audio
+    route (earpiece / speaker / Bluetooth). iOS: the Xcode console shows no new
+    `AVAudioSession` warnings.
+26. **Screenshare.** Browser shares a tab with audio: a "Name (screen)" tile appears
+    with a bloop. Tap it: full screen; pinch to zoom, drag to pan, ⟲ rotates, the
+    volume slider changes the shared tab's audio (0–200%). Stop sharing in the
+    browser: the viewer closes and the tile goes. Lock the phone during a share and
+    unlock: no second bloop. Airplane mode for 5 s while the browser shares: the
+    share tile comes back with no second bloop. On Android too: ⟲ actually turns the
+    video 90° and zoom stays within the screen — run this item early on Android; if
+    rotation doesn't apply to the video, stop and report (it needs a design decision).
+27. **Flip camera** from the ⟳ on the self-view tile.

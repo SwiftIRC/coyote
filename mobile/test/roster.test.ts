@@ -47,3 +47,36 @@ test("patch and setStream(null) on unknown ids are no-ops", () => {
   r.setStream("nobody", "camera", null);
   expect(r.list()).toEqual([]);
 });
+
+test("screen and screen-audio have their own slots, kept across upsert, dropped on seed", () => {
+  const r = new Roster();
+  r.upsert(info("a", { ref: "ra" }));
+  const scr = new FakeStream([]);
+  const sa = new FakeStream([]);
+  r.setStream("a", "screen", scr);
+  r.setStream("a", "screen-audio", sa);
+  expect(r.list()[0]).toMatchObject({ screen: scr, screenAudio: sa, video: null, audio: null });
+  r.upsert(info("a", { ref: "ra", name: "New" }));
+  expect(r.list()[0]).toMatchObject({ screen: scr, screenAudio: sa });
+  r.setStream("a", "screen", null);
+  expect(r.list()[0].screen).toBeNull();
+  r.seed([info("a")]);
+  expect(r.list()[0]).toMatchObject({ screen: null, screenAudio: null });
+});
+
+test("refOf and get look participants up by id", () => {
+  const r = new Roster();
+  r.upsert(info("a", { ref: "ra" }));
+  expect(r.refOf("a")).toBe("ra");
+  expect(r.refOf("nope")).toBe("");
+  expect(r.get("a")?.name).toBe("A");
+  expect(r.get("nope")).toBeUndefined();
+});
+
+test("an early screen stream is attached when its participant arrives", () => {
+  const r = new Roster();
+  const scr = new FakeStream([]);
+  r.setStream("late", "screen", scr);
+  r.upsert(info("late"));
+  expect(r.list()[0].screen).toBe(scr);
+});

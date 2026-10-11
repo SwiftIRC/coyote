@@ -4,12 +4,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { routeLabel, type AudioRoutes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
+import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
+import { useChat } from "../hooks";
 import { Banner } from "../components/Banner";
+import { ChatSheet } from "../components/ChatSheet";
+import { MoreSheet } from "../components/MoreSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
+import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
+import { ScreenTile } from "../components/ScreenTile";
+import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
 import { colors } from "../theme";
 
@@ -26,6 +33,14 @@ export function Call() {
   const width = area?.width ?? window.width - insets.left - insets.right;
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
+  const chat = useChat();
+  const [sheet, setSheet] = useState<"chat" | "more" | null>(null);
+  const toggleChat = () => {
+    const open = sheet !== "chat";
+    setSheet(open ? "chat" : null);
+    call()?.chat.setOpen(open);
+  };
+  const [viewing, setViewing] = useState<string | null>(null);
   const audioStarted = useRef(false);
   const phase = state?.phase;
   const hasState = !!state;
@@ -37,6 +52,11 @@ export function Call() {
       if (audioStarted.current) stopCallAudio();
     };
   }, []);
+
+  // Drop a stale viewer id once the share is gone.
+  useEffect(() => {
+    if (viewing && state && !screenFor(state.participants, viewing)) setViewing(null);
+  }, [viewing, state]);
 
   // Call audio starts once the call is up, in video mode if the camera is on.
   useEffect(() => {
@@ -99,23 +119,28 @@ export function Call() {
     );
   }
   const people = state.participants;
+  const tiles = gridTiles(people);
   const gridH = height - CONTROLS_H;
-  const cols = gridColumns(width, gridH, people.length);
-  const rows = Math.max(1, Math.ceil(people.length / cols));
+  const cols = gridColumns(width, gridH, tiles.length);
+  const rows = Math.max(1, Math.ceil(tiles.length / cols));
   const tileW = Math.floor(width / cols);
   const tileH = Math.floor(gridH / rows);
+  const viewed = viewing ? screenFor(people, viewing) : null;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
       <View style={styles.area} onLayout={(e) => setArea(e.nativeEvent.layout)}>
         <View style={[styles.grid, { height: gridH }]}>
-          {people.length === 0 ? (
+          {tiles.length === 0 ? (
             <Text style={styles.waiting}>{state.phase === "connecting" ? "Connecting…" : `Waiting for others in #${state.slug}…`}</Text>
           ) : (
-            people.map((p) => <Tile key={p.id} p={p} width={tileW} height={tileH} />)
+            tiles.map((t) => t.kind === "screen"
+              ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
+              : <Tile key={t.key} p={t.p} width={tileW} height={tileH} />)
           )}
         </View>
-        <SelfView stream={state.camera ? state.localStream : null} />
+        <TopBar slug={state.slug} />
+        <SelfView stream={state.camera ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
         <Controls
           mic={state.mic}
@@ -123,10 +148,24 @@ export function Call() {
           routeLabel={routeLabel(routes.selected)}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
-          onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }}
+          unread={chat.unread}
+          onChat={toggleChat}
+          onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
           onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
           onLeave={leave}
         />
+        <ChatSheet
+          visible={sheet === "chat"}
+          onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
+          send={(t) => call()?.chat.send(t) ?? "offline"}
+        />
+        <MoreSheet
+          visible={sheet === "more"}
+          onClose={() => setSheet(null)}
+          name={state.name}
+          rename={(n) => call()?.rename(n) ?? "offline"}
+        />
+        <ScreenViewer p={viewed} onClose={() => setViewing(null)} />
       </View>
     </View>
   );

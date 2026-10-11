@@ -40,6 +40,8 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const peers: FakePeer[] = [];
   const system: string[] = [];
   const notices: string[] = [];
+  const chimes: string[] = [];
+  const renames: string[] = [];
   const ends: CallOutcome[] = [];
   const states: CallState[] = [];
   const mics: FakeTrack[] = [];
@@ -79,12 +81,16 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
     },
     uuid: () => `u${++ids}`,
     log: silentLog,
+    timers,
+    now: () => timers.now,
+    playChime: (n) => chimes.push(n),
   }, {
     change: (s) => states.push(s),
     end: (o) => ends.push(o),
     notice: (t) => notices.push(t),
+    selfRenamed: (n) => renames.push(n),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl, chimes, renames };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
@@ -563,4 +569,121 @@ test("backgrounding during a user camera-on acquisition keeps it off and restore
   expect(call.getState().camera).toBe(true);
   expect(cams[1].stopped).toBe(false);
   expect(peers[0].published.at(-1)).toEqual(["camera", cams[1]]);
+});
+
+test("chat: frames reach the log; send goes out only while in-call and connected", async () => {
+  const { call } = await inCall();
+  sock().receive({ type: "chat", from: "Alice", text: "hi", ts: 5 });
+  sock().receive({ type: "moderation", actor: "Alice", action: "lock" });
+  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual(["hi", "Alice locked the room"]);
+  expect(call.chat.send("hello")).toBe("sent");
+  expect(framesOf("chat")).toEqual([{ type: "chat", text: "hello" }]);
+  sock().drop();
+  expect(call.chat.send("lost?")).toBe("offline");
+  expect(framesOf("chat")).toHaveLength(1);
+});
+
+test("rejoin clears chat before the server's replay, re-anchors the clock, stays silent", async () => {
+  const { call, timers, chimes } = await inCall();
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 });
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  timers.now = 50_000;
+  sock().receive(joined({ roomAge: 30, peers: [{ id: "p9", name: "Alice", role: "op", mic: true, camera: false, ref: "r1" }] }));
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 }); // replay
+  await flush();
+  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual(["old"]);
+  expect(call.clock.elapsed(50_000)).toBe(30);
+  expect(chimes).toEqual([]);
+});
+
+test("a rejoin's chat replay does not re-count read history as unread", async () => {
+  const { call, timers } = await inCall();
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 });
+  call.chat.setOpen(true);
+  call.chat.setOpen(false);
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  sock().receive({ type: "chat", from: "Alice", text: "old", ts: 1 });
+  await flush();
+  expect(call.chat.getSnapshot().unread).toBe(0);
+});
+
+test("in-call server errors also land in chat as notices", async () => {
+  const { call, notices } = await inCall();
+  sock().receive({ type: "error", code: "rate", message: "Slow down" });
+  expect(notices).toHaveLength(1);
+  expect(call.chat.getSnapshot().entries.map((e) => e.text)).toEqual([notices[0]]);
+});
+
+test("chimes: arrivals and departures by ref, not on the initial roster", async () => {
+  const { timers, chimes } = await inCall();
+  expect(chimes).toEqual([]);
+  sock().receive({ type: "peer-joined", id: "p2", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" });
+  sock().receive({ type: "peer-left", id: "p2" });
+  timers.advance(6000);
+  expect(chimes).toEqual(["join", "drop"]);
+});
+
+test("screen tracks go to the roster's screen slots and bloop once", async () => {
+  const { call, peers, chimes } = await inCall();
+  sock().receive({ type: "peer-joined", id: "p2", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" });
+  const scr = new FakeStream([]);
+  const sa = new FakeStream([]);
+  peers[0].events.remoteTrack({ participantId: "p2", kind: "screen", stream: scr });
+  peers[0].events.remoteTrack({ participantId: "p2", kind: "screen-audio", stream: sa });
+  const bob = call.getState().participants.find((p) => p.id === "p2")!;
+  expect(bob).toMatchObject({ screen: scr, screenAudio: sa });
+  expect(chimes.filter((c) => c === "bloop")).toHaveLength(1);
+  peers[0].events.peerGone({ participantId: "p2", kind: "screen" });
+  peers[0].events.peerGone({ participantId: "p2", kind: "screen-audio" });
+  expect(call.getState().participants.find((p) => p.id === "p2")).toMatchObject({ screen: null, screenAudio: null });
+});
+
+test("a screenshare survives a reconnect: one bloop, slot refilled", async () => {
+  const { call, peers, chimes, timers } = await inCall();
+  sock().receive({ type: "peer-joined", id: "p2", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" });
+  peers[0].events.remoteTrack({ participantId: "p2", kind: "screen", stream: new FakeStream([]) });
+  expect(chimes.filter((c) => c === "bloop")).toHaveLength(1);
+  sock().drop();
+  timers.advance(500);
+  sock().open();
+  sock().receive(joined({ peers: [{ id: "p3", name: "Bob", role: "user", mic: true, camera: true, ref: "rb" }] }));
+  await flush();
+  const scr = new FakeStream([]);
+  peers[peers.length - 1].events.remoteTrack({ participantId: "p3", kind: "screen", stream: scr });
+  expect(call.getState().participants.find((p) => p.id === "p3")).toMatchObject({ screen: scr });
+  expect(chimes.filter((c) => c === "bloop")).toHaveLength(1);
+});
+
+test("rename: validates, sends, updates state and saves only on our own confirmed echo", async () => {
+  const { call, renames } = await inCall();
+  expect(call.getState().name).toBe("Ryan");
+  expect(call.rename("   ")).toBe("empty");
+  expect(call.rename("Ryan")).toBe("unchanged");
+  expect(call.rename("  " + "x".repeat(30) + "  ")).toBe("sent");
+  expect(framesOf("rename")).toEqual([{ type: "rename", name: "x".repeat(24) }]);
+  expect(call.getState().name).toBe("Ryan"); // not until the server confirms
+  sock().receive({ type: "peer-renamed", id: "me", name: "x".repeat(24) });
+  expect(call.getState().name).toBe("x".repeat(24));
+  expect(renames).toEqual(["x".repeat(24)]);
+  sock().receive({ type: "peer-renamed", id: "me", name: "ServerSide" }); // not our request
+  expect(call.getState().name).toBe("ServerSide");
+  expect(renames).toHaveLength(1);
+  expect(call.rename("a \t  b\u0007c")).toBe("sent");
+  expect(framesOf("rename").pop()).toEqual({ type: "rename", name: "a bc" });
+  sock().receive({ type: "peer-renamed", id: "me", name: "a bc" });
+  expect(renames).toEqual(["x".repeat(24), "a bc"]);
+  sock().drop();
+  expect(call.rename("Offline")).toBe("offline");
+});
+
+test("rename echo for another participant only patches the roster", async () => {
+  const { call, renames } = await inCall();
+  sock().receive({ type: "peer-renamed", id: "p1", name: "Alicia" });
+  expect(call.getState().participants[0].name).toBe("Alicia");
+  expect(renames).toEqual([]);
 });
