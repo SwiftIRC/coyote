@@ -152,8 +152,9 @@ A plain class, no React Native imports, `subscribe()` / snapshot like `Polls`.
 
 In-call `error` frames already become a notice (banner + chat) through the shared
 `serverErrorDisposition`, which gives `no-such-peer` → "They already left the call."
-The app overrides `not-op` to *"That needs op, and the server says you don't have it.
-Rejoining will pick it back up."* (the web's text says "Reloading").
+The app overrides `not-op` to *"That needs op, and the server says you don't have it."*
+It deliberately makes no promise that rejoining helps: a guest op's rejoin on mobile uses
+a new session and would not regain op.
 
 ### Hook
 

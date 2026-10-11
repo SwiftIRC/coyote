@@ -855,5 +855,5 @@ test("bad-password on a rejoin: the room was locked while away; back to PreJoin,
 test("not-op in a call uses the app's wording", async () => {
   const { notices } = await inCall();
   sock().receive({ type: "error", code: "not-op", message: "x" });
-  expect(notices).toEqual(["That needs op, and the server says you don't have it. Rejoining will pick it back up."]);
+  expect(notices).toEqual(["That needs op, and the server says you don't have it."]);
 });

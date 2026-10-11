@@ -23,7 +23,7 @@ test("in-call wording comes from the shared disposition", () => {
   expect(inCallErrorText("other", "")).toBe("That action was refused.");
 });
 
-test("not-op in-call wording says rejoining, not reloading", () => {
-  expect(inCallErrorText("not-op")).toBe("That needs op, and the server says you don't have it. Rejoining will pick it back up.");
+test("not-op in-call wording does not promise a rejoin fixes it", () => {
+  expect(inCallErrorText("not-op")).toBe("That needs op, and the server says you don't have it.");
   expect(inCallErrorText("no-such-peer")).toBe("They already left the call.");
 });

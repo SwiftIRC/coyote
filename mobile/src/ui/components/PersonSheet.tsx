@@ -82,9 +82,9 @@ export function PersonSheet({ p, volume, onChange, onClose, isOp, actions }: {
                 <Text style={styles.btnText}>Ban</Text>
               </Pressable>
             </View>
-            {msg ? <Text style={styles.value}>{msg}</Text> : null}
           </View>
         ) : null}
+        {msg ? <Text style={styles.value}>{msg}</Text> : null}
       </View>
     </Sheet>
   );

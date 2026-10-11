@@ -27,6 +27,7 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
   useEffect(() => { setView("main"); setLockDraft(null); setModMsg(""); }, [visible]);
   // A room-locked broadcast while the draft is open: the row becomes Unlock room.
   useEffect(() => { if (locked) setLockDraft(null); }, [locked]);
+  useEffect(() => { if (!isOp) { setView("main"); setLockDraft(null); } }, [isOp]);
   const show = (r: ModResult) => setModMsg(MOD_RESULT_TEXT[r] || "");
   const submitLock = () => {
     const r = mod.lock(lockDraft ?? "");
