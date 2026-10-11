@@ -403,6 +403,7 @@ export class Call {
     // Reset before the server's chat replay, which follows this frame.
     this.chat.clear();
     this.polls.seed(m.poll);
+    if (m.poll?.id) this.chat.addPollCard(m.poll.id);
     this.soundboard.reset();
     if (this.state.dataSaver) this.sig?.send("set-receive-video", { enabled: false });
     if (!this.boardRequested) {
@@ -535,6 +536,7 @@ export class Call {
     this.peer = null;
     this.releaseTracks();
     this.chimes.dispose();
+    this.soundboard.reset();
     if (this.callId) this.deps.system.end(this.callId);
     this.update({ phase: "ended", banner: "" });
     this.events.end(outcome);

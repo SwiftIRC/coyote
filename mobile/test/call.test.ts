@@ -706,6 +706,35 @@ test("polls: joined.poll seeds, poll frames update and reach chat; votes go out"
   expect(framesOf("vote")).toEqual([{ type: "vote", pollId: "p2", choice: 1 }]);
 });
 
+test("polls: the card is restored (not unread) on first join and on rejoin", async () => {
+  const t = setup();
+  await t.call.join(req());
+  sock().open();
+  const poll = { id: "p1", question: "Q", options: ["a", "b"], tallies: [1, 0], by: "Op", open: true, yourVote: 0 };
+  sock().receive(joined({ poll }));
+  await flush();
+  const cards = () => t.call.chat.getSnapshot().entries.filter((e) => e.kind === "poll");
+  expect(cards()).toHaveLength(1);
+  expect(t.call.chat.getSnapshot().unread).toBe(0);
+  sock().drop();
+  t.timers.advance(500);
+  sock().open();
+  sock().receive(joined({ poll }));
+  await flush();
+  expect(cards()).toHaveLength(1);
+  expect(t.call.chat.getSnapshot().unread).toBe(0);
+});
+
+test("leaving the call stops a playing soundboard clip", async () => {
+  const t = await inCall();
+  await flush();
+  t.call.soundboard.onLoaded("clip:1f680", true);
+  sock().receive({ type: "sound", action: "start", id: "1f680", by: "Alice" });
+  expect(t.clipCalls.at(-1)).toBe("play clip:1f680");
+  t.call.leave();
+  expect(t.clipCalls.at(-1)).toBe("stop clip:1f680");
+});
+
 test("poll create/close follow our role", async () => {
   const { call } = await inCall();
   expect(call.polls.create("Q?", ["a", "b"])).toBe("not-op");

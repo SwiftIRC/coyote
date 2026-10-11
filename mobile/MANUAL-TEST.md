@@ -123,3 +123,12 @@ Server prerequisite: a deploy that serves `GET /api/soundboard`.
     browser still sees your camera. Rejoin: still hidden.
 34. **Recent rooms ×.** On Home, tap × on a Recent row: it disappears at once; quit
     and reopen the app: it's still gone; the other rooms remain.
+35. **Rejoin mid-poll.** With a poll open and your vote cast, toggle airplane mode for
+    5 s and back: after rejoining, the poll card is in the chat log with the tallies and
+    your vote highlighted, and the chat badge doesn't count it as unread. Joining a room
+    that already has an open poll also shows its card.
+36. **Leave mid-clip.** Start a soundboard clip and hang up while it plays: the audio
+    stops immediately.
+37. **Data saver during a screenshare.** While someone is screensharing, turn ☰ → Data
+    saver on. Note what the screen tile shows (known risk: a frozen last frame rather
+    than an avatar) and that the screenshare's audio keeps playing.

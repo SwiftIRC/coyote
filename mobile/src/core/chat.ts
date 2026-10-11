@@ -56,6 +56,11 @@ export class ChatLog {
     }
   }
 
+  // Restores the card for an already-open poll after clear() (join/rejoin); never unread.
+  addPollCard(pollId: string): void {
+    this.push({ key: ++this.seq, kind: "poll", pollId, ts: Math.floor(this.nowMs() / 1000) }, false);
+  }
+
   clear(): void {
     // Keep the unread count; remember how far we got so the replay is not recounted.
     for (const e of this.snap.entries) if (e.kind === "message" && e.ts > this.lastSeenTs) this.lastSeenTs = e.ts;
