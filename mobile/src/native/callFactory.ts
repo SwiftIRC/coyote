@@ -37,6 +37,8 @@ export function createCall(events: CallEvents): { call: Call; dispose(): void } 
     clips: { load: loadClip, play: playClip, stop: stopClip },
     fetchBoard: (origin) => fetchSoundboard(fetch, origin),
     screen: screenCapture,
+    effects: { setEffect: () => Promise.reject(new Error("background effects not wired")), attach: () => {}, detach: () => {} },
+    fetchScenes: async () => null,
   }, events);
   const stopLifecycle = watchLifecycle(call);
   const stopLoaded = onSoundLoaded((id, ok) => call?.soundboard.onLoaded(id, ok));
