@@ -52,3 +52,37 @@ index 5d58692..77a02a6 100644
                  Log.d(TAG, "[VoiceConnectionService] PhoneAccount is SELF_MANAGED, so connection will be too");
                  connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
              }
+diff --git a/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m b/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
+index 786045f..c90b43f 100644
+--- a/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
++++ b/node_modules/react-native-callkeep/ios/RNCallKeep/RNCallKeep.m
+@@ -913,7 +913,7 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
+ - (void)configureAudioSession
+ {
+ #ifdef DEBUG
+-    NSLog(@"[RNCallKeep][configureAudioSession] Activating audio session");
++    NSLog(@"[RNCallKeep][configureAudioSession] Configuring audio session");
+ #endif
+ 
+     NSUInteger categoryOptions = AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionAllowBluetoothA2DP;
+@@ -940,7 +940,9 @@ RCT_EXPORT_METHOD(getAudioRoutes: (RCTPromiseResolveBlock)resolve
+ 
+     NSTimeInterval bufferDuration = .005;
+     [audioSession setPreferredIOBufferDuration:bufferDuration error:nil];
+-    [audioSession setActive:TRUE error:nil];
++    // Not activated here: CallKit activates the session after the start/answer action
++    // and reports it via didActivateAudioSession. Activating it ourselves ran a
++    // blocking setActive on the main thread (the CXProvider delegate queue).
+ }
+ 
+ + (BOOL)application:(UIApplication *)application
+@@ -1142,7 +1144,8 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
+     };
+     [[NSNotificationCenter defaultCenter] postNotificationName:AVAudioSessionInterruptionNotification object:nil userInfo:userInfo];
+ 
+-    [self configureAudioSession];
++    // Already configured by the start/answer action and now active: reconfiguring an
++    // active session on the main thread blocks the UI.
+     [self sendEventWithNameWrapper:RNCallKeepDidActivateAudioSession body:nil];
+ }
+ 
