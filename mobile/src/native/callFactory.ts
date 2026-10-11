@@ -6,6 +6,7 @@ import type { SocketLike } from "../core/types";
 import { uuidV4 } from "../core/uuid";
 import { watchLifecycle } from "./lifecycle";
 import { loadClip, onSoundEnded, onSoundLoaded, playChime, playClip, stopClip } from "./sounds";
+import { screenCapture } from "./screenCapture";
 import { createSystemCall } from "./systemCall";
 import { createCandidate, createPeerConnection, createStream, media, videoCodecs } from "./webrtc";
 
@@ -35,7 +36,7 @@ export function createCall(events: CallEvents): { call: Call; dispose(): void } 
     playChime,
     clips: { load: loadClip, play: playClip, stop: stopClip },
     fetchBoard: (origin) => fetchSoundboard(fetch, origin),
-    screen: { start: () => Promise.reject(new Error("screen capture not wired")) },
+    screen: screenCapture,
   }, events);
   const stopLifecycle = watchLifecycle(call);
   const stopLoaded = onSoundLoaded((id, ok) => call?.soundboard.onLoaded(id, ok));

@@ -80,3 +80,22 @@ test("CoyoteSounds downloads remote clips off the main thread and reports loads"
   expect(swift).not.toMatch(/methodQueue/); // 2a Ruling: main-thread confinement
   expect(swift).not.toMatch(/setCategory|setMode|setActive/);
 });
+
+test("Android declares the media-projection foreground-service permission (Android 14+)", () => {
+  const manifest = fs.readFileSync(path.join(__dirname, "..", "android", "app", "src", "main", "AndroidManifest.xml"), "utf8");
+  expect(manifest).toContain('android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION');
+});
+
+test("CoyoteScreenShare exports showPicker and relays the extension's started notification", () => {
+  const app = path.join(__dirname, "..");
+  const m = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteScreenShare.m"), "utf8");
+  expect(m).toContain("RCT_EXTERN_MODULE(CoyoteScreenShare, RCTEventEmitter)");
+  expect(m).toContain("RCT_EXTERN_METHOD(showPicker)");
+  const swift = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteScreenShare.swift"), "utf8");
+  expect(swift).toContain('"net.swiftirc.coyote.broadcast.started"');
+  expect(swift).toContain('"CoyoteBroadcastStarted"');
+  expect(swift).toContain("RPSystemBroadcastPickerView");
+  const pbx = fs.readFileSync(path.join(app, "ios", "Coyote.xcodeproj", "project.pbxproj"), "utf8");
+  expect(pbx).toContain("CoyoteScreenShare.swift in Sources");
+  expect(pbx).toContain("CoyoteScreenShare.m in Sources");
+});
