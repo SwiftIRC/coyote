@@ -108,6 +108,7 @@ func (h *Hub) Routes() http.Handler {
 		r2.URL.Path = "/privacy.html"
 		h.handleStatic(w, r2)
 	})
+	h.registerWellKnown(mux)
 	// Catch-all app shell + static assets. The specific routes above are more
 	// specific and still win under Go 1.22 mux precedence (verified in tests).
 	mux.HandleFunc("GET /", h.handleStatic)

@@ -1,0 +1,54 @@
+diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
+index 025480a..6e8137c 100644
+--- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
++++ b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
+@@ -434,7 +434,8 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule implements Life
+         this.hasListeners = false;
+     }
+ 
+-    @ReactMethod
++    // Not exported: the TurboModule interop layer rejects overloaded @ReactMethods,
++    // and the JS only calls the hasVideo form on Android.
+     public void displayIncomingCall(String uuid, String number, String callerName) {
+         this.displayIncomingCall(uuid, number, callerName, false, null);
+     }
+@@ -483,7 +484,8 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule implements Life
+         conn.onAnswer();
+     }
+ 
+-    @ReactMethod
++    // Not exported: the TurboModule interop layer rejects overloaded @ReactMethods,
++    // and the JS only calls the hasVideo form on Android.
+     public void startCall(String uuid, String number, String callerName) {
+         this.startCall(uuid, number, callerName, false, null);
+     }
+diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
+index 5d58692..77a02a6 100644
+--- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
++++ b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
+@@ -460,11 +460,22 @@ public class VoiceConnectionService extends ConnectionService {
+ 
+         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+             Context context = getApplicationContext();
+-            TelecomManager telecomManager = (TelecomManager) context.getSystemService(context.TELECOM_SERVICE);
+-            PhoneAccount phoneAccount = telecomManager.getPhoneAccount(request.getAccountHandle());
++            // Decide from the setup settings first: getPhoneAccount needs READ_PHONE_NUMBERS
++            // on API 31+, which a self-managed app has no reason to hold.
++            WritableMap settings = this.getSettings(context);
++            boolean selfManaged = settings != null && settings.hasKey("selfManaged") && settings.getBoolean("selfManaged");
++            if (!selfManaged) {
++                try {
++                    TelecomManager telecomManager = (TelecomManager) context.getSystemService(context.TELECOM_SERVICE);
++                    PhoneAccount phoneAccount = telecomManager.getPhoneAccount(request.getAccountHandle());
++                    selfManaged = phoneAccount != null && (phoneAccount.getCapabilities() & PhoneAccount.CAPABILITY_SELF_MANAGED) == PhoneAccount.CAPABILITY_SELF_MANAGED;
++                } catch (SecurityException e) {
++                    Log.w(TAG, "[VoiceConnectionService] getPhoneAccount not permitted", e);
++                }
++            }
+ 
+             //If the phone account is self managed, then this connection must also be self managed.
+-            if((phoneAccount.getCapabilities() & PhoneAccount.CAPABILITY_SELF_MANAGED) == PhoneAccount.CAPABILITY_SELF_MANAGED) {
++            if(selfManaged) {
+                 Log.d(TAG, "[VoiceConnectionService] PhoneAccount is SELF_MANAGED, so connection will be too");
+                 connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
+             }

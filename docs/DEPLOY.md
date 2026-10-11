@@ -33,6 +33,9 @@ over defaults.
 | `-secret` | `WVC_SECRET` | _(empty)_ | Shared HMAC secret for join tokens **and** `/api/provision`. Must match the Anope module's secret. Empty disables all channel-room / token features. |
 | `-adhoc` | `WVC_ADHOC` | `true` | Allow ad-hoc rooms (anyone visiting `/<name>` and joining creates one). Set `false` for a channel-rooms-only SwiftIRC deployment. |
 | `-trust-proxy` | `WVC_TRUST_PROXY` | `false` | Trust `X-Forwarded-For`. **Enable only behind a trusted proxy** (it reads the last XFF entry). Off = the direct socket IP is used. |
+| `-apple-app-id` | `WVC_APPLE_APP_ID` | _(empty)_ | iOS `<TEAMID>.<bundle id>`; serves `/.well-known/apple-app-site-association` so room links open the app. See [Mobile app links](#mobile-app-links). |
+| `-android-package` | `WVC_ANDROID_PACKAGE` | _(empty)_ | Android applicationId for `/.well-known/assetlinks.json`. |
+| `-android-cert-sha256` | `WVC_ANDROID_CERT_SHA256` | _(empty)_ | Comma-separated signing-cert SHA-256 fingerprints for assetlinks (both Android settings needed). |
 | `-tls-cert` / `-tls-key` | `WVC_TLS_CERT` / `WVC_TLS_KEY` | _(empty)_ | Optional built-in TLS instead of a proxy. Set both or neither. |
 | `-log-level` | `WVC_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. An unparseable value refuses to start rather than falling back. |
 
@@ -498,3 +501,22 @@ and rotate both together — a mismatch rejects every token and every provision.
 3. Join from two browsers on different networks; confirm two-way video (proves the
    UDP range and `-public-ip` are reachable). If the preview works but remote video
    never arrives, the media UDP ports or `-public-ip` are wrong.
+
+## Mobile app links
+
+Set these three variables to have room links open the Coyote iOS and Android apps
+instead of the browser. Each `.well-known` document is served only when its
+settings are present; without them the paths return 404.
+
+- `WVC_APPLE_APP_ID=<TEAMID>.net.swiftirc.coyote` (serves `/.well-known/apple-app-site-association`)
+- `WVC_ANDROID_PACKAGE=net.swiftirc.coyote` (serves `/.well-known/assetlinks.json`)
+- `WVC_ANDROID_CERT_SHA256=<Play app-signing cert SHA-256, from Play Console → App integrity>`
+  (both Android settings are needed for assetlinks to be served)
+
+The reverse proxy must pass `/.well-known/*` through to coyote unmodified and without
+redirects: Apple fetches the association file via its CDN and refuses redirects.
+Verify with:
+
+```bash
+curl -sI https://vc.swiftirc.net/.well-known/apple-app-site-association
+```
