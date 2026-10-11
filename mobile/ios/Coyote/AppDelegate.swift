@@ -5,6 +5,7 @@ import ReactAppDependencyProvider
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  // Set by SceneDelegate, which owns the window.
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
@@ -21,26 +22,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
 
-    window = UIWindow(frame: UIScreen.main.bounds)
-
-    factory.startReactNative(
-      withModuleName: "Coyote",
-      in: window,
-      launchOptions: launchOptions
-    )
-
     return true
   }
 
-  func application(_ app: UIApplication, open url: URL,
-                   options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-    return RCTLinkingManager.application(app, open: url, options: options)
-  }
-
-  func application(_ application: UIApplication, continue userActivity: NSUserActivity,
-                   restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-    return RCTLinkingManager.application(application, continue: userActivity,
-                                         restorationHandler: restorationHandler)
+  func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
   }
 }
 
