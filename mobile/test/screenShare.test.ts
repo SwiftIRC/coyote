@@ -74,11 +74,12 @@ test("start is refused when the host cannot share (not in call)", async () => {
   expect(statuses).toEqual([]);
 });
 
-test("stop(user): unpublishes, stops the track, back to idle, no notice", async () => {
+test("stop(user): unpublishes, stops and releases the track, back to idle, no notice", async () => {
   const { share, calls, notices, track } = await sharing();
   share.stop("user");
   expect(calls.at(-1)).toBe("unpublish");
   expect(track.stopped).toBe(true);
+  expect(track.released).toBe(true);
   expect(share.getSnapshot().status).toBe("idle");
   expect(share.liveTrack()).toBeNull();
   expect(notices).toEqual([]);
@@ -117,6 +118,7 @@ test("a capture that resolves after stop is released", async () => {
   waits[0].resolve(late);
   await p;
   expect(late.stopped).toBe(true);
+  expect(late.released).toBe(true);
   expect(calls).toEqual([]);
   expect(share.getSnapshot().status).toBe("idle");
 });
@@ -142,6 +144,7 @@ test("a publish failure stops the share and shows the failure notice", async () 
   await flush();
   expect(share.getSnapshot().status).toBe("idle");
   expect(track.stopped).toBe(true);
+  expect(track.released).toBe(true);
   expect(calls.at(-1)).toBe("unpublish");
   expect(notices).toEqual([SHARE_TEXT.failed]);
 });

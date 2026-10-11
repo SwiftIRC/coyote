@@ -34,6 +34,12 @@ export function captureCancelled(): Error {
   return e;
 }
 
+// Stop, then release: stop() alone leaves the native track and capturer alive.
+export function discard(track: TrackLike): void {
+  track.stop();
+  track.release?.();
+}
+
 const isCancelled = (e: unknown) => !!e && (e as { name?: unknown }).name === "CaptureCancelled";
 
 export class ScreenShare {
@@ -67,7 +73,7 @@ export class ScreenShare {
       return;
     }
     if (gen !== this.gen) {
-      track.stop();
+      discard(track);
       return;
     }
     this.track = track;
@@ -92,7 +98,7 @@ export class ScreenShare {
     this.track = null;
     if (track) {
       this.host.unpublish();
-      track.stop();
+      discard(track);
     }
     this.set("idle");
     if (reason === "op" && track) this.host.notice(SHARE_TEXT.op);
