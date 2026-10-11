@@ -29,3 +29,8 @@ export function onSoundEnded(fn: (id: string) => void): () => void {
   const sub = new NativeEventEmitter(CoyoteSounds).addListener("CoyoteSoundEnded", (e) => fn((e as { id: string }).id));
   return () => sub.remove();
 }
+
+// Soundboard clips: stubs until the native implementation lands (Task 9).
+export function loadClip(_id: string, _url: string): void {}
+export function playClip(_id: string): void {}
+export function stopClip(_id: string): void {}

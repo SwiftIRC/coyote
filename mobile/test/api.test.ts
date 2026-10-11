@@ -1,4 +1,4 @@
-import { peekRoom, peekInvite, serverVersion, type Fetcher } from "../src/core/api";
+import { fetchSoundboard, peekRoom, peekInvite, serverVersion, type Fetcher } from "../src/core/api";
 import { parseRoomInput } from "../src/core/link";
 
 function fetcher(routes: Record<string, { status: number; body?: unknown } | "throw">): Fetcher & { urls: string[] } {
@@ -33,4 +33,12 @@ test("serverVersion", async () => {
   const f = fetcher({ "https://vc.swiftirc.net/api/version": { status: 200, body: { version: "abc123" } } });
   expect(await serverVersion(f, "https://vc.swiftirc.net")).toBe("abc123");
   expect(await serverVersion(fetcher({}), "https://vc.swiftirc.net")).toBe("");
+});
+
+test("fetchSoundboard returns the list, or null on failure or a bad body", async () => {
+  const list = [{ id: "a", label: "🚀", src: "/s.mp3" }];
+  expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": { status: 200, body: list } }), "https://h")).toEqual(list);
+  expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": { status: 404 } }), "https://h")).toBeNull();
+  expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": { status: 200, body: { not: "a list" } } }), "https://h")).toBeNull();
+  expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": "throw" }), "https://h")).toBeNull();
 });

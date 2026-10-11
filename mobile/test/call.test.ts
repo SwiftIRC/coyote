@@ -35,6 +35,8 @@ class FakePeer {
 }
 
 function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
+  const clipCalls: string[] = [];
+  let board: unknown[] | null = [{ id: "1f680", label: "🚀", src: "/v/x/sounds/board/1f680.mp3" }];
   FakeSocket.all = [];
   const timers = new FakeTimers();
   const peers: FakePeer[] = [];
@@ -84,18 +86,20 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
     timers,
     now: () => timers.now,
     playChime: (n) => chimes.push(n),
+    clips: { load: (id) => clipCalls.push(`load ${id}`), play: (id) => clipCalls.push(`play ${id}`), stop: (id) => clipCalls.push(`stop ${id}`) },
+    fetchBoard: async () => board,
   }, {
     change: (s) => states.push(s),
     end: (o) => ends.push(o),
     notice: (t) => notices.push(t),
     selfRenamed: (n) => renames.push(n),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl, chimes, renames };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
   link: parseRoomInput("https://vc.swiftirc.net/lounge#i=inv1")!,
-  name: "Ryan", password: "pw", gravatar: "g", mic: true, camera: true, ...over,
+  name: "Ryan", password: "pw", gravatar: "g", mic: true, camera: true, dataSaver: false, ...over,
 });
 const joined = (over = {}) => ({
   type: "joined", selfId: "me", role: "user", quality: { camera: "low", screen: "auto" },
@@ -686,4 +690,77 @@ test("rename echo for another participant only patches the roster", async () => 
   sock().receive({ type: "peer-renamed", id: "p1", name: "Alicia" });
   expect(call.getState().participants[0].name).toBe("Alicia");
   expect(renames).toEqual([]);
+});
+
+test("polls: joined.poll seeds, poll frames update and reach chat; votes go out", async () => {
+  const t = setup();
+  await t.call.join(req());
+  sock().open();
+  sock().receive(joined({ poll: { id: "p1", question: "Q", options: ["a", "b"], tallies: [1, 0], by: "Op", open: true, yourVote: 0 } }));
+  await flush();
+  expect(t.call.polls.getSnapshot()).toMatchObject({ id: "p1", yourVote: 0 });
+  sock().receive({ type: "poll", action: "open", id: "p2", question: "Q2", options: ["x", "y"], tallies: [0, 0], by: "Op", open: true });
+  expect(t.call.polls.getSnapshot()).toMatchObject({ id: "p2", yourVote: null });
+  expect(t.call.chat.getSnapshot().entries.at(-1)).toMatchObject({ kind: "poll", pollId: "p2" });
+  expect(t.call.polls.vote(1)).toBe("sent");
+  expect(framesOf("vote")).toEqual([{ type: "vote", pollId: "p2", choice: 1 }]);
+});
+
+test("poll create/close follow our role", async () => {
+  const { call } = await inCall();
+  expect(call.polls.create("Q?", ["a", "b"])).toBe("not-op");
+  sock().receive({ type: "role", id: "me", role: "op" });
+  expect(call.polls.create("Q?", ["a", "b"])).toBe("sent");
+});
+
+test("soundboard: board fetched once and clips loaded; sound frames play; rejoin unlocks", async () => {
+  const t = await inCall();
+  await flush();
+  expect(t.call.soundboard.getSnapshot().sounds).toHaveLength(1);
+  expect(t.clipCalls).toEqual(["load clip:1f680"]);
+  t.call.soundboard.onLoaded("clip:1f680", true);
+  sock().receive({ type: "sound", action: "start", id: "1f680", by: "Alice" });
+  expect(t.clipCalls.at(-1)).toBe("play clip:1f680");
+  sock().drop();
+  t.timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(t.call.soundboard.getSnapshot().playing).toBeNull();
+  expect(t.clipCalls.filter((c) => c.startsWith("load"))).toHaveLength(1); // not refetched on rejoin
+});
+
+test("soundboard unavailable when the endpoint fails", async () => {
+  const t = setup();
+  t.setBoard(null);
+  await t.call.join(req());
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(t.call.soundboard.getSnapshot().sounds).toBeNull();
+});
+
+test("data saver: from the join request, toggled, and re-sent after every joined", async () => {
+  const t = setup();
+  await t.call.join(req({ dataSaver: true }));
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(framesOf("set-receive-video")).toEqual([{ type: "set-receive-video", enabled: false }]);
+  expect(t.call.getState().dataSaver).toBe(true);
+  t.call.setDataSaver(false);
+  expect(framesOf("set-receive-video").at(-1)).toEqual({ type: "set-receive-video", enabled: true });
+  expect(t.call.getState().dataSaver).toBe(false);
+  t.call.setDataSaver(true);
+  sock().drop();
+  t.timers.advance(500);
+  sock().open();
+  sock().receive(joined());
+  await flush();
+  expect(sock().sent.filter((f) => f.type === "set-receive-video")).toEqual([{ type: "set-receive-video", enabled: false }]);
+});
+
+test("data saver off at join sends nothing", async () => {
+  await inCall();
+  expect(framesOf("set-receive-video")).toEqual([]);
 });
