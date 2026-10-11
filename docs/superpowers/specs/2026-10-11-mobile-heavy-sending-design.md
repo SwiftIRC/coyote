@@ -76,8 +76,9 @@ A store beside `Call`, following `Moderation`/`Polls`, exposed as `call.screenSh
 - State: `{ status: "idle" | "starting" | "sharing" }`, subscribe/notify like the
   other stores.
 - `start()`: `idle → starting`; asks the native wrapper for a display track; on a
-  track, `peer.publish(track, "screen")`, listens for the track's `ended`, →
-  `sharing`. A cancel (user dismissed the sheet / denied consent / timeout) → `idle`
+  track, → `sharing`, listens for the track's `ended`, and
+  `peer.publish(track, "screen")`; if publishing fails, the share is stopped with
+  the failure notice. A cancel (user dismissed the sheet / denied consent / timeout) → `idle`
   silently. Any other error → `idle` and the notice **"Couldn't start screen
   sharing."** Calling `start()` while not idle is a no-op.
 - `stop(reason)`: unpublishes `screen`, stops the track, → `idle`. Idempotent. Reasons:
@@ -105,27 +106,32 @@ A store beside `Call`, following `Moderation`/`Polls`, exposed as `call.screenSh
   type `mediaProjection`). A denied prompt rejects → `CaptureCancelled`. Android 15
   single-app sharing comes from the system dialog for free.
 - **iOS:** `getDisplayMedia` opens react-native-webrtc's socket server in the App
-  Group container and waits for the extension; the wrapper then triggers a hidden
-  `ScreenCapturePickerView` (mounted once in the Call screen) so the system **Start
-  Broadcast** sheet appears with our extension preselected. If no frame arrives
-  within ~20 s (sheet cancelled), the wrapper stops the track and rejects with
-  `CaptureCancelled`. Stopping the broadcast from Control Center or the red status
-  pill closes the socket and ends the track.
+  Group container and resolves at once with an idle track; the wrapper then calls
+  an in-house `CoyoteScreenShare.showPicker()`, which taps a hidden
+  `RPSystemBroadcastPickerView` (our extension preselected) so the system **Start
+  Broadcast** sheet appears. The extension posts the Darwin notification
+  `net.swiftirc.coyote.broadcast.started` once its socket is connected;
+  `CoyoteScreenShare` relays it as the RN event `CoyoteBroadcastStarted`, which
+  confirms the share. With no confirmation within 30 s (sheet dismissed), the
+  wrapper stops the track and rejects with `CaptureCancelled`. Stopping the
+  broadcast from Control Center or the red status pill closes the socket and ends
+  the track.
 
 ### iOS broadcast extension `CoyoteBroadcast`
 
 - A Broadcast Upload Extension target in `ios/Coyote.xcodeproj`, bundle id
   `net.swiftirc.coyote.broadcast`, embedded in the app.
-- Its `SampleHandler`, `SocketConnection`, `SampleUploader`, `Atomic` and
-  `DarwinNotificationCenter` follow Jitsi's react-native-webrtc sample (Apache-2.0;
+- Its `SampleHandler`, `SocketConnection` and `SampleUploader` follow Jitsi's
+  react-native-webrtc sample (Apache-2.0;
   credited in THIRD-PARTY-NOTICES.md). Frames are downscaled and JPEG-encoded before
   upload to stay under the extension's 50 MB memory limit. Audio sample buffers are
   ignored.
 - App Group `group.net.swiftirc.coyote` on both targets (entitlements files).
 - App Info.plist: `RTCAppGroupIdentifier = group.net.swiftirc.coyote`,
   `RTCScreenSharingExtension = net.swiftirc.coyote.broadcast`.
-- If the app is not sharing (socket absent), the extension finishes the broadcast
-  with the message "Start screen sharing from a Coyote call."
+- If the app is not sharing (no socket to connect to within 5 s), the extension
+  finishes the broadcast with the message "Start screen sharing from a Coyote
+  call."
 
 ### Android
 
@@ -138,9 +144,9 @@ A store beside `Call`, following `Moderation`/`Polls`, exposed as `call.screenSh
 - **☰ More sheet:** a **Share screen** row (or **Stop sharing** while sharing;
   disabled with "Starting…" while starting). Tapping Share closes the sheet first,
   so the system sheet/prompt is not stacked over ours.
-- **Sharing pill:** while `sharing`, a red pill at the top of the call screen,
-  below the TopBar: **"Sharing your screen · Stop"**, one tap stops. Respects
-  safe-area insets; accessibility label "Stop sharing your screen".
+- **Sharing pill:** while `sharing`, a red pill centred just above the controls
+  (clear of the TopBar and the notices at the top): **"Sharing your screen ·
+  Stop"**, one tap stops. Accessibility label "Stop sharing your screen".
 - **Own share tile:** while `sharing`, a ScreenTile-sized placeholder in the grid
   reading "You're sharing your screen" — no video, not tappable. Remote shares are
   unchanged.
