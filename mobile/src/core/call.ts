@@ -3,7 +3,7 @@
 // roster and the system-call integration (CallKit / ConnectionService), and exposes
 // one immutable CallState snapshot for the UI. Port of the join/rejoin/removal flow
 // in internal/web/assets/app.js, plus the mobile lifecycle rules from the spec.
-import { Backgrounds, parseScenes, type EffectPort } from "./backgrounds";
+import { Backgrounds, effectOutputHeight, parseScenes, type EffectPort } from "./backgrounds";
 import { ChatLog } from "./chat";
 import { Chimes, type ChimeName } from "./chimes";
 import { inCallErrorText, joinErrorText, LOCKED_WHILE_AWAY_TEXT } from "./errors";
@@ -20,7 +20,7 @@ import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types
 import { Volumes } from "./volumes";
 
 export type Facing = "user" | "environment";
-export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "close">;
+export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "setCameraSourceHeight" | "close">;
 export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
 
 export interface MediaPort {
@@ -51,6 +51,9 @@ export interface CallDeps {
   screen: ScreenCapturePort;
   effects: EffectPort;
   fetchScenes(origin: string): Promise<unknown[] | null>;
+  // Long-side limit a native background effect scales the camera to (Android 640),
+  // or null when effects keep the camera's resolution (iOS).
+  effectMaxLongSide: number | null;
 }
 
 export interface JoinRequest {
@@ -136,6 +139,8 @@ export class Call {
   private cameraOns = 0; // setCamera(true) acquisitions in flight (user or restore)
   private micBeforeHold: boolean | null = null;
   private quality = { camera: "auto", screen: "auto" };
+  // The camera's outgoing height while an effect resizes it; null otherwise.
+  private cameraHeightCap: number | null = null;
   private state: CallState = {
     phase: "idle", banner: "", slug: "", selfId: "", role: "", name: "", mic: false, camera: false,
     facing: "user", dataSaver: false, localStream: null, participants: [],
@@ -161,6 +166,7 @@ export class Call {
       const list = await deps.fetchScenes(origin);
       return list ? parseScenes(list, origin) : null;
     }, (text) => this.events.notice(text), deps.log);
+    this.background.subscribe(() => this.syncCameraHeight());
     this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
 
@@ -525,6 +531,7 @@ export class Call {
     });
     this.peer = peer;
     peer.setQuality(this.quality.camera, this.quality.screen);
+    peer.setCameraSourceHeight(this.cameraHeightCap);
     const local: Array<{ track: TrackLike; kind: Kind }> = [];
     if (this.micTrack) local.push({ track: this.micTrack, kind: "mic" });
     if (this.camTrack) local.push({ track: this.camTrack, kind: "camera" });
@@ -556,6 +563,17 @@ export class Call {
   private refreshLocalStream() {
     this.update({ localStream: this.camTrack ? this.deps.media.createStream([this.camTrack]) : null });
     this.syncBackground();
+  }
+
+  // Quality tiers scale from the camera's real outgoing height, which an effect can
+  // shrink (Android). Re-sent only when it changes.
+  private syncCameraHeight() {
+    const on = this.background.getSnapshot().applied !== "none";
+    const settings = this.camTrack?.getSettings?.();
+    const cap = on && settings ? effectOutputHeight(settings, this.deps.effectMaxLongSide) : null;
+    if (cap === this.cameraHeightCap) return;
+    this.cameraHeightCap = cap;
+    this.peer?.setCameraSourceHeight(cap);
   }
 
   // The background effect follows whichever camera track is current.

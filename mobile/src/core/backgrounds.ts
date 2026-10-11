@@ -59,6 +59,17 @@ export function parseScenes(list: unknown, origin: string): Scene[] {
   return out;
 }
 
+// The short side of the frames a native effect sends when it scales the camera to a
+// long-side limit (Android: 640), rounded then made even as I420 needs; null when there
+// is no limit or the size is unknown. Quality tiers must scale from this, not 720.
+export function effectOutputHeight(settings: { width?: number; height?: number }, maxLongSide: number | null): number | null {
+  const w = settings.width || 0;
+  const h = settings.height || 0;
+  if (!maxLongSide || !w || !h) return null;
+  // Mirrors BackgroundEngine.kt: the long side always becomes maxLongSide.
+  return Math.max(2, Math.round((maxLongSide * Math.min(w, h)) / Math.max(w, h)) & ~1);
+}
+
 export function labelFor(id: string, scenes: Scene[]): string {
   return builtin(id)?.label ?? scenes.find((s) => s.id === id)?.label ?? id;
 }

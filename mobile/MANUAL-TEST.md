@@ -230,7 +230,8 @@ browser in the call to watch the result.
     turn the camera off and on; background the app and return: the effect stays on.
 64. **Android resolution.** With an effect on, the browser's stats (or the tile) show
     a 640×360 / 360×640 camera from the Android phone (640×480 / 480×640 on a 4:3
-    camera, not stretched); with None, the normal 720p.
+    camera, not stretched); with None, the normal 720p. With the effect still on, a
+    browser op sets Camera quality to Low: the phone's camera stays at 360p (not 180p).
 65. **Slow phone.** On an older phone, pick Blur+: if it cannot keep up, within a few
     seconds the effect turns off with "Background effect turned off: this phone
     couldn't keep up." Flipping or turning the camera off and on keeps it off (no
