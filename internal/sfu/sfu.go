@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -415,7 +416,7 @@ func syncPeerSendersLocked(p *Peer, tracks map[string]*localTrack) (changed bool
 		if !p.receiveVideo && (lt.kind == "camera" || lt.kind == "screen") {
 			continue
 		}
-		if tr, err := p.pc.AddTransceiverFromTrack(lt.track, webrtc.RTPTransceiverInit{
+		if tr, err := p.pc.AddTransceiverFromTrack(newForwardTrack(lt), webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionSendonly,
 		}); err == nil {
 			changed = true
@@ -466,30 +467,70 @@ func peerTrackInfos(p *Peer) []signal.TrackInfo {
 		if tr.Mid() == "" {
 			continue
 		}
+		kind := strings.TrimPrefix(t.ID(), t.StreamID()+":")
+		if f, ok := t.(*forwardTrack); ok {
+			kind = f.kind
+		}
 		infos = append(infos, signal.TrackInfo{
 			Mid:           tr.Mid(),
 			ParticipantID: t.StreamID(),
-			Kind:          strings.TrimPrefix(t.ID(), t.StreamID()+":"),
+			Kind:          kind,
 		})
 	}
 	return infos
 }
 
-// trackKey is a forward's room key, "publisherID:kind", and also its track id.
-// The id must not be the bare kind: it has to be unique on each subscriber's
-// PeerConnection, and react-native-webrtc binds receivers by it (two "camera"
-// tracks from different publishers landed on the same transceiver).
+// trackKey is a forward's room key, "publisherID:kind". The id must not be the
+// bare kind: it has to be unique on each subscriber's PeerConnection, and
+// react-native-webrtc binds receivers by it (two "camera" tracks from different
+// publishers landed on the same transceiver).
 func trackKey(publisherID, kind string) string {
 	return publisherID + ":" + kind
 }
 
-// senderKey returns a sender's track key ("publisherID:kind"), which is the
-// forwarded track's id and the room's track-map key. Returns false for a sender
-// with no track.
+// forwardSeq numbers forwards so that no two ever share a track id.
+var forwardSeq atomic.Uint64
+
+// forwardTrack is one forward of a room track to one subscriber. It shares the
+// room's TrackLocalStaticRTP, so RTP written once still reaches every
+// subscriber, but carries its own track id, "publisherID:kind#n".
+//
+// The room key alone is not enough. When a forward is removed (low bandwidth on,
+// or a screenshare ends) its transceiver stays behind, inactive, still holding a
+// receiver with the old id. When the video comes back (low bandwidth off, or the
+// next screenshare) it is appended as a new transceiver. react-native-webrtc
+// matches an incoming receiver to the FIRST transceiver with the same id, so a
+// reused id bound the returning video to the dead transceiver and the app never
+// showed it. Browsers key by transceiver and were unaffected.
+type forwardTrack struct {
+	*webrtc.TrackLocalStaticRTP
+	key  string // the room's track-map key, "publisherID:kind"
+	kind string
+	id   string
+}
+
+func newForwardTrack(lt *localTrack) *forwardTrack {
+	key := trackKey(lt.publisherID, lt.kind)
+	return &forwardTrack{
+		TrackLocalStaticRTP: lt.track,
+		key:                 key,
+		kind:                lt.kind,
+		id:                  fmt.Sprintf("%s#%d", key, forwardSeq.Add(1)),
+	}
+}
+
+// ID is this forward's own track id, unique for the life of the process.
+func (f *forwardTrack) ID() string { return f.id }
+
+// senderKey returns the room's track-map key ("publisherID:kind") for the
+// forward a sender carries. Returns false for a sender with no track.
 func senderKey(snd *webrtc.RTPSender) (string, bool) {
 	t := snd.Track()
 	if t == nil {
 		return "", false
+	}
+	if f, ok := t.(*forwardTrack); ok {
+		return f.key, true
 	}
 	return t.ID(), true
 }

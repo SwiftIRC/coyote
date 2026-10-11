@@ -7,14 +7,17 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat } from "../hooks";
+import { useChat, usePoll, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
+import { PollForm } from "../components/PollForm";
+import { loadPrefs, savePrefs } from "../../native/storage";
 import { MoreSheet } from "../components/MoreSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
 import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
+import { VolumeSheet } from "../components/VolumeSheet";
 import { ScreenTile } from "../components/ScreenTile";
 import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
@@ -34,12 +37,17 @@ export function Call() {
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
   const chat = useChat();
-  const [sheet, setSheet] = useState<"chat" | "more" | null>(null);
+  const pollNow = usePoll();
+  const volumes = useVolumes();
+  const [volumeFor, setVolumeFor] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
     setSheet(open ? "chat" : null);
     call()?.chat.setOpen(open);
   };
+  const [hideSelf, setHideSelf] = useState(false);
+  useEffect(() => { loadPrefs().then((p) => setHideSelf(p.hideSelf)).catch(() => {}); }, []);
   const [viewing, setViewing] = useState<string | null>(null);
   const audioStarted = useRef(false);
   const phase = state?.phase;
@@ -136,11 +144,16 @@ export function Call() {
           ) : (
             tiles.map((t) => t.kind === "screen"
               ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
-              : <Tile key={t.key} p={t.p} width={tileW} height={tileH} />)
+              : <Tile
+                key={t.key} p={t.p} width={tileW} height={tileH}
+                volume={volumes[t.p.id] ?? 1}
+                dataSaver={state.dataSaver}
+                onLongPress={() => setVolumeFor(t.p.id)}
+              />)
           )}
         </View>
         <TopBar slug={state.slug} />
-        <SelfView stream={state.camera ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
+        <SelfView stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
         <Controls
           mic={state.mic}
@@ -158,12 +171,36 @@ export function Call() {
           visible={sheet === "chat"}
           onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
           send={(t) => call()?.chat.send(t) ?? "offline"}
+          isOp={state.role === "op"}
+          polls={{ vote: (i) => call()?.polls.vote(i) ?? "offline", close: () => call()?.polls.close() ?? "offline" }}
+          soundboard={{
+            start: (id) => call()?.soundboard.start(id) ?? "offline",
+            stop: () => call()?.soundboard.stop() ?? "offline",
+          }}
         />
         <MoreSheet
           visible={sheet === "more"}
           onClose={() => setSheet(null)}
           name={state.name}
           rename={(n) => call()?.rename(n) ?? "offline"}
+          isOp={state.role === "op"}
+          onNewPoll={() => setSheet("poll-form")}
+          dataSaver={state.dataSaver}
+          onDataSaver={(v) => { call()?.setDataSaver(v); savePrefs({ dataSaver: v }).catch(() => {}); }}
+          hideSelf={hideSelf}
+          onHideSelf={(v) => { setHideSelf(v); savePrefs({ hideSelf: v }).catch(() => {}); }}
+        />
+        <PollForm
+          visible={sheet === "poll-form"}
+          onClose={() => setSheet(null)}
+          replacing={!!pollNow?.open}
+          create={(q, o) => call()?.polls.create(q, o) ?? "offline"}
+        />
+        <VolumeSheet
+          p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}
+          volume={volumeFor ? volumes[volumeFor] ?? 1 : 1}
+          onChange={(v) => { if (volumeFor) call()?.volumes.set(volumeFor, v); }}
+          onClose={() => setVolumeFor(null)}
         />
         <ScreenViewer p={viewed} onClose={() => setViewing(null)} />
       </View>

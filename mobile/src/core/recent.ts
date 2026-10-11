@@ -17,6 +17,12 @@ export function mergeRecent(list: RecentRoom[], link: RoomLink, now: number, max
   return [entry, ...rest].slice(0, max);
 }
 
+// Removes one room from history (the Home screen's ×). Matches by host + slug,
+// like mergeRecent's de-duplication.
+export function removeRecent(list: RecentRoom[], room: Pick<RecentRoom, "host" | "slug">): RecentRoom[] {
+  return list.filter((r) => !(r.host === room.host && r.slug === room.slug));
+}
+
 export function recentInput(r: RecentRoom): string {
   return `${r.origin}/${r.slug}`;
 }

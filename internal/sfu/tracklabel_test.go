@@ -1,6 +1,7 @@
 package sfu
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -183,4 +184,59 @@ func TestForwardedTrackIDsAreUnique(t *testing.T) {
 		}
 		break
 	}
+}
+
+// A forward that comes back must not reuse its old track id. Turning low bandwidth
+// off re-adds the room's video as fresh transceivers, while the earlier ones stay
+// behind, inactive, still carrying the old receiver. react-native-webrtc matches an
+// incoming receiver to the FIRST transceiver with the same id, so a reused
+// "pub:camera" bound the restored camera to the dead transceiver and the app's
+// camera never came back. Browsers key by transceiver and were unaffected.
+func TestRestoredVideoGetsAFreshTrackID(t *testing.T) {
+	s := testSFU(t)
+
+	sub := newTestClient(t, s, "room", "sub")
+	writeTestRTPLoop(t, sub.publish("mic"))
+	sub.waitConnected()
+	waitFor(t, func() bool { return s.hasTrack("room", "sub:mic") })
+
+	pub := newTestClient(t, s, "room", "pub")
+	writeTestRTPLoop(t, pub.publish("mic"))
+	writeTestRTPLoop(t, pub.publish("camera"))
+	pub.waitConnected()
+	waitFor(t, func() bool { return s.hasTrack("room", "pub:mic") && s.hasTrack("room", "pub:camera") })
+
+	nextVideo := func(desc string) string {
+		t.Helper()
+		deadline := time.After(10 * time.Second)
+		for {
+			select {
+			case tr := <-sub.gotTrack:
+				if tr.Kind() == webrtc.RTPCodecTypeVideo {
+					return tr.ID()
+				}
+			case <-deadline:
+				t.Fatalf("no video track %s", desc)
+			}
+		}
+	}
+
+	first := nextVideo("before low bandwidth")
+	sub.server.SetReceiveVideo(false)
+	waitForTracksWithout(t, sub.gotTracks, "pub", "camera")
+	sub.server.SetReceiveVideo(true)
+	restored := nextVideo("after low bandwidth off")
+	if restored == first {
+		t.Fatalf("restored camera reused track id %q", first)
+	}
+	waitForTracks(t, sub.gotTracks, func(tks signal.Tracks) bool {
+		return listsTrack(tks, "pub", "camera")
+	}, "labelling the restored camera with its bare kind")
+}
+
+// roomKeyOf maps a forwarded track id ("publisherID:kind#n") back to its room
+// key ("publisherID:kind").
+func roomKeyOf(id string) string {
+	key, _, _ := strings.Cut(id, "#")
+	return key
 }

@@ -21,7 +21,9 @@ each with its own implementation plan:
 - **2a (app 1.1.0):** chat with replay and tappable links, rename, screenshare
   viewing, call sounds (join, leave, screenshare chimes), room timer.
 - **2b (app 1.2.0):** polls (everyone votes; ops create and close), soundboard,
-  per-participant volume, settings menu (Name, Data saver, Hide self-view).
+  per-participant volume, settings menu (Name, Data saver, Hide self-view), and a ×
+  on each Recent room on the Home screen to remove it from history (added at the
+  user's request).
 
 2b needs one server addition (`GET /api/soundboard`); 2a needs no server change.
 
@@ -81,7 +83,7 @@ first join or rejoin — it resets or seeds them before the server's replay arri
 chat is cleared (the server replays its last 200 messages as individual `chat`
 frames right after `joined`), the poll is seeded from `joined.poll`, the clock
 re-anchors to `joined.roomAge`, and `Presence` is re-seeded from `joined.peers`.
-`CallState` gains only `name` (your confirmed display name, for the ☰ Name row); chat and other room traffic stay out of it.
+`CallState` gains only `name` (your confirmed display name) and `dataSaver`; chat, poll and soundboard traffic stay out of it.
 
 ### UI access
 
@@ -193,6 +195,7 @@ shared `formatDuration` (`m:ss` / `h:mm:ss`).
   off). Saved in preferences and re-sent after every `joined`. While on, tiles show
   avatars, as they would with cameras off; screenshare audio keeps playing.
 - **Hide self-view:** saved; hides the self-view tile. The camera keeps sending.
+- Preferences merge on save: saving some fields never drops the others.
 
 ## Server change
 
@@ -217,6 +220,9 @@ A small in-house native module:
   iOS target's resources and in Android `res/raw` (lowercase names). They are
   copies of `internal/web/assets/*.mp3`; a Jest test asserts byte equality so they
   cannot drift.
+- Remote clips (`https://`) are downloaded once into the app cache, named from the
+  URL path (which carries the server version), then prepared; the module emits
+  `CoyoteSoundLoaded {id, ok}`. A failed load drops any previous player for that id.
 
 ## Errors
 

@@ -13,3 +13,5 @@ export { avatarFor, gravatarUrl, IRC_AVATAR_COLORS } from "../../../internal/web
 export { linkSegments } from "../../../internal/web/assets/lib/linkify.js";
 export { formatDuration } from "../../../internal/web/assets/lib/duration.js";
 export { Presence } from "../../../internal/web/assets/lib/presence.js";
+export { totalVotes, tallyPercents } from "../../../internal/web/assets/lib/poll.js";
+export { normalizeBoard, boardButtonState } from "../../../internal/web/assets/lib/soundboard.js";

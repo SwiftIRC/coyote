@@ -19,7 +19,7 @@ test("chat frames append in order; snapshot identity changes only on change", ()
   log.onChat({ type: "chat", from: "Bob", text: "yo", ts: 11 });
   const s1 = log.getSnapshot();
   expect(s1).not.toBe(s0);
-  expect(s1.entries.map((e) => (e.kind === "message" ? `${e.from}:${e.text}` : e.text))).toEqual(["Alice:hi", "Bob:yo"]);
+  expect(s1.entries.map((e) => (e.kind === "message" ? `${e.from}:${e.text}` : e.kind === "poll" ? "" : e.text))).toEqual(["Alice:hi", "Bob:yo"]);
   expect(new Set(s1.entries.map((e) => e.key)).size).toBe(2);
 });
 
@@ -42,7 +42,7 @@ test("system lines: moderation text and notices", () => {
   const { log } = make();
   log.onModeration({ type: "moderation", actor: "Op", action: "kick", target: "Bob" });
   log.notice("Room is full");
-  const texts = log.getSnapshot().entries.map((e) => e.text);
+  const texts = log.getSnapshot().entries.map((e) => (e.kind === "poll" ? "" : e.text));
   expect(texts).toEqual(["Op kicked Bob", "Room is full"]);
   expect(log.getSnapshot().entries.every((e) => e.kind === "system")).toBe(true);
 });
@@ -52,7 +52,7 @@ test("the log keeps at most LOG_MAX entries, dropping the oldest", () => {
   for (let i = 0; i < LOG_MAX + 5; i++) log.onChat({ type: "chat", from: "A", text: String(i), ts: i });
   const e = log.getSnapshot().entries;
   expect(e).toHaveLength(LOG_MAX);
-  expect(e[0].text).toBe("5");
+  expect(e[0].kind === "poll" ? "" : e[0].text).toBe("5");
 });
 
 const msg = (ts: number) => ({ type: "chat", from: "A", text: "m" + ts, ts });
@@ -132,4 +132,20 @@ test("hhmm formats local time and falls back to now for a missing ts", () => {
   const d = new Date(2026, 0, 2, 9, 5);
   expect(hhmm(d.getTime() / 1000, 0)).toBe("09:05");
   expect(hhmm(0, d.getTime())).toBe("09:05");
+});
+
+test("poll open adds a card and counts unread; close counts unread; update doesn't", () => {
+  const { log } = make();
+  log.onPollEvent("open", "p1");
+  expect(log.getSnapshot().entries.at(-1)).toMatchObject({ kind: "poll", pollId: "p1" });
+  expect(log.getSnapshot().unread).toBe(1);
+  log.onPollEvent("update", "p1");
+  expect(log.getSnapshot().unread).toBe(1);
+  expect(log.getSnapshot().entries).toHaveLength(1);
+  log.onPollEvent("close", "p1");
+  expect(log.getSnapshot().unread).toBe(2);
+  expect(log.getSnapshot().entries).toHaveLength(1);
+  log.setOpen(true);
+  log.onPollEvent("open", "p2");
+  expect(log.getSnapshot().unread).toBe(0);
 });

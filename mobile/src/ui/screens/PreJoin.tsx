@@ -33,6 +33,7 @@ export function PreJoin() {
   const [password, setPassword] = useState("");
   const [mic, setMic] = useState(true);
   const [camera, setCamera] = useState(true);
+  const [dataSaver, setDataSaver] = useState(false);
   const [room, setRoom] = useState<{ count: number; locked: boolean } | null>(null);
   const [error, setError] = useState(params.error || "");
   const [joining, setJoining] = useState(false);
@@ -51,6 +52,7 @@ export function PreJoin() {
       setEmail(p.email);
       setMic(p.mic);
       setCamera(p.camera);
+      setDataSaver(p.dataSaver);
     });
     if (link.invite) {
       peekInvite(fetch, link).then((r) => {
@@ -133,7 +135,7 @@ export function PreJoin() {
       } catch (e) {
         console.warn("saving prefs or recent room failed", e);
       }
-      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera });
+      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera, dataSaver });
       nav.navigate("Call"); // after join() has synchronously cleared the previous call's state
       await joined;
     } catch (e) {

@@ -7,11 +7,14 @@ import { ChatLog } from "./chat";
 import { Chimes, type ChimeName } from "./chimes";
 import { inCallErrorText, joinErrorText } from "./errors";
 import { wsUrl, type RoomLink } from "./link";
+import { Polls } from "./polls";
 import type { Peer, PeerEvents } from "./peer";
 import { RoomClock } from "./roomClock";
 import { Roster, type Participant, type PeerInfo } from "./roster";
 import type { Signaling } from "./signaling";
+import { Soundboard, type ClipPort } from "./soundboard";
 import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types";
+import { Volumes } from "./volumes";
 
 export type Facing = "user" | "environment";
 export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "setQuality" | "close">;
@@ -40,6 +43,8 @@ export interface CallDeps {
   timers: Timers;
   now(): number; // ms, wall clock
   playChime(n: ChimeName): void;
+  clips: ClipPort;
+  fetchBoard(origin: string): Promise<unknown[] | null>;
 }
 
 export interface JoinRequest {
@@ -49,6 +54,7 @@ export interface JoinRequest {
   gravatar: string;
   mic: boolean;
   camera: boolean;
+  dataSaver: boolean;
 }
 
 export type Phase = "idle" | "connecting" | "in-call" | "reconnecting" | "ended";
@@ -64,6 +70,7 @@ export interface CallState {
   mic: boolean;
   camera: boolean;
   facing: Facing;
+  dataSaver: boolean;
   localStream: StreamLike | null;
   participants: Participant[];
 }
@@ -88,6 +95,10 @@ export class Call {
   private roster = new Roster();
   readonly clock = new RoomClock();
   readonly chat: ChatLog;
+  readonly polls: Polls;
+  readonly soundboard: Soundboard;
+  readonly volumes = new Volumes();
+  private boardRequested = false;
   private chimes: Chimes;
   private pendingRename: string | null = null;
   private req: JoinRequest | null = null;
@@ -116,12 +127,14 @@ export class Call {
   private quality = { camera: "auto", screen: "auto" };
   private state: CallState = {
     phase: "idle", banner: "", slug: "", selfId: "", role: "", name: "", mic: false, camera: false,
-    facing: "user", localStream: null, participants: [],
+    facing: "user", dataSaver: false, localStream: null, participants: [],
   };
 
   constructor(private deps: CallDeps, private events: CallEvents) {
     this.roster.subscribe(() => this.update({ participants: this.roster.list() }));
     this.chat = new ChatLog((type, fields) => this.trySend(type, fields), () => deps.now());
+    this.polls = new Polls((type, fields) => this.trySend(type, fields), () => this.state.role === "op");
+    this.soundboard = new Soundboard((type, fields) => this.trySend(type, fields), deps.clips);
     this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
 
@@ -134,7 +147,7 @@ export class Call {
     this.req = req;
     this.session = this.deps.uuid(); // binds a #i= invite to this call, across reconnects
     this.callId = this.deps.uuid();
-    this.update({ phase: "connecting", slug: req.link.slug, name: req.name });
+    this.update({ phase: "connecting", slug: req.link.slug, name: req.name, dataSaver: req.dataSaver });
     this.deps.system.start(this.callId, req.link.slug, req.camera);
 
     this.micTrack = await this.deps.media.getMic();
@@ -183,6 +196,11 @@ export class Call {
       this.chimes.left(ref);
     });
     sig.on("chat", (m) => this.chat.onChat(m));
+    sig.on("poll", (m) => {
+      this.polls.onPoll(m);
+      this.chat.onPollEvent(String(m.action), String(m.id));
+    });
+    sig.on("sound", (m) => this.soundboard.onSound(m));
     sig.on("moderation", (m) => this.chat.onModeration(m));
     sig.on("peer-media-state", (m) => this.roster.patch(m.id, { mic: !!m.mic, camera: !!m.camera }));
     sig.on("peer-renamed", (m) => this.onRenamed(m));
@@ -207,6 +225,13 @@ export class Call {
     if (!this.trySend("rename", { name: n })) return "offline";
     this.pendingRename = n;
     return "sent";
+  }
+
+  // Data saver: the SFU stops forwarding video to us. Remembered for the call and
+  // re-sent after every joined; if offline now, the next joined sends it.
+  setDataSaver(on: boolean): void {
+    this.update({ dataSaver: on });
+    this.trySend("set-receive-video", { enabled: !on });
   }
 
   async setMic(on: boolean, fromSystem = false): Promise<void> {
@@ -377,6 +402,18 @@ export class Call {
     if (m.quality) this.quality = { camera: m.quality.camera || "auto", screen: m.quality.screen || "auto" };
     // Reset before the server's chat replay, which follows this frame.
     this.chat.clear();
+    this.polls.seed(m.poll);
+    if (m.poll?.id) this.chat.addPollCard(m.poll.id);
+    this.soundboard.reset();
+    if (this.state.dataSaver) this.sig?.send("set-receive-video", { enabled: false });
+    if (!this.boardRequested) {
+      this.boardRequested = true;
+      const origin = this.req!.link.origin;
+      this.deps.fetchBoard(origin).then((list) => {
+        if (list) this.soundboard.setBoard(list, origin);
+        else this.soundboard.unavailable();
+      }).catch(() => this.soundboard.unavailable());
+    }
     this.clock.anchor(m.roomAge, this.deps.now());
     this.chimes.seed(m.peers || []);
     this.roster.seed((m.peers || []) as PeerInfo[]);
@@ -499,6 +536,7 @@ export class Call {
     this.peer = null;
     this.releaseTracks();
     this.chimes.dispose();
+    this.soundboard.reset();
     if (this.callId) this.deps.system.end(this.callId);
     this.update({ phase: "ended", banner: "" });
     this.events.end(outcome);

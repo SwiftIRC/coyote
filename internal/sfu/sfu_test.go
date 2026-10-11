@@ -590,7 +590,7 @@ func TestGlareScreenshareConverges(t *testing.T) {
 		select {
 		case tr := <-p2.gotTrack:
 			if tr.StreamID() == "p1" {
-				kind := strings.TrimPrefix(tr.ID(), "p1:")
+				kind := strings.TrimPrefix(roomKeyOf(tr.ID()), "p1:")
 				if _, ok := got[kind]; ok {
 					got[kind] = true
 				}

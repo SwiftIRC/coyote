@@ -96,3 +96,39 @@ feedback), both in the same room.
     video 90° and zoom stays within the screen — run this item early on Android; if
     rotation doesn't apply to the video, stop and report (it needs a design decision).
 27. **Flip camera** from the ⟳ on the self-view tile.
+
+## Room features (2b)
+
+Server prerequisite: a deploy that serves `GET /api/soundboard`.
+
+28. **Polls (voter).** A browser op creates a poll: a card appears in chat and the
+    badge counts it; the Poll tab shows it. Vote, then change your vote: tallies and
+    percentages update on both sides and your choice stays highlighted. Airplane mode
+    5 s and back: your vote is still highlighted. The op closes it: "Closed", winner
+    highlighted. The op creates a new poll: the old chat card reads "This poll was
+    replaced."
+29. **Polls (op).** Make the phone's user an op. ☰ → New poll… with 2–6 options
+    (try 7 and an empty question: refused with a message). Close it from the card.
+30. **Soundboard.** Chat sheet → 🔊: tap 🚀 — both the phone and the browser play it;
+    the other buttons lock; the phone's button shows ⏹ and stops it. Let one finish on
+    its own: the board unlocks for everyone. Start one from the browser: it plays on
+    the phone and locks the board. Against a server without `/api/soundboard`, the 🔊
+    tab is absent.
+31. **Per-participant volume.** Long-press a tile: the slider goes 0–200%; 0% mutes
+    that person, 200% is clearly louder; others are unaffected. Leave and rejoin the
+    call: volumes reset to 100%. Airplane mode 5 s and back mid-call: volumes stay.
+32. **Data saver.** ☰ → Data saver on: every tile shows avatars, audio continues,
+    a screenshare's audio still plays. Leave and rejoin: still on. Off: video returns.
+33. **Hide self-view.** ☰ → Hide self-view: your picture-in-picture disappears; the
+    browser still sees your camera. Rejoin: still hidden.
+34. **Recent rooms ×.** On Home, tap × on a Recent row: it disappears at once; quit
+    and reopen the app: it's still gone; the other rooms remain.
+35. **Rejoin mid-poll.** With a poll open and your vote cast, toggle airplane mode for
+    5 s and back: after rejoining, the poll card is in the chat log with the tallies and
+    your vote highlighted, and the chat badge doesn't count it as unread. Joining a room
+    that already has an open poll also shows its card.
+36. **Leave mid-clip.** Start a soundboard clip and hang up while it plays: the audio
+    stops immediately.
+37. **Data saver during a screenshare.** While someone is screensharing, turn ☰ → Data
+    saver on. Note what the screen tile shows (known risk: a frozen last frame rather
+    than an avatar) and that the screenshare's audio keeps playing.

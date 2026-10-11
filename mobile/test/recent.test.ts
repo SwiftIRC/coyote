@@ -1,4 +1,4 @@
-import { mergeRecent, recentInput } from "../src/core/recent";
+import { mergeRecent, recentInput, removeRecent } from "../src/core/recent";
 import { parseRoomInput } from "../src/core/link";
 
 const L = (s: string) => parseRoomInput(s)!;
@@ -18,4 +18,14 @@ test("newest first, deduped by host+slug, capped, invite never stored", () => {
 test("same slug on another host is a separate entry", () => {
   const list = mergeRecent(mergeRecent([], L("x"), 1), L("http://localhost:8080/x"), 2);
   expect(list.map((r) => r.host)).toEqual(["localhost:8080", "vc.swiftirc.net"]);
+});
+
+test("removeRecent drops only the matching host+slug and keeps order", () => {
+  let list = mergeRecent([], L("a"), 1);
+  list = mergeRecent(list, L("b"), 2);
+  list = mergeRecent(list, L("http://localhost:8080/a"), 3);
+  const out = removeRecent(list, { host: "vc.swiftirc.net", slug: "a" });
+  expect(out.map((r) => `${r.host}/${r.slug}`)).toEqual(["localhost:8080/a", "vc.swiftirc.net/b"]);
+  expect(removeRecent(out, { host: "nowhere", slug: "zzz" })).toEqual(out);
+  expect(list).toHaveLength(3); // input not mutated
 });

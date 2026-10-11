@@ -98,6 +98,7 @@ func (h *Hub) Routes() http.Handler {
 	mux.HandleFunc("GET /ws/{room}", h.handleWS)
 	mux.HandleFunc("GET /api/rooms/{room}", h.handleRoomPeek)
 	mux.HandleFunc("GET /api/version", h.handleVersion)
+	mux.HandleFunc("GET /api/soundboard", h.handleSoundboard)
 	mux.HandleFunc("POST /api/provision", h.handleProvision)
 	mux.HandleFunc("POST /api/invite", h.handleInvite)
 	mux.HandleFunc("GET /api/invite/{id}", h.handleInvitePeek)

@@ -1,20 +1,30 @@
 import React, { useRef, useState } from "react";
-import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import type { PollResult, PollView } from "../../core/polls";
 import { CHAT_MAX, type ChatEntry, type SendResult } from "../../core/chat";
 import { hhmm } from "../../core/chatText";
 import { linkSegments } from "../../shared/web";
-import { useChat } from "../hooks";
+import { useChat, usePoll, useSoundboard } from "../hooks";
 import { colors, radius } from "../theme";
+import { PollCard } from "./PollCard";
 import { Sheet } from "./Sheet";
+import { SoundboardPanel } from "./SoundboardPanel";
 
 const ERRORS: Partial<Record<SendResult, string>> = {
   offline: "Not connected — message not sent.",
   "too-long": `Messages are limited to ${CHAT_MAX} characters.`,
 };
 
-function Line({ e }: { e: ChatEntry }) {
+type PollActions = { vote(i: number): PollResult; close(): PollResult };
+
+function Line({ e, poll, isOp, polls }: { e: ChatEntry; poll: PollView | null; isOp: boolean; polls: PollActions }) {
   const time = hhmm(e.ts, Date.now());
   if (e.kind === "system") return <Text style={styles.system}>{time} {e.text}</Text>;
+  if (e.kind === "poll") {
+    return poll
+      ? <PollCard poll={poll} isOp={isOp} stale={poll.id !== e.pollId} onVote={polls.vote} onClose={polls.close} />
+      : <Text style={styles.system}>Poll</Text>;
+  }
   return (
     <Text style={styles.line} selectable>
       <Text style={styles.time}>{time} </Text>
@@ -30,8 +40,20 @@ function Line({ e }: { e: ChatEntry }) {
   );
 }
 
-export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClose(): void; send(text: string): SendResult }) {
+type SoundboardActions = {
+  start(id: string): "sent" | "offline" | "busy" | "unavailable";
+  stop(): "sent" | "offline" | "not-mine";
+};
+
+export function ChatSheet({ visible, onClose, send, isOp, polls, soundboard }: {
+  visible: boolean; onClose(): void; send(text: string): SendResult; isOp: boolean; polls: PollActions; soundboard: SoundboardActions;
+}) {
   const chat = useChat();
+  const poll = usePoll();
+  const board = useSoundboard();
+  const hasSounds = !!board.sounds?.length;
+  const [pickedTab, setTab] = useState<"chat" | "poll" | "sounds">("chat");
+  const tab = pickedTab === "sounds" && !hasSounds ? "chat" : pickedTab;
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const list = useRef<FlatList<ChatEntry>>(null);
@@ -49,11 +71,36 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={styles.body}>
+        <View style={styles.header}>
+          {(hasSounds ? ["chat", "poll", "sounds"] as const : ["chat", "poll"] as const).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t === "sounds" ? "Soundboard" : undefined}
+              accessibilityState={{ selected: tab === t }}
+            >
+              <Text style={[styles.tab, { color: tab === t ? colors.text : colors.muted }]}>{t === "chat" ? "Chat" : t === "poll" ? "Poll" : "🔊"}</Text>
+            </Pressable>
+          ))}
+          <View style={styles.spacer} />
+        </View>
+        {tab === "sounds" ? (
+          <ScrollView contentContainerStyle={styles.list}>
+            <SoundboardPanel board={board} start={soundboard.start} stop={soundboard.stop} />
+          </ScrollView>
+        ) : tab === "poll" ? (
+          <ScrollView contentContainerStyle={styles.list}>
+            {poll
+              ? <PollCard poll={poll} isOp={isOp} onVote={polls.vote} onClose={polls.close} />
+              : <Text style={styles.system}>No poll in this room.</Text>}
+          </ScrollView>
+        ) : (<>
         <FlatList
           ref={list}
           data={chat.entries}
           keyExtractor={(e) => String(e.key)}
-          renderItem={({ item }) => <Line e={item} />}
+          renderItem={({ item }) => <Line e={item} poll={poll} isOp={isOp} polls={polls} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.system}>No messages yet.</Text>}
           onScroll={(ev) => {
@@ -82,6 +129,7 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
             <Text style={styles.sendText}>➤</Text>
           </Pressable>
         </View>
+        </>)}
       </View>
     </Sheet>
   );
@@ -89,6 +137,9 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
 
 const styles = StyleSheet.create({
   body: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 12, paddingBottom: 6 },
+  spacer: { flex: 1 },
+  tab: { fontSize: 15, fontWeight: "700" },
   list: { paddingHorizontal: 12, paddingBottom: 8, gap: 4 },
   line: { color: colors.text, fontSize: 15 },
   time: { color: colors.muted, fontSize: 12 },

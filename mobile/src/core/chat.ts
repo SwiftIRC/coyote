@@ -1,6 +1,6 @@
 // The call's chat log: messages (including the server's replay after `joined`),
-// moderation lines and local notices. Unread counts messages only, and only while
-// the sheet is closed. Snapshots are replaced on change so useSyncExternalStore can
+// moderation lines and local notices. Unread counts messages and poll open/close,
+// and only while the sheet is closed. Snapshots are replaced on change so useSyncExternalStore can
 // compare by identity.
 import { moderationText } from "./chatText";
 import type { Frame } from "./types";
@@ -8,7 +8,8 @@ import type { Frame } from "./types";
 export type Sender = (type: string, fields: Record<string, unknown>) => boolean;
 export type ChatEntry =
   | { key: number; kind: "message"; from: string; text: string; ts: number }
-  | { key: number; kind: "system"; text: string; ts: number };
+  | { key: number; kind: "system"; text: string; ts: number }
+  | { key: number; kind: "poll"; pollId: string; ts: number };
 export interface ChatSnapshot { entries: ChatEntry[]; unread: number; open: boolean }
 export type SendResult = "sent" | "empty" | "too-long" | "offline";
 
@@ -42,6 +43,22 @@ export class ChatLog {
 
   notice(text: string): void {
     this.system(text);
+  }
+
+  // A poll opening adds its card to the log; opening and closing both count as
+  // unread (updates — every vote — don't).
+  onPollEvent(action: string, pollId: string): void {
+    const closed = !this.snap.open;
+    if (action === "open") {
+      this.push({ key: ++this.seq, kind: "poll", pollId, ts: Math.floor(this.nowMs() / 1000) }, closed);
+    } else if (action === "close" && closed) {
+      this.set({ ...this.snap, unread: this.snap.unread + 1 });
+    }
+  }
+
+  // Restores the card for an already-open poll after clear() (join/rejoin); never unread.
+  addPollCard(pollId: string): void {
+    this.push({ key: ++this.seq, kind: "poll", pollId, ts: Math.floor(this.nowMs() / 1000) }, false);
   }
 
   clear(): void {

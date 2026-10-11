@@ -13,18 +13,64 @@ class CoyoteSounds: RCTEventEmitter, AVAudioPlayerDelegate {
   private var listening = false
 
   override static func requiresMainQueueSetup() -> Bool { false }
-  override func supportedEvents() -> [String]! { ["CoyoteSoundEnded"] }
+  override func supportedEvents() -> [String]! { ["CoyoteSoundEnded", "CoyoteSoundLoaded"] }
   override func startObserving() { DispatchQueue.main.async { [weak self] in self?.listening = true } }
   override func stopObserving() { DispatchQueue.main.async { [weak self] in self?.listening = false } }
 
   @objc(preload:uri:)
   func preload(_ id: String, uri: String) {
-    DispatchQueue.main.async { [weak self] in
-      guard let self = self, let url = self.resolve(uri), let p = try? AVAudioPlayer(contentsOf: url) else { return }
-      p.delegate = self
-      p.prepareToPlay()
-      self.players[id] = p
+    if uri.hasPrefix("http://") || uri.hasPrefix("https://"), let remote = URL(string: uri) {
+      let local = cachedURL(for: remote)
+      if FileManager.default.fileExists(atPath: local.path) {
+        DispatchQueue.main.async { [weak self] in self?.prepare(id, url: local, cached: local) }
+        return
+      }
+      URLSession.shared.downloadTask(with: remote) { tmp, response, error in
+        var ready: URL? = nil
+        let okStatus = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } == true
+        if let tmp = tmp, error == nil, okStatus {
+          try? FileManager.default.removeItem(at: local)
+          if (try? FileManager.default.moveItem(at: tmp, to: local)) != nil { ready = local }
+        }
+        DispatchQueue.main.async { [weak self] in
+          if let ready = ready { self?.prepare(id, url: ready, cached: ready) } else { self?.fail(id) }
+        }
+      }.resume()
+      return
     }
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      if let url = self.resolve(uri) { self.prepare(id, url: url) } else { self.fail(id) }
+    }
+  }
+
+  // Main thread only (Ruling 1).
+  private func prepare(_ id: String, url: URL, cached: URL? = nil) {
+    guard let p = try? AVAudioPlayer(contentsOf: url) else {
+      if let cached = cached { try? FileManager.default.removeItem(at: cached) } // never keep a clip that will not play
+      fail(id)
+      return
+    }
+    p.delegate = self
+    p.prepareToPlay()
+    players[id] = p
+    loaded(id, ok: true)
+  }
+
+  private func fail(_ id: String) {
+    players[id] = nil // a failed (re)load never leaves a stale player behind
+    loaded(id, ok: false)
+  }
+
+  private func loaded(_ id: String, ok: Bool) {
+    if listening { sendEvent(withName: "CoyoteSoundLoaded", body: ["id": id, "ok": ok]) }
+  }
+
+  private func cachedURL(for remote: URL) -> URL {
+    let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("sounds", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let name = remote.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).replacingOccurrences(of: "/", with: "_")
+    return dir.appendingPathComponent(name.isEmpty ? "clip" : name)
   }
 
   @objc(play:)
