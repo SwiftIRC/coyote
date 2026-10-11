@@ -16,13 +16,13 @@ interface Props {
   onLeave(): void;
 }
 
-interface BtnProps { label: string; onPress(): void; active?: boolean; danger?: boolean; a11y: string }
+interface BtnProps { label: string; onPress(): void; active?: boolean; danger?: boolean; a11y: string; fit?: boolean }
 
-function Btn({ label, onPress, active = true, danger = false, a11y }: BtnProps) {
+function Btn({ label, onPress, active = true, danger = false, a11y, fit = false }: BtnProps) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y}
-      style={[styles.btn, !active && styles.off, danger && styles.danger]}>
-      <Text style={styles.text}>{label}</Text>
+      style={[styles.btn, fit && styles.fit, !active && styles.off, danger && styles.danger]}>
+      <Text style={styles.text} numberOfLines={fit ? 1 : undefined} adjustsFontSizeToFit={fit} minimumFontScale={0.6}>{label}</Text>
     </Pressable>
   );
 }
@@ -33,7 +33,7 @@ export function Controls(p: Props) {
     <View style={styles.bar}>
       <Btn label={p.mic ? "🎙" : "🔇"} onPress={p.onMic} active={p.mic} a11y={p.mic ? "Mute microphone" : "Unmute microphone"} />
       <Btn label={p.camera ? "📷" : "🚫"} onPress={p.onCamera} active={p.camera} a11y={p.camera ? "Turn camera off" : "Turn camera on"} />
-      <Btn label={p.routeLabel} onPress={p.onRoute} a11y={`Audio output: ${p.routeLabel}`} />
+      <Btn label={p.routeLabel} onPress={p.onRoute} fit a11y={`Audio output: ${p.routeLabel}`} />
       <View>
         <Btn label="💬" onPress={p.onChat} a11y={p.unread ? `Chat, ${unreadLabel(p.unread)} unread` : "Chat"} />
         {p.unread > 0 ? <Text style={styles.badge} pointerEvents="none">{unreadLabel(p.unread)}</Text> : null}
@@ -47,6 +47,8 @@ export function Controls(p: Props) {
 const styles = StyleSheet.create({
   bar: { flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", paddingVertical: 12, paddingBottom: 28, backgroundColor: colors.bg },
   btn: { minWidth: 52, height: 52, borderRadius: 26, paddingHorizontal: 8, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  // The route label varies ("Bluetooth"); cap it so 4x52 + 76 + Leave stays within 360 pt.
+  fit: { maxWidth: 76 },
   off: { backgroundColor: "#3a3d44" },
   danger: { backgroundColor: colors.danger },
   badge: { position: "absolute", top: -4, right: -4, minWidth: 20, paddingHorizontal: 5, borderRadius: 10, overflow: "hidden", backgroundColor: colors.accent, color: "#000", fontSize: 12, fontWeight: "700", textAlign: "center" },
