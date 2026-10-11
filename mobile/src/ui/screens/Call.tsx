@@ -191,6 +191,13 @@ export function Call() {
           rename={(n) => call()?.rename(n) ?? "offline"}
           isOp={state.role === "op"}
           onNewPoll={() => setSheet("poll-form")}
+          locked={mod.locked}
+          quality={mod.quality}
+          mod={{
+            lock: (pw) => call()?.moderation.lock(pw) ?? "offline",
+            unlock: () => call()?.moderation.unlock() ?? "offline",
+            setQuality: (t, tier) => call()?.moderation.setQuality(t, tier) ?? "offline",
+          }}
           dataSaver={state.dataSaver}
           onDataSaver={(v) => { call()?.setDataSaver(v); savePrefs({ dataSaver: v }).catch(() => {}); }}
           hideSelf={hideSelf}
