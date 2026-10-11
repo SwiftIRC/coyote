@@ -76,8 +76,12 @@ feedback), both in the same room.
     duplicated.
 23. **Rename.** ☰ → Name → change it → Save (or Done). The browser shows the new name;
     leave and rejoin: the lobby has the new name. Change it again and close the sheet
-    without saving: the name is unchanged. With an invite link that locks the name,
-    renaming does not change your saved default.
+    without saving: the name is unchanged. Joining with an invite that locks your
+    name does not overwrite your saved default name; an explicit in-call rename
+    (Save/Done) does become the new default.
+    Focus the chat input, then the ☰ Name field (both platforms): each stays visible
+    above the keyboard while typing (Android: if it is hidden behind the keyboard,
+    report it — the sheet then needs the iOS keyboard-lift path).
 24. **Room timer.** The top bar shows `#room · m:ss`, matching the browser's timer.
 25. **Chimes.** Browser joins: door chime on the phone. Browser leaves: drop chime
     ~6 s later. Browser reloads quickly: no chimes. Chimes follow the current audio
@@ -87,5 +91,8 @@ feedback), both in the same room.
     with a bloop. Tap it: full screen; pinch to zoom, drag to pan, ⟲ rotates, the
     volume slider changes the shared tab's audio (0–200%). Stop sharing in the
     browser: the viewer closes and the tile goes. Lock the phone during a share and
-    unlock: no second bloop.
+    unlock: no second bloop. Airplane mode for 5 s while the browser shares: the
+    share tile comes back with no second bloop. On Android too: ⟲ actually turns the
+    video 90° and zoom stays within the screen — run this item early on Android; if
+    rotation doesn't apply to the video, stop and report (it needs a design decision).
 27. **Flip camera** from the ⟳ on the self-view tile.

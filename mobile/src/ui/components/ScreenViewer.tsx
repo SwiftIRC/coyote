@@ -43,8 +43,16 @@ export function ScreenViewer({ p, onClose }: { p: Participant | null; onClose():
   }, [id, g, scale, tx, ty]);
 
   useEffect(() => {
-    setStreamVolume(p?.screenAudio ?? null, volume);
+    const audio = p?.screenAudio ?? null;
+    setStreamVolume(audio, volume);
   }, [p?.screenAudio, volume]);
+
+  // Closing (or switching) the viewer puts the share's audio back to 100%, so a
+  // boosted or muted level does not linger on the tile with no control.
+  useEffect(() => {
+    const audio = p?.screenAudio ?? null;
+    return () => setStreamVolume(audio, 1);
+  }, [p?.screenAudio]);
 
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,

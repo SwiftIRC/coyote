@@ -75,7 +75,7 @@ export function ChatSheet({ visible, onClose, send }: { visible: boolean; onClos
             maxLength={CHAT_MAX}
             multiline
             returnKeyType="send"
-            blurOnSubmit
+            submitBehavior="submit"
             onSubmitEditing={submit}
           />
           <Pressable onPress={submit} style={styles.send} accessibilityRole="button" accessibilityLabel="Send">
