@@ -30,5 +30,16 @@ target 'Coyote' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Pods keep their own (older) minimums otherwise; raise them to the app's.
+    min_ios = '17.0'
+    configs = installer.pods_project.build_configurations +
+      installer.pods_project.targets.flat_map(&:build_configurations)
+    configs.each do |c|
+      current = c.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || Gem::Version.new(current) < Gem::Version.new(min_ios)
+        c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios
+      end
+    end
   end
 end
