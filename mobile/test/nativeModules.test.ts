@@ -99,3 +99,53 @@ test("CoyoteScreenShare exports showPicker and relays the extension's started no
   expect(pbx).toContain("CoyoteScreenShare.swift in Sources");
   expect(pbx).toContain("CoyoteScreenShare.m in Sources");
 });
+
+describe("iOS broadcast extension", () => {
+  const ios = path.join(__dirname, "..", "ios");
+  const read = (...p: string[]) => fs.readFileSync(path.join(ios, ...p), "utf8");
+  const GROUP = "group.net.swiftirc.coyote";
+
+  test("the app points react-native-webrtc at the App Group and the extension", () => {
+    const plist = read("Coyote", "Info.plist");
+    expect(plist).toMatch(/<key>RTCAppGroupIdentifier<\/key>\s*<string>group\.net\.swiftirc\.coyote<\/string>/);
+    expect(plist).toMatch(/<key>RTCScreenSharingExtension<\/key>\s*<string>net\.swiftirc\.coyote\.broadcast<\/string>/);
+  });
+
+  test("app and extension share the App Group", () => {
+    for (const f of [["Coyote", "Coyote.entitlements"], ["CoyoteBroadcast", "CoyoteBroadcast.entitlements"]]) {
+      const e = read(...f);
+      expect(e).toContain("com.apple.security.application-groups");
+      expect(e).toContain(`<string>${GROUP}</string>`);
+    }
+    expect(read("CoyoteBroadcast", "SampleHandler.swift")).toContain(`"${GROUP}"`);
+  });
+
+  test("the extension is a sample-buffer broadcast upload extension", () => {
+    const plist = read("CoyoteBroadcast", "Info.plist");
+    expect(plist).toContain("com.apple.broadcast-services-upload");
+    expect(plist).toContain("RPBroadcastProcessModeSampleBuffer");
+    expect(plist).toContain("$(PRODUCT_MODULE_NAME).SampleHandler");
+  });
+
+  test("the extension speaks react-native-webrtc's socket protocol and posts started", () => {
+    const up = read("CoyoteBroadcast", "SampleUploader.swift");
+    for (const h of ["Content-Length", "Buffer-Width", "Buffer-Height", "Buffer-Orientation"]) expect(up).toContain(`"${h}"`);
+    const sh = read("CoyoteBroadcast", "SampleHandler.swift");
+    expect(sh).toContain('"rtc_SSFD"');
+    expect(sh).toContain('"net.swiftirc.coyote.broadcast.started"');
+  });
+
+  test("the project builds, embeds and versions the extension with the app", () => {
+    const pbx = read("Coyote.xcodeproj", "project.pbxproj");
+    expect(pbx).toContain('productType = "com.apple.product-type.app-extension"');
+    expect(pbx).toContain("PRODUCT_BUNDLE_IDENTIFIER = net.swiftirc.coyote.broadcast;");
+    expect(pbx).toContain("CoyoteBroadcast.appex in Embed Foundation Extensions");
+    expect(pbx).toContain("isa = PBXTargetDependency;");
+    const versions = [...pbx.matchAll(/MARKETING_VERSION = ([\d.]+);/g)].map((m) => m[1]);
+    const builds = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => m[1]);
+    expect(versions.length).toBe(4);
+    expect(new Set(versions).size).toBe(1);
+    expect(builds.length).toBe(4);
+    expect(new Set(builds).size).toBe(1);
+  });
+});
