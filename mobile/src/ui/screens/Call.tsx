@@ -9,6 +9,7 @@ import { useCall } from "../CallContext";
 import { useChat } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
+import { MoreSheet } from "../components/MoreSheet";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
 import { TopBar } from "../components/TopBar";
@@ -144,6 +145,12 @@ export function Call() {
           visible={sheet === "chat"}
           onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
           send={(t) => call()?.chat.send(t) ?? "offline"}
+        />
+        <MoreSheet
+          visible={sheet === "more"}
+          onClose={() => setSheet(null)}
+          name={state.name}
+          rename={(n) => call()?.rename(n) ?? "offline"}
         />
       </View>
     </View>
