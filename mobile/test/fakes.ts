@@ -150,7 +150,13 @@ export class FakeSender implements SenderLike {
 export class FakeTransceiver implements TransceiverLike {
   readonly sender: FakeSender;
   codecPrefs: CodecLike[] | null = null;
-  constructor(public mid: string | null, track: TrackLike, public streams: StreamLike[]) {
+  constructor(
+    public mid: string | null,
+    track: TrackLike | null,
+    public streams: StreamLike[],
+    public kind: string = track?.kind ?? "",
+    public direction: "sendonly" | "recvonly" = "sendonly",
+  ) {
     this.sender = new FakeSender(track);
   }
   setCodecPreferences(c: CodecLike[]) {
@@ -180,8 +186,11 @@ export class FakePC implements PeerConnectionLike {
   emit(type: string, ev?: any) {
     for (const fn of this.listeners.get(type) || []) fn(ev);
   }
-  addTransceiver(track: TrackLike, init: { direction: "sendonly"; streams: StreamLike[] }) {
-    const t = new FakeTransceiver(String(this.transceivers.length), track, init.streams);
+  addTransceiver(trackOrKind: TrackLike | "audio", init: { direction: "sendonly"; streams: StreamLike[] } | { direction: "recvonly" }) {
+    const mid = String(this.transceivers.length);
+    const t = typeof trackOrKind === "string"
+      ? new FakeTransceiver(mid, null, [], trackOrKind, "recvonly")
+      : new FakeTransceiver(mid, trackOrKind, "streams" in init ? init.streams : []);
     this.transceivers.push(t);
     return t;
   }

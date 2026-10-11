@@ -85,6 +85,7 @@ export interface PeerConnectionLike {
   addEventListener(type: "track", fn: (ev: TrackEventLike) => void): void;
   addEventListener(type: "negotiationneeded" | "connectionstatechange" | "iceconnectionstatechange", fn: () => void): void;
   addTransceiver(track: TrackLike, init: { direction: "sendonly"; streams: StreamLike[] }): TransceiverLike;
+  addTransceiver(kind: "audio", init: { direction: "recvonly" }): TransceiverLike;
   removeTrack(sender: SenderLike): void;
   createOffer(): Promise<SessionDescription>;
   createAnswer(): Promise<SessionDescription>;
