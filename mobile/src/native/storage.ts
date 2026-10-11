@@ -1,33 +1,30 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { RoomLink } from "../core/link";
 import { mergeRecent, removeRecent, type RecentRoom } from "../core/recent";
-
-export interface Prefs {
-  name: string;
-  email: string; // stays on the device; only its hash is sent
-  mic: boolean;
-  camera: boolean;
-}
+import { mergePrefs, type Prefs } from "../core/prefs";
+export type { Prefs } from "../core/prefs";
 
 const PREFS_KEY = "coyote.prefs.v1";
 const RECENT_KEY = "coyote.recent.v1";
-export const DEFAULT_PREFS: Prefs = { name: "", email: "", mic: true, camera: true };
 
-async function readJSON<T>(key: string, fallback: T): Promise<T> {
+async function readPrefs(): Promise<unknown> {
   try {
-    const raw = await AsyncStorage.getItem(key);
-    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    const raw = await AsyncStorage.getItem(PREFS_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return fallback;
+    return null;
   }
 }
 
 export async function loadPrefs(): Promise<Prefs> {
-  return readJSON(PREFS_KEY, DEFAULT_PREFS);
+  return mergePrefs(await readPrefs(), {});
 }
 
-export async function savePrefs(p: Prefs): Promise<void> {
-  await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(p));
+// Merges `patch` into the stored preferences and returns the result.
+export async function savePrefs(patch: Partial<Prefs>): Promise<Prefs> {
+  const next = mergePrefs(await readPrefs(), patch);
+  await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(next));
+  return next;
 }
 
 export async function loadRecent(): Promise<RecentRoom[]> {
