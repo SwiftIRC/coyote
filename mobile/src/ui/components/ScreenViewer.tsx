@@ -80,7 +80,7 @@ export function ScreenViewer({ p, onClose }: { p: Participant | null; onClose():
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} supportedOrientations={["portrait"]} statusBarTranslucent>
       <View style={styles.root} {...pan.panHandlers}>
-        <Animated.View style={{ width: w, height: h, transform: [{ rotate: rotated ? "90deg" : "0deg" }, { translateX: tx }, { translateY: ty }, { scale }] }}>
+        <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { rotate: rotated ? "90deg" : "0deg" }, { scale }] }}>
           {p.screen?.toURL ? (
             <RTCView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
           ) : (
