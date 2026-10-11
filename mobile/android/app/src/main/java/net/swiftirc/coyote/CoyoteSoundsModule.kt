@@ -10,6 +10,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -33,12 +34,25 @@ class CoyoteSoundsModule(private val ctx: ReactApplicationContext) : ReactContex
   fun preload(id: String, uri: String) {
     if (uri.startsWith("http://") || uri.startsWith("https://")) {
       io.execute {
+        val file = cachedFile(uri)
+        val part = File(file.parentFile, file.name + ".part")
         val ok = try {
-          val file = cachedFile(uri)
-          if (!file.exists()) URL(uri).openStream().use { input -> file.outputStream().use { input.copyTo(it) } }
-          prepare(id, Uri.fromFile(file).toString())
+          if (!file.exists()) {
+            val conn = (URL(uri).openConnection() as HttpURLConnection).apply { connectTimeout = 10_000; readTimeout = 15_000 }
+            try {
+              if (conn.responseCode !in 200..299) throw java.io.IOException("HTTP ${conn.responseCode}")
+              conn.inputStream.use { input -> part.outputStream().use { input.copyTo(it) } }
+            } finally {
+              conn.disconnect()
+            }
+            if (!part.renameTo(file)) throw java.io.IOException("rename failed")
+          }
+          val ready = prepare(id, Uri.fromFile(file).toString())
+          if (!ready) file.delete() // never keep a clip that will not play
+          ready
         } catch (e: Exception) {
           Log.w("CoyoteSounds", "download $id failed", e)
+          part.delete()
           players.remove(id)?.release()
           false
         }

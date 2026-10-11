@@ -22,17 +22,18 @@ class CoyoteSounds: RCTEventEmitter, AVAudioPlayerDelegate {
     if uri.hasPrefix("http://") || uri.hasPrefix("https://"), let remote = URL(string: uri) {
       let local = cachedURL(for: remote)
       if FileManager.default.fileExists(atPath: local.path) {
-        DispatchQueue.main.async { [weak self] in self?.prepare(id, url: local) }
+        DispatchQueue.main.async { [weak self] in self?.prepare(id, url: local, cached: local) }
         return
       }
-      URLSession.shared.downloadTask(with: remote) { [weak self] tmp, _, error in
+      URLSession.shared.downloadTask(with: remote) { tmp, response, error in
         var ready: URL? = nil
-        if let tmp = tmp, error == nil {
+        let okStatus = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } == true
+        if let tmp = tmp, error == nil, okStatus {
           try? FileManager.default.removeItem(at: local)
           if (try? FileManager.default.moveItem(at: tmp, to: local)) != nil { ready = local }
         }
         DispatchQueue.main.async { [weak self] in
-          if let ready = ready { self?.prepare(id, url: ready) } else { self?.fail(id) }
+          if let ready = ready { self?.prepare(id, url: ready, cached: ready) } else { self?.fail(id) }
         }
       }.resume()
       return
@@ -44,8 +45,12 @@ class CoyoteSounds: RCTEventEmitter, AVAudioPlayerDelegate {
   }
 
   // Main thread only (Ruling 1).
-  private func prepare(_ id: String, url: URL) {
-    guard let p = try? AVAudioPlayer(contentsOf: url) else { fail(id); return }
+  private func prepare(_ id: String, url: URL, cached: URL? = nil) {
+    guard let p = try? AVAudioPlayer(contentsOf: url) else {
+      if let cached = cached { try? FileManager.default.removeItem(at: cached) } // never keep a clip that will not play
+      fail(id)
+      return
+    }
     p.delegate = self
     p.prepareToPlay()
     players[id] = p
