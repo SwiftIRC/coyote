@@ -3,6 +3,7 @@ import type { RoomLink } from "../core/link";
 import type { Call, CallOutcome, CallState, JoinRequest } from "../core/call";
 import { createCall } from "../native/callFactory";
 import { setupSystemCalls } from "../native/systemCall";
+import { loadPrefs, savePrefs } from "../native/storage";
 
 export interface CallCtx {
   state: CallState | null;
@@ -79,6 +80,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       },
       notice: (text) => {
         if (active.current === made) pushNotice(text);
+      },
+      selfRenamed: (name) => {
+        if (active.current !== made) return;
+        loadPrefs().then((p) => savePrefs({ ...p, name })).catch((e) => console.warn("saving renamed name failed", e));
       },
     });
     active.current = made;
