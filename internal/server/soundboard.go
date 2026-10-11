@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"io/fs"
+	"net/http"
 	"path"
 	"sort"
 	"strconv"
@@ -105,4 +106,12 @@ var soundboardIDs = func() map[string]struct{} {
 func knownSound(id string) bool {
 	_, ok := soundboardIDs[id]
 	return ok
+}
+
+// handleSoundboard serves the board as JSON for the mobile apps, which can't read
+// it out of the page shell. Same list, same order, as the page's injection.
+func (h *Hub) handleSoundboard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	_, _ = w.Write(soundboardJSON(embeddedSoundboard))
 }
