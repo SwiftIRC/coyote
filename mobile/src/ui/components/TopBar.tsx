@@ -3,12 +3,15 @@ import { StyleSheet, Text, View } from "react-native";
 import { useElapsed } from "../hooks";
 import { colors } from "../theme";
 
-// "#room · 12:34" — the room timer counts from when the server created the room.
-export function TopBar({ slug }: { slug: string }) {
+// "🔒 #room · 12:34" — the lock shows while the room is password-locked; the timer
+// counts from when the server created the room.
+export function TopBar({ slug, locked }: { slug: string; locked: boolean }) {
   const elapsed = useElapsed();
   return (
     <View style={styles.bar} pointerEvents="none">
-      <Text style={styles.text} numberOfLines={1}>#{slug}{elapsed ? ` · ${elapsed}` : ""}</Text>
+      <Text style={styles.text} numberOfLines={1} accessibilityLabel={`${locked ? "Room locked. " : ""}#${slug}${elapsed ? `, ${elapsed}` : ""}`}>
+        {locked ? "🔒 " : ""}#{slug}{elapsed ? ` · ${elapsed}` : ""}
+      </Text>
     </View>
   );
 }

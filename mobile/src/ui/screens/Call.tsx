@@ -7,7 +7,7 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat, usePoll, useVolumes } from "../hooks";
+import { useChat, useModeration, usePoll, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
@@ -17,7 +17,7 @@ import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
 import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
-import { VolumeSheet } from "../components/VolumeSheet";
+import { PersonSheet } from "../components/PersonSheet";
 import { ScreenTile } from "../components/ScreenTile";
 import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
@@ -39,6 +39,7 @@ export function Call() {
   const chat = useChat();
   const pollNow = usePoll();
   const volumes = useVolumes();
+  const mod = useModeration();
   const [volumeFor, setVolumeFor] = useState<string | null>(null);
   const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
   const toggleChat = () => {
@@ -60,6 +61,11 @@ export function Call() {
       if (audioStarted.current) stopCallAudio();
     };
   }, []);
+
+  // Close the person sheet when that person leaves (or a rejoin changes ids).
+  useEffect(() => {
+    if (volumeFor && state && !state.participants.some((x) => x.id === volumeFor)) setVolumeFor(null);
+  }, [volumeFor, state]);
 
   // Drop a stale viewer id once the share is gone.
   useEffect(() => {
@@ -152,7 +158,7 @@ export function Call() {
               />)
           )}
         </View>
-        <TopBar slug={state.slug} />
+        <TopBar slug={state.slug} locked={mod.locked} />
         <SelfView stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
         <Controls
@@ -196,13 +202,20 @@ export function Call() {
           replacing={!!pollNow?.open}
           create={(q, o) => call()?.polls.create(q, o) ?? "offline"}
         />
-        <VolumeSheet
+        <PersonSheet
           p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}
           volume={volumeFor ? volumes[volumeFor] ?? 1 : 1}
           onChange={(v) => { if (volumeFor) call()?.volumes.set(volumeFor, v); }}
           onClose={() => setVolumeFor(null)}
+          isOp={state.role === "op"}
+          actions={{
+            muteMic: (id) => call()?.moderation.muteMic(id) ?? "offline",
+            grantOp: (id) => call()?.moderation.grantOp(id) ?? "offline",
+            kick: (id) => call()?.moderation.kick(id) ?? "offline",
+            ban: (id) => call()?.moderation.ban(id) ?? "offline",
+          }}
         />
-        <ScreenViewer p={viewed} onClose={() => setViewing(null)} />
+        <ScreenViewer p={viewed} onClose={() => setViewing(null)} isOp={state.role === "op"} onStopShare={(id) => call()?.moderation.stopShare(id) ?? "offline"} />
       </View>
     </View>
   );

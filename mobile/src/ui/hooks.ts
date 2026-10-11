@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ChatSnapshot } from "../core/chat";
+import type { ModSnapshot } from "../core/moderation";
 import type { PollView } from "../core/polls";
 import type { BoardSnapshot } from "../core/soundboard";
 import { formatDuration } from "../shared/web";
@@ -43,6 +44,13 @@ const EMPTY_BOARD: BoardSnapshot = { sounds: null, playing: null, clips: {} };
 export function useSoundboard(): BoardSnapshot {
   const { call } = useCall();
   return useStore(call()?.soundboard ?? null, EMPTY_BOARD);
+}
+
+const EMPTY_MOD: ModSnapshot = { locked: false, quality: { camera: "auto", screen: "auto" } };
+
+export function useModeration(): ModSnapshot {
+  const { call } = useCall();
+  return useStore(call()?.moderation ?? null, EMPTY_MOD);
 }
 
 const EMPTY_VOLUMES: Record<string, number> = {};
