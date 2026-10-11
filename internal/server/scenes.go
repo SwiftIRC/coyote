@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"io/fs"
+	"net/http"
 	"path"
 	"sort"
 	"strings"
@@ -95,3 +96,11 @@ func scenesJSON(assets fs.FS, version string) []byte {
 // embeddedScenesJSON is the shell's scene payload, computed once at startup from
 // the same embedded FS everything else is served from.
 func embeddedScenesJSON() []byte { return scenesJSON(web.Assets, assetsVersion) }
+
+// handleScenes serves the scene list as JSON for the mobile apps, which can't read
+// it out of the page shell. Same list, same order, as the page's injection.
+func (h *Hub) handleScenes(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	_, _ = w.Write(embeddedScenesJSON())
+}

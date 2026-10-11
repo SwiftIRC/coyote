@@ -15,6 +15,9 @@
 		761780F32CA45674006654EE /* CoyoteSounds.m in Sources */ = {isa = PBXBuildFile; fileRef = 761780F22CA45674006654EE /* CoyoteSounds.m */; };
 		C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */; };
 		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
+		C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE012E00000000000001 /* CoyoteBackground.swift */; };
+		C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE022E00000000000001 /* CoyoteBackground.m */; };
+		C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */; };
 		761780F52CA45674006654EE /* door_open.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F42CA45674006654EE /* door_open.mp3 */; };
 		761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F62CA45674006654EE /* sounds_drop.mp3 */; };
 		761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F82CA45674006654EE /* sounds_bloop.mp3 */; };
@@ -63,6 +66,9 @@
 		761780F22CA45674006654EE /* CoyoteSounds.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteSounds.m; path = Coyote/CoyoteSounds.m; sourceTree = "<group>"; };
 		C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteScreenShare.swift; path = Coyote/CoyoteScreenShare.swift; sourceTree = "<group>"; };
 		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
+		C0B0AE012E00000000000001 /* CoyoteBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteBackground.swift; path = Coyote/CoyoteBackground.swift; sourceTree = "<group>"; };
+		C0B0AE022E00000000000001 /* CoyoteBackground.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackground.m; path = Coyote/CoyoteBackground.m; sourceTree = "<group>"; };
+		C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackgroundProcessor.m; path = Coyote/CoyoteBackgroundProcessor.m; sourceTree = "<group>"; };
 		761780F42CA45674006654EE /* door_open.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = door_open.mp3; path = Coyote/Sounds/door_open.mp3; sourceTree = "<group>"; };
 		761780F62CA45674006654EE /* sounds_drop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_drop.mp3; path = Coyote/Sounds/sounds_drop.mp3; sourceTree = "<group>"; };
 		761780F82CA45674006654EE /* sounds_bloop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_bloop.mp3; path = Coyote/Sounds/sounds_bloop.mp3; sourceTree = "<group>"; };
@@ -105,6 +111,9 @@
 				761780F22CA45674006654EE /* CoyoteSounds.m */,
 				C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */,
 				C0B0AD022E00000000000001 /* CoyoteScreenShare.m */,
+				C0B0AE012E00000000000001 /* CoyoteBackground.swift */,
+				C0B0AE022E00000000000001 /* CoyoteBackground.m */,
+				C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */,
 				761780F42CA45674006654EE /* door_open.mp3 */,
 				761780F62CA45674006654EE /* sounds_drop.mp3 */,
 				761780F82CA45674006654EE /* sounds_bloop.mp3 */,
@@ -362,6 +371,9 @@
 				761780F32CA45674006654EE /* CoyoteSounds.m in Sources */,
 				C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */,
 				C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */,
+				C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */,
+				C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */,
+				C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,7 +404,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				ENABLE_BITCODE = NO;
 				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				INFOPLIST_FILE = Coyote/Info.plist;
@@ -401,7 +413,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -423,7 +435,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				INFOPLIST_FILE = Coyote/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -431,7 +443,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -597,7 +609,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CoyoteBroadcast/CoyoteBroadcast.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				INFOPLIST_FILE = CoyoteBroadcast/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -605,7 +617,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.swiftirc.coyote.broadcast;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -623,7 +635,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CoyoteBroadcast/CoyoteBroadcast.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				INFOPLIST_FILE = CoyoteBroadcast/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -631,7 +643,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.swiftirc.coyote.broadcast;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

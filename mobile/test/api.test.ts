@@ -1,4 +1,4 @@
-import { fetchSoundboard, peekRoom, peekInvite, serverVersion, type Fetcher } from "../src/core/api";
+import { fetchScenes, fetchSoundboard, peekRoom, peekInvite, serverVersion, type Fetcher } from "../src/core/api";
 import { parseRoomInput } from "../src/core/link";
 
 function fetcher(routes: Record<string, { status: number; body?: unknown } | "throw">): Fetcher & { urls: string[] } {
@@ -41,4 +41,12 @@ test("fetchSoundboard returns the list, or null on failure or a bad body", async
   expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": { status: 404 } }), "https://h")).toBeNull();
   expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": { status: 200, body: { not: "a list" } } }), "https://h")).toBeNull();
   expect(await fetchSoundboard(fetcher({ "https://h/api/soundboard": "throw" }), "https://h")).toBeNull();
+});
+
+test("fetchScenes: the list, or null when unreachable or malformed", async () => {
+  const ok = fetcher({ "https://h/api/scenes": { status: 200, body: [{ id: "a", label: "A", src: "/a.webp" }] } });
+  expect(await fetchScenes(ok, "https://h")).toEqual([{ id: "a", label: "A", src: "/a.webp" }]);
+  expect(await fetchScenes(fetcher({ "https://h/api/scenes": { status: 404 } }), "https://h")).toBeNull();
+  expect(await fetchScenes(fetcher({ "https://h/api/scenes": { status: 200, body: { no: 1 } } }), "https://h")).toBeNull();
+  expect(await fetchScenes(fetcher({ "https://h/api/scenes": "throw" }), "https://h")).toBeNull();
 });

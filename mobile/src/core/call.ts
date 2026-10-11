@@ -3,6 +3,7 @@
 // roster and the system-call integration (CallKit / ConnectionService), and exposes
 // one immutable CallState snapshot for the UI. Port of the join/rejoin/removal flow
 // in internal/web/assets/app.js, plus the mobile lifecycle rules from the spec.
+import { Backgrounds, parseScenes, type EffectPort } from "./backgrounds";
 import { ChatLog } from "./chat";
 import { Chimes, type ChimeName } from "./chimes";
 import { inCallErrorText, joinErrorText, LOCKED_WHILE_AWAY_TEXT } from "./errors";
@@ -48,6 +49,8 @@ export interface CallDeps {
   clips: ClipPort;
   fetchBoard(origin: string): Promise<unknown[] | null>;
   screen: ScreenCapturePort;
+  effects: EffectPort;
+  fetchScenes(origin: string): Promise<unknown[] | null>;
 }
 
 export interface JoinRequest {
@@ -58,6 +61,7 @@ export interface JoinRequest {
   mic: boolean;
   camera: boolean;
   dataSaver: boolean;
+  background?: string; // effect id; "none" when absent
   locked?: boolean; // PreJoin's last peek; used only if the server's joined omits it
 }
 
@@ -103,6 +107,7 @@ export class Call {
   readonly moderation: Moderation;
   readonly soundboard: Soundboard;
   readonly screenShare: ScreenShare;
+  readonly background: Backgrounds;
   readonly volumes = new Volumes();
   private boardRequested = false;
   private chimes: Chimes;
@@ -150,6 +155,12 @@ export class Call {
       notice: (text) => this.events.notice(text),
       canShare: () => this.state.phase === "in-call",
     }, deps.log);
+    this.background = new Backgrounds(deps.effects, async () => {
+      const origin = this.req?.link.origin;
+      if (!origin) return null;
+      const list = await deps.fetchScenes(origin);
+      return list ? parseScenes(list, origin) : null;
+    }, (text) => this.events.notice(text), deps.log);
     this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
 
@@ -160,6 +171,7 @@ export class Call {
   async join(req: JoinRequest): Promise<void> {
     if (this.state.phase !== "idle") throw new Error("Call.join may only be called once");
     this.req = req;
+    this.background.select(req.background || "none").catch((err) => this.deps.log.warn("[call] background failed", err));
     this.session = this.deps.uuid(); // binds a #i= invite to this call, across reconnects
     this.callId = this.deps.uuid();
     this.update({ phase: "connecting", slug: req.link.slug, name: req.name, dataSaver: req.dataSaver });
@@ -543,6 +555,12 @@ export class Call {
 
   private refreshLocalStream() {
     this.update({ localStream: this.camTrack ? this.deps.media.createStream([this.camTrack]) : null });
+    this.syncBackground();
+  }
+
+  // The background effect follows whichever camera track is current.
+  private syncBackground() {
+    this.background.setTrack(this.camTrack).catch((err) => this.deps.log.warn("[call] background failed", err));
   }
 
   private releaseTracks() {
@@ -551,6 +569,7 @@ export class Call {
     this.micTrack = null;
     this.camTrack = null;
     this.update({ localStream: null });
+    this.syncBackground();
   }
 
   private isLive(): boolean {

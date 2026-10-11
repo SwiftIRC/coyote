@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
@@ -7,8 +7,9 @@ import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
-import { useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
+import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
+import { BackgroundSheet } from "../components/BackgroundSheet";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
 import { loadPrefs, savePrefs } from "../../native/storage";
@@ -43,8 +44,10 @@ export function Call() {
   const volumes = useVolumes();
   const mod = useModeration();
   const share = useScreenShare();
+  const bg = useBackground();
+  const loadScenes = useCallback(() => { call()?.background.loadScenes().catch(warn("scenes")); }, [call]);
   const [volumeFor, setVolumeFor] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | null>(null);
+  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | "background" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
     setSheet(open ? "chat" : null);
@@ -199,6 +202,7 @@ export function Call() {
           rename={(n) => call()?.rename(n) ?? "offline"}
           isOp={state.role === "op"}
           onNewPoll={() => setSheet("poll-form")}
+          onBackground={() => setSheet("background")}
           locked={mod.locked}
           quality={mod.quality}
           share={share.status}
@@ -220,6 +224,16 @@ export function Call() {
           onClose={() => setSheet(null)}
           replacing={!!pollNow?.open}
           create={(q, o) => call()?.polls.create(q, o) ?? "offline"}
+        />
+        <BackgroundSheet
+          visible={sheet === "background"}
+          onClose={() => setSheet(null)}
+          snap={bg}
+          onOpen={loadScenes}
+          onSelect={(id) => {
+            call()?.background.select(id).catch(warn("background"));
+            savePrefs({ background: id }).catch(() => {});
+          }}
         />
         <PersonSheet
           p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}

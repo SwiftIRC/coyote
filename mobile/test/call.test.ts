@@ -54,6 +54,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const mics: FakeTrack[] = [];
   const cams: FakeTrack[] = [];
   const screens: FakeTrack[] = [];
+  const effects: string[] = [];
   const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void> };
   let ids = 0;
   const call = new Call({
@@ -101,13 +102,22 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
         return t;
       },
     },
+    effects: {
+      setEffect: async (e) => {
+        effects.push(`set ${e.kind}`);
+      },
+      attach: (t) => effects.push(`attach ${t.id}`),
+      detach: (t) => effects.push(`detach ${t.id}`),
+      clear: () => effects.push("clear"),
+    },
+    fetchScenes: async () => [{ id: "carina", label: "Carina", src: "/v/1/img/bg/carina.webp" }],
   }, {
     change: (s) => states.push(s),
     end: (o) => ends.push(o),
     notice: (t) => notices.push(t),
     selfRenamed: (n) => renames.push(n),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams, screens, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, screens, effects, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
@@ -929,4 +939,46 @@ test("screenshare: cannot start before the call is up", async () => {
   await t.call.join(req());
   await t.call.screenShare.start();
   expect(t.screens).toEqual([]);
+});
+
+test("background: the join's choice is applied to the camera track", async () => {
+  const { effects, cams } = await inCall({ background: "blur" });
+  expect(effects).toEqual(["set blur", `attach ${cams[0].id}`]);
+});
+
+test("background: none by default — the track is detached, nothing configured", async () => {
+  const { effects, cams } = await inCall();
+  expect(effects).toEqual([`detach ${cams[0].id}`, "clear"]);
+});
+
+test("background: follows the camera through flip and off/on", async () => {
+  const { call, effects, cams } = await inCall({ background: "blur" });
+  await call.flipCamera();
+  await flush();
+  expect(effects.at(-1)).toBe(`attach ${cams[1].id}`);
+  await call.setCamera(false);
+  await flush();
+  expect(call.background.getSnapshot().applied).toBe("none");
+  await call.setCamera(true);
+  await flush();
+  expect(effects.at(-1)).toBe(`attach ${cams[2].id}`);
+});
+
+test("background: a scene comes from the room's server", async () => {
+  const { call, effects, cams } = await inCall();
+  await call.background.select("carina");
+  expect(effects.slice(-2)).toEqual(["set scene", `attach ${cams[0].id}`]);
+});
+
+test("background: leaving drops the track", async () => {
+  const { call } = await inCall({ background: "blur" });
+  call.leave();
+  await flush();
+  expect(call.background.getSnapshot().applied).toBe("none");
+});
+
+test("background: a trip shows its notice", async () => {
+  const { call, notices } = await inCall({ background: "blur" });
+  call.background.onTripped("slow");
+  expect(notices).toContain("Background effect turned off: this phone couldn't keep up.");
 });

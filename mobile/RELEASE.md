@@ -65,3 +65,7 @@ Internal testing.
 ## Before every release
 
 Run `mobile/MANUAL-TEST.md` on both platforms.
+
+Background effects (1.5.0+) need a server with `GET /api/scenes`; deploy it before
+releasing the apps (an older server still works, with Blur and Blur+ only). The
+Android build pulls Google ML Kit (`segmentation-selfie`) from Maven, adding ~4.5 MB.

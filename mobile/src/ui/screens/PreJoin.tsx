@@ -4,14 +4,18 @@ import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type Rout
 import { useHeaderHeight } from "@react-navigation/elements";
 import { RTCView } from "react-native-webrtc";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { peekInvite, peekRoom } from "../../core/api";
+import { fetchScenes, peekInvite, peekRoom } from "../../core/api";
+import { Backgrounds, labelFor, parseScenes } from "../../core/backgrounds";
 import { gravatarHash } from "../../core/gravatar";
 import { nickFromToken } from "../../core/token";
 import type { StreamLike, TrackLike } from "../../core/types";
+import { effectPort, onBackgroundTripped } from "../../native/background";
 import { requestCallPermissions } from "../../native/permissions";
 import { loadPrefs, rememberRoom, savePrefs } from "../../native/storage";
 import { media } from "../../native/webrtc";
 import { useCall } from "../CallContext";
+import { BackgroundSheet } from "../components/BackgroundSheet";
+import { useStore } from "../hooks";
 import type { RootStack } from "../navigation";
 import { colors, radius } from "../theme";
 
@@ -39,6 +43,28 @@ export function PreJoin() {
   const [joining, setJoining] = useState(false);
   const [preview, setPreview] = useState<StreamLike | null>(null);
   const previewTrack = useRef<TrackLike | null>(null);
+  const [bgOpen, setBgOpen] = useState(false);
+  const linkRef = useRef(link);
+  linkRef.current = link;
+  // The preview's own effect store (the call builds its own on join).
+  const bgRef = useRef<Backgrounds | null>(null);
+  if (!bgRef.current) {
+    bgRef.current = new Backgrounds(
+      effectPort,
+      async () => {
+        const origin = linkRef.current.origin;
+        const list = await fetchScenes(fetch, origin);
+        return list ? parseScenes(list, origin) : null;
+      },
+      (text) => setError(text),
+      console,
+    );
+  }
+  const bgStore = bgRef.current;
+  const bg = useStore(bgStore, bgStore.getSnapshot());
+  useEffect(() => onBackgroundTripped((reason) => bgStore.onTripped(reason)), [bgStore]);
+  useEffect(() => { bgStore.resetScenes(); }, [link.origin, bgStore]);
+  const loadScenes = useCallback(() => { bgStore.loadScenes().catch(() => {}); }, [bgStore]);
 
   // React Navigation reuses an open PreJoin for a new link, so drop the previous
   // room's locked name, password and occupancy first.
@@ -53,6 +79,7 @@ export function PreJoin() {
       setMic(p.mic);
       setCamera(p.camera);
       setDataSaver(p.dataSaver);
+      bgStore.select(p.background).catch(() => {});
     });
     if (link.invite) {
       peekInvite(fetch, link).then((r) => {
@@ -68,7 +95,7 @@ export function PreJoin() {
     return () => {
       live = false;
     };
-  }, [link]);
+  }, [link, bgStore]);
 
   // Keyed on the params object: every navigation creates a new one, so a repeated
   // identical error (e.g. bad-password twice) is shown again.
@@ -90,10 +117,11 @@ export function PreJoin() {
 
   // Camera preview while focused; released before joining (the call acquires its own).
   const stopPreview = useCallback(() => {
+    bgStore.setTrack(null).catch(() => {});
     previewTrack.current?.stop();
     previewTrack.current = null;
     setPreview(null);
-  }, []);
+  }, [bgStore]);
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     if (camera) {
@@ -103,6 +131,7 @@ export function PreJoin() {
           return;
         }
         previewTrack.current = t;
+        bgStore.setTrack(t).catch(() => {});
         setPreview(media.createStream([t]));
       });
     }
@@ -110,7 +139,7 @@ export function PreJoin() {
       cancelled = true;
       stopPreview();
     };
-  }, [camera, stopPreview]));
+  }, [camera, stopPreview, bgStore]));
 
   const onJoin = async () => {
     const finalName = (lockedName || name).trim();
@@ -135,7 +164,7 @@ export function PreJoin() {
       } catch (e) {
         console.warn("saving prefs or recent room failed", e);
       }
-      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera, dataSaver, locked: !!room?.locked });
+      const joined = join({ link, name: finalName, password, gravatar: gravatarHash(email), mic, camera, dataSaver, locked: !!room?.locked, background: bg.selected });
       nav.navigate("Call"); // after join() has synchronously cleared the previous call's state
       await joined;
     } catch (e) {
@@ -168,6 +197,10 @@ export function PreJoin() {
           <Text style={styles.label}>Camera</Text>
           <Switch value={camera} onValueChange={setCamera} />
         </View>
+        <Pressable style={styles.row} onPress={() => setBgOpen(true)} accessibilityRole="button" accessibilityLabel={`Background: ${labelFor(bg.selected, bg.scenes)}`}>
+          <Text style={styles.label}>Background</Text>
+          <Text style={styles.muted}>{labelFor(bg.selected, bg.scenes)} ›</Text>
+        </Pressable>
         <TextInput
           style={[styles.input, lockedName ? styles.locked : null]}
           placeholder="Display name"
@@ -205,6 +238,16 @@ export function PreJoin() {
           {joining ? <ActivityIndicator color="#000" /> : <Text style={styles.buttonText}>Join</Text>}
         </Pressable>
       </View>
+      <BackgroundSheet
+        visible={bgOpen}
+        onClose={() => setBgOpen(false)}
+        snap={bg}
+        onOpen={loadScenes}
+        onSelect={(id) => {
+          bgStore.select(id).catch(() => {});
+          savePrefs({ background: id }).catch(() => {});
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

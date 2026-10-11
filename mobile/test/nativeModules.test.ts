@@ -152,3 +152,48 @@ describe("iOS broadcast extension", () => {
     expect(new Set(builds).size).toBe(1);
   });
 });
+
+test("iOS CoyoteBackground: module, processor registration and project wiring", () => {
+  const ios = path.join(__dirname, "..", "ios");
+  const m = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.m"), "utf8");
+  expect(m).toContain("RCT_EXTERN_MODULE(CoyoteBackground, RCTEventEmitter)");
+  expect(m).toContain("RCT_EXTERN_METHOD(setEffect:(NSDictionary *)effect resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)");
+  expect(m).toContain("RCT_EXTERN_METHOD(clear)");
+  for (const f of fs.readdirSync(path.join(ios, "Coyote"))) {
+    if (!/\.(m|mm|h)$/.test(f)) continue;
+    expect([f, /#import\s*["<]Coyote-Swift\.h[">]/.test(fs.readFileSync(path.join(ios, "Coyote", f), "utf8"))]).toEqual([f, false]);
+  }
+  const proc = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackgroundProcessor.m"), "utf8");
+  expect(proc).toContain("@interface CoyoteBackgroundEngine : NSObject");
+  expect(proc).toContain('forName:@"coyote-background"');
+  expect(proc).toContain("RTCVideoRotation_0");
+  const swift = fs.readFileSync(path.join(ios, "Coyote", "CoyoteBackground.swift"), "utf8");
+  expect(swift).toContain("VNGeneratePersonSegmentationRequest");
+  expect(swift).toContain('"CoyoteBackgroundTripped"');
+  expect(swift).toContain("@objc(setEffect:resolver:rejecter:)");
+  expect(swift).toContain("@objc(clear)");
+  expect(swift).toContain("budgetMs = 45.0");
+  const pbx = fs.readFileSync(path.join(ios, "Coyote.xcodeproj", "project.pbxproj"), "utf8");
+  expect(pbx).toContain("CoyoteBackground.swift in Sources");
+  expect(pbx).toContain("CoyoteBackground.m in Sources");
+  expect(pbx).toContain("CoyoteBackgroundProcessor.m in Sources");
+});
+
+test("Android CoyoteBackground: exports, registration, ML Kit, frame ownership", () => {
+  const dir = path.join(__dirname, "..", "android", "app", "src", "main", "java", "net", "swiftirc", "coyote");
+  const mod = fs.readFileSync(path.join(dir, "CoyoteBackgroundModule.kt"), "utf8");
+  expect(exportedNames(mod).sort()).toEqual(["addListener", "clear", "removeListeners", "setEffect"]);
+  expect(mod).toContain('"CoyoteBackgroundTripped"');
+  const app = fs.readFileSync(path.join(dir, "MainApplication.kt"), "utf8");
+  expect(app).toContain('ProcessorProvider.addProcessor("coyote-background"');
+  expect(app).toContain("CoyoteBackgroundPackage()");
+  const engine = fs.readFileSync(path.join(dir, "BackgroundEngine.kt"), "utf8");
+  expect(engine).toContain("SelfieSegmenterOptions.STREAM_MODE");
+  expect(engine).toContain("BUDGET_MS = 45.0");
+  expect(engine).not.toMatch(/return\s+frame\b/); // never hand the input frame back
+  expect(engine).toContain("catch (timeout: TimeoutException)"); // a model still loading passes frames through
+  expect(engine).not.toContain("SHORT_SIDE"); // the short side follows the camera's aspect
+  expect(mod).toContain("BackgroundEngine.configure(null)"); // clear() frees the scene
+  const gradle = fs.readFileSync(path.join(__dirname, "..", "android", "app", "build.gradle"), "utf8");
+  expect(gradle).toContain("com.google.mlkit:segmentation-selfie:16.0.0-beta6");
+});
