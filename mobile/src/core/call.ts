@@ -14,11 +14,12 @@ import { RoomClock } from "./roomClock";
 import { Roster, type Participant, type PeerInfo } from "./roster";
 import type { Signaling } from "./signaling";
 import { Soundboard, type ClipPort } from "./soundboard";
+import { ScreenShare, type ScreenCapturePort } from "./screenShare";
 import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types";
 import { Volumes } from "./volumes";
 
 export type Facing = "user" | "environment";
-export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "setQuality" | "close">;
+export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "close">;
 export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
 
 export interface MediaPort {
@@ -46,6 +47,7 @@ export interface CallDeps {
   playChime(n: ChimeName): void;
   clips: ClipPort;
   fetchBoard(origin: string): Promise<unknown[] | null>;
+  screen: ScreenCapturePort;
 }
 
 export interface JoinRequest {
@@ -100,6 +102,7 @@ export class Call {
   readonly polls: Polls;
   readonly moderation: Moderation;
   readonly soundboard: Soundboard;
+  readonly screenShare: ScreenShare;
   readonly volumes = new Volumes();
   private boardRequested = false;
   private chimes: Chimes;
@@ -139,6 +142,14 @@ export class Call {
     this.polls = new Polls((type, fields) => this.trySend(type, fields), () => this.state.role === "op");
     this.moderation = new Moderation((type, fields) => this.trySend(type, fields), () => this.state.role === "op");
     this.soundboard = new Soundboard((type, fields) => this.trySend(type, fields), deps.clips);
+    this.screenShare = new ScreenShare(deps.screen, {
+      publish: async (t) => {
+        if (this.peer) await this.peer.publish(t, "screen");
+      },
+      unpublish: () => this.peer?.unpublish("screen"),
+      notice: (text) => this.events.notice(text),
+      canShare: () => this.state.phase === "in-call",
+    }, deps.log);
     this.chimes = new Chimes((n) => deps.playChime(n), deps.timers);
   }
 
@@ -464,6 +475,7 @@ export class Call {
   private async onForceMuted(kind: string) {
     if (kind === "mic") await this.setMic(false);
     else if (kind === "camera") await this.setCamera(false);
+    else if (kind === "screen") this.screenShare.stop("op");
   }
 
   private onQuality(m: Frame) {
@@ -504,6 +516,8 @@ export class Call {
     const local: Array<{ track: TrackLike; kind: Kind }> = [];
     if (this.micTrack) local.push({ track: this.micTrack, kind: "mic" });
     if (this.camTrack) local.push({ track: this.camTrack, kind: "camera" });
+    const screen = this.screenShare.liveTrack();
+    if (screen) local.push({ track: screen, kind: "screen" });
     peer.start(local).catch((err) => this.deps.log.warn("[call] peer start failed", err));
   }
 
@@ -545,6 +559,7 @@ export class Call {
 
   private finish(outcome: CallOutcome) {
     if (this.state.phase === "ended") return;
+    this.screenShare.stop("leave");
     this.sig?.stop();
     this.peer?.close();
     this.peer = null;

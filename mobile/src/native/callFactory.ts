@@ -35,6 +35,7 @@ export function createCall(events: CallEvents): { call: Call; dispose(): void } 
     playChime,
     clips: { load: loadClip, play: playClip, stop: stopClip },
     fetchBoard: (origin) => fetchSoundboard(fetch, origin),
+    screen: { start: () => Promise.reject(new Error("screen capture not wired")) },
   }, events);
   const stopLifecycle = watchLifecycle(call);
   const stopLoaded = onSoundLoaded((id, ok) => call?.soundboard.onLoaded(id, ok));

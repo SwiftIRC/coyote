@@ -148,7 +148,7 @@ export function Call() {
           {tiles.length === 0 ? (
             <Text style={styles.waiting}>{state.phase === "connecting" ? "Connecting…" : `Waiting for others in #${state.slug}…`}</Text>
           ) : (
-            tiles.map((t) => t.kind === "screen"
+            tiles.map((t) => t.kind === "own-screen" ? null : t.kind === "screen"
               ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
               : <Tile
                 key={t.key} p={t.p} width={tileW} height={tileH}
