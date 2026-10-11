@@ -6,9 +6,11 @@ import { routeLabel, type AudioRoutes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
 import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
+import { useChat } from "../hooks";
 import { Banner } from "../components/Banner";
 import { Controls } from "../components/Controls";
 import { SelfView } from "../components/SelfView";
+import { TopBar } from "../components/TopBar";
 import { Tile } from "../components/Tile";
 import type { RootStack } from "../navigation";
 import { colors } from "../theme";
@@ -26,6 +28,13 @@ export function Call() {
   const width = area?.width ?? window.width - insets.left - insets.right;
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
+  const chat = useChat();
+  const [sheet, setSheet] = useState<"chat" | "more" | null>(null);
+  const toggleChat = () => {
+    const open = sheet !== "chat";
+    setSheet(open ? "chat" : null);
+    call()?.chat.setOpen(open);
+  };
   const audioStarted = useRef(false);
   const phase = state?.phase;
   const hasState = !!state;
@@ -115,7 +124,8 @@ export function Call() {
             people.map((p) => <Tile key={p.id} p={p} width={tileW} height={tileH} />)
           )}
         </View>
-        <SelfView stream={state.camera ? state.localStream : null} />
+        <TopBar slug={state.slug} />
+        <SelfView stream={state.camera ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner kind={state.banner} notices={notices} />
         <Controls
           mic={state.mic}
@@ -123,7 +133,9 @@ export function Call() {
           routeLabel={routeLabel(routes.selected)}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
-          onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }}
+          unread={chat.unread}
+          onChat={toggleChat}
+          onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
           onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
           onLeave={leave}
         />

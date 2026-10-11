@@ -21,7 +21,7 @@ export function Banner({ kind, notices }: { kind: BannerKind; notices: string[] 
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", top: 12, left: 12, right: 120, gap: 6 },
+  wrap: { position: "absolute", top: 40, left: 12, right: 120, gap: 6 },
   item: { color: colors.text, backgroundColor: "rgba(0,0,0,0.75)", padding: 8, borderRadius: 8, overflow: "hidden" },
   banner: { backgroundColor: colors.accent, color: "#000", fontWeight: "600" },
 });
