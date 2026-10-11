@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ChatSnapshot } from "../core/chat";
 import type { PollView } from "../core/polls";
+import type { BoardSnapshot } from "../core/soundboard";
 import { formatDuration } from "../shared/web";
 import { useCall } from "./CallContext";
 
@@ -35,4 +36,11 @@ export function useElapsed(): string | null {
 export function usePoll(): PollView | null {
   const { call } = useCall();
   return useStore(call()?.polls ?? null, null as PollView | null);
+}
+
+const EMPTY_BOARD: BoardSnapshot = { sounds: null, playing: null, clips: {} };
+
+export function useSoundboard(): BoardSnapshot {
+  const { call } = useCall();
+  return useStore(call()?.soundboard ?? null, EMPTY_BOARD);
 }

@@ -4,10 +4,11 @@ import type { PollResult, PollView } from "../../core/polls";
 import { CHAT_MAX, type ChatEntry, type SendResult } from "../../core/chat";
 import { hhmm } from "../../core/chatText";
 import { linkSegments } from "../../shared/web";
-import { useChat, usePoll } from "../hooks";
+import { useChat, usePoll, useSoundboard } from "../hooks";
 import { colors, radius } from "../theme";
 import { PollCard } from "./PollCard";
 import { Sheet } from "./Sheet";
+import { SoundboardPanel } from "./SoundboardPanel";
 
 const ERRORS: Partial<Record<SendResult, string>> = {
   offline: "Not connected — message not sent.",
@@ -39,12 +40,20 @@ function Line({ e, poll, isOp, polls }: { e: ChatEntry; poll: PollView | null; i
   );
 }
 
-export function ChatSheet({ visible, onClose, send, isOp, polls }: {
-  visible: boolean; onClose(): void; send(text: string): SendResult; isOp: boolean; polls: PollActions;
+type SoundboardActions = {
+  start(id: string): "sent" | "offline" | "busy" | "unavailable";
+  stop(): "sent" | "offline" | "not-mine";
+};
+
+export function ChatSheet({ visible, onClose, send, isOp, polls, soundboard }: {
+  visible: boolean; onClose(): void; send(text: string): SendResult; isOp: boolean; polls: PollActions; soundboard: SoundboardActions;
 }) {
   const chat = useChat();
   const poll = usePoll();
-  const [tab, setTab] = useState<"chat" | "poll">("chat");
+  const board = useSoundboard();
+  const hasSounds = !!board.sounds?.length;
+  const [pickedTab, setTab] = useState<"chat" | "poll" | "sounds">("chat");
+  const tab = pickedTab === "sounds" && !hasSounds ? "chat" : pickedTab;
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const list = useRef<FlatList<ChatEntry>>(null);
@@ -63,14 +72,24 @@ export function ChatSheet({ visible, onClose, send, isOp, polls }: {
     <Sheet visible={visible} onClose={onClose}>
       <View style={styles.body}>
         <View style={styles.header}>
-          {(["chat", "poll"] as const).map((t) => (
-            <Pressable key={t} onPress={() => setTab(t)} accessibilityRole="tab" accessibilityState={{ selected: tab === t }}>
-              <Text style={[styles.tab, { color: tab === t ? colors.text : colors.muted }]}>{t === "chat" ? "Chat" : "Poll"}</Text>
+          {(hasSounds ? ["chat", "poll", "sounds"] as const : ["chat", "poll"] as const).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t === "sounds" ? "Soundboard" : undefined}
+              accessibilityState={{ selected: tab === t }}
+            >
+              <Text style={[styles.tab, { color: tab === t ? colors.text : colors.muted }]}>{t === "chat" ? "Chat" : t === "poll" ? "Poll" : "🔊"}</Text>
             </Pressable>
           ))}
           <View style={styles.spacer} />
         </View>
-        {tab === "poll" ? (
+        {tab === "sounds" ? (
+          <ScrollView contentContainerStyle={styles.list}>
+            <SoundboardPanel board={board} start={soundboard.start} stop={soundboard.stop} />
+          </ScrollView>
+        ) : tab === "poll" ? (
           <ScrollView contentContainerStyle={styles.list}>
             {poll
               ? <PollCard poll={poll} isOp={isOp} onVote={polls.vote} onClose={polls.close} />

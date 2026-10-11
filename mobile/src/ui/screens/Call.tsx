@@ -162,6 +162,10 @@ export function Call() {
           send={(t) => call()?.chat.send(t) ?? "offline"}
           isOp={state.role === "op"}
           polls={{ vote: (i) => call()?.polls.vote(i) ?? "offline", close: () => call()?.polls.close() ?? "offline" }}
+          soundboard={{
+            start: (id) => call()?.soundboard.start(id) ?? "offline",
+            stop: () => call()?.soundboard.stop() ?? "offline",
+          }}
         />
         <MoreSheet
           visible={sheet === "more"}
