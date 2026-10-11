@@ -14,11 +14,11 @@ const MESSAGES: Partial<Record<RenameResult, string>> = {
   offline: "Not connected — name not changed.",
 };
 
-export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod, share, canShare, onShare, onStopShare }: {
+export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod, share, canShare, onShare, onStopShare, onBackground }: {
   visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult; isOp: boolean; onNewPoll(): void;
   dataSaver: boolean; onDataSaver(v: boolean): void; hideSelf: boolean; onHideSelf(v: boolean): void;
   locked: boolean; quality: { camera: string; screen: string };
-  share: ShareStatus; canShare: boolean; onShare(): void; onStopShare(): void;
+  share: ShareStatus; canShare: boolean; onShare(): void; onStopShare(): void; onBackground(): void;
   mod: { lock(pw: string): ModResult; unlock(): ModResult; setQuality(t: QualityTarget, tier: string): ModResult };
 }) {
   const [draft, setDraft] = useState(name);
@@ -116,6 +116,9 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
           <Text style={[styles.saveText, shareOff && { color: colors.muted }]}>
             {share === "sharing" ? "Stop sharing" : share === "starting" ? "Starting…" : "Share screen"}
           </Text>
+        </Pressable>
+        <Pressable onPress={onBackground} accessibilityRole="button" style={styles.row2}>
+          <Text style={styles.saveText}>Background…</Text>
         </Pressable>
         {isOp ? (
           <>

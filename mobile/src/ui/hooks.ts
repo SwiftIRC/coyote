@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { BgSnapshot } from "../core/backgrounds";
 import type { ChatSnapshot } from "../core/chat";
 import type { ModSnapshot } from "../core/moderation";
 import type { PollView } from "../core/polls";
@@ -66,4 +67,11 @@ const EMPTY_VOLUMES: Record<string, number> = {};
 export function useVolumes(): Record<string, number> {
   const { call } = useCall();
   return useStore(call()?.volumes ?? null, EMPTY_VOLUMES);
+}
+
+const EMPTY_BG: BgSnapshot = { selected: "none", applied: "none", busy: false, scenes: [], scenesState: "idle" };
+
+export function useBackground(): BgSnapshot {
+  const { call } = useCall();
+  return useStore(call()?.background ?? null, EMPTY_BG);
 }
