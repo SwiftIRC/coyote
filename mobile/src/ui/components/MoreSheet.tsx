@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { NAME_MAX } from "../../core/call";
 import { MOD_RESULT_TEXT, type ModResult, type QualityTarget } from "../../core/moderation";
+import type { ShareStatus } from "../../core/screenShare";
 import { QUALITY_TIERS } from "../../shared/web";
 import { colors, radius } from "../theme";
 import { Sheet } from "./Sheet";
@@ -13,10 +14,11 @@ const MESSAGES: Partial<Record<RenameResult, string>> = {
   offline: "Not connected — name not changed.",
 };
 
-export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod }: {
+export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dataSaver, onDataSaver, hideSelf, onHideSelf, locked, quality, mod, share, onShare, onStopShare }: {
   visible: boolean; onClose(): void; name: string; rename(n: string): RenameResult; isOp: boolean; onNewPoll(): void;
   dataSaver: boolean; onDataSaver(v: boolean): void; hideSelf: boolean; onHideSelf(v: boolean): void;
   locked: boolean; quality: { camera: string; screen: string };
+  share: ShareStatus; onShare(): void; onStopShare(): void;
   mod: { lock(pw: string): ModResult; unlock(): ModResult; setQuality(t: QualityTarget, tier: string): ModResult };
 }) {
   const [draft, setDraft] = useState(name);
@@ -102,6 +104,17 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
         <Toggle label="Data saver" value={dataSaver} onChange={onDataSaver} />
         <Text style={styles.msg}>Stops receiving video; audio keeps playing.</Text>
         <Toggle label="Hide self-view" value={hideSelf} onChange={onHideSelf} />
+        <Pressable
+          onPress={share === "sharing" ? onStopShare : onShare}
+          disabled={share === "starting"}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: share === "starting" }}
+          style={styles.row2}
+        >
+          <Text style={[styles.saveText, share === "starting" && { color: colors.muted }]}>
+            {share === "sharing" ? "Stop sharing" : share === "starting" ? "Starting…" : "Share screen"}
+          </Text>
+        </Pressable>
         {isOp ? (
           <>
             <Pressable onPress={onNewPoll} accessibilityRole="button" style={styles.row2}>
