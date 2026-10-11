@@ -7,11 +7,12 @@ import ReplayKit
 class SampleHandler: RPBroadcastSampleHandler {
   private static let appGroup = "group.net.swiftirc.coyote"
   private static let startedNotification = "net.swiftirc.coyote.broadcast.started"
-  private static let connectAttempts = 50 // × 100 ms
+  private static let maxConnectAttempts = 50 // × 100 ms
 
   private var connection: SocketConnection?
   private var uploader: SampleUploader?
   private var frameCount = 0
+  private var connectAttempts = 0
   private var connectTimer: DispatchSourceTimer?
 
   private var socketPath: String {
@@ -32,18 +33,18 @@ class SampleHandler: RPBroadcastSampleHandler {
 
   override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
     frameCount = 0
-    var attempts = 0
+    connectAttempts = 0
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "net.swiftirc.coyote.broadcast.connect"))
     timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(50))
     timer.setEventHandler { [weak self] in
       guard let self = self else { return }
-      attempts += 1
+      self.connectAttempts += 1
       if self.connection?.open() == true {
         timer.cancel()
         CFNotificationCenterPostNotification(
           CFNotificationCenterGetDarwinNotifyCenter(),
           CFNotificationName(SampleHandler.startedNotification as CFString), nil, nil, true)
-      } else if attempts >= SampleHandler.connectAttempts {
+      } else if self.connectAttempts >= SampleHandler.maxConnectAttempts {
         timer.cancel()
         self.finish("Start screen sharing from a Coyote call.")
       }

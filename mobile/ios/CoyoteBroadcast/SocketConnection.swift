@@ -61,6 +61,9 @@ extension SocketConnection: StreamDelegate {
       }
     case .hasSpaceAvailable:
       if aStream == outputStream { streamHasSpaceAvailable?() }
+    case .endEncountered:
+      close()
+      didClose?(nil)
     case .errorOccurred:
       close()
       didClose?(aStream.streamError)
