@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text } from "react-native";
-import { RTCView } from "react-native-webrtc";
+import { VideoView } from "./VideoView";
 import type { StreamLike } from "../../core/types";
 import { colors } from "../theme";
 
@@ -16,7 +16,7 @@ export function SelfView({ stream, onFlip }: { stream: StreamLike | null; onFlip
   if (!stream?.toURL) return null;
   return (
     <Animated.View style={[styles.pip, { transform: pos.getTranslateTransform() }]} {...pan.panHandlers}>
-      <RTCView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror zOrder={1} />
+      <VideoView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror zOrder={1} />
       <Pressable onPress={onFlip} style={styles.flip} accessibilityRole="button" accessibilityLabel="Switch camera" hitSlop={8}>
         <Text style={styles.flipText}>⟳</Text>
       </Pressable>
