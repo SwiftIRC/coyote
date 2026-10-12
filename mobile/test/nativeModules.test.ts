@@ -86,6 +86,17 @@ test("Android declares the media-projection foreground-service permission (Andro
   expect(manifest).toContain('android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION');
 });
 
+// react-native-webrtc only starts its mediaProjection foreground service when the app
+// opts in; without it Android 14+ throws SecurityException in startCapture, which the
+// library merely logs, leaving a "live" screen track that never sends a frame.
+test("Android opts in to react-native-webrtc's MediaProjectionService before React loads", () => {
+  const file = path.join(__dirname, "..", "android", "app", "src", "main", "java", "net", "swiftirc", "coyote", "MainApplication.kt");
+  const src = fs.readFileSync(file, "utf8");
+  const optIn = src.indexOf("WebRTCModuleOptions.getInstance().enableMediaProjectionService = true");
+  expect(optIn).toBeGreaterThan(-1);
+  expect(optIn).toBeLessThan(src.indexOf("loadReactNative(this)"));
+});
+
 test("CoyoteScreenShare exports showPicker and relays the extension's started notification", () => {
   const app = path.join(__dirname, "..");
   const m = fs.readFileSync(path.join(app, "ios", "Coyote", "CoyoteScreenShare.m"), "utf8");
