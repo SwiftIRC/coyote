@@ -125,7 +125,7 @@ export function PreJoin() {
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     if (camera) {
-      requestCallPermissions(true).then(() => media.getCamera("user")).then((t) => {
+      requestCallPermissions(true).then(() => media.getCamera({ facing: "user" })).then((t) => {
         if (cancelled || !t) {
           t?.stop();
           return;

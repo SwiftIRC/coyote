@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
-import { NO_ROUTES, outputLabel, pendingOutcome, pickOutput, selectedOutput, type Pending, type Routes } from "../../core/audioRoutes";
+import { NO_ROUTES, outputLabel, pendingOutcome, pickInput, pickOutput, selectedOutput, type Pending, type Routes } from "../../core/audioRoutes";
+import { cameraFacing, type Camera } from "../../core/cameras";
 import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
-import { selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { listCameras } from "../../native/webrtc";
 import { useCall } from "../CallContext";
 import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
-import { AudioRouteSheet } from "../components/AudioRouteSheet";
+import { DevicesSheet } from "../components/DevicesSheet";
 import { BackgroundSheet } from "../components/BackgroundSheet";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
@@ -41,6 +43,8 @@ export function Call() {
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<Routes>(NO_ROUTES);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [cameraBusy, setCameraBusy] = useState<string | null>(null);
   const chat = useChat();
   const pollNow = usePoll();
   const volumes = useVolumes();
@@ -49,7 +53,7 @@ export function Call() {
   const bg = useBackground();
   const loadScenes = useCallback(() => { call()?.background.loadScenes().catch(warn("scenes")); }, [call]);
   const [volumeFor, setVolumeFor] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | "background" | "audio" | null>(null);
+  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | "background" | "devices" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
     setSheet(open ? "chat" : null);
@@ -88,8 +92,8 @@ export function Call() {
     }
   }, [state?.phase, state?.camera, call]);
 
-  // A requested output switch: settled by the next report that selects it, failed
-  // when the output vanishes, the platform rejects it, or 5 s pass.
+  // A requested output or microphone switch: settled by the next report that selects
+  // it, failed when it vanishes, the platform rejects it, or 5 s pass.
   useEffect(() => {
     if (!pending) return;
     const fail = () => {
@@ -171,7 +175,6 @@ export function Call() {
   const viewed = viewing ? screenFor(people, viewing) : null;
   const current = selectedOutput(routes);
   const pickRoute = (id: string) => {
-    setSheet(null);
     const p = pickOutput(routes, id, Date.now());
     if (!p) return;
     setPending(p);
@@ -180,6 +183,22 @@ export function Call() {
       console.warn("audio output failed", e);
       setPending((cur) => (cur === p ? { ...p, at: 0 } : cur));
     });
+  };
+  const pickMic = (id: string) => {
+    const p = pickInput(routes, id, Date.now());
+    if (!p) return;
+    setPending(p);
+    selectInput(routes, id, state.camera).catch((e) => {
+      console.warn("microphone failed", e);
+      setPending((cur) => (cur === p ? { ...p, at: 0 } : cur));
+    });
+  };
+  const pickCamera = (c: Camera) => {
+    if (c.id === state.cameraId || cameraBusy) return;
+    const p = call()?.selectCamera(c.id, cameraFacing(c.facing));
+    if (!p) return;
+    setCameraBusy(c.id);
+    p.catch(warn("camera")).finally(() => setCameraBusy(null));
   };
 
   return (
@@ -211,15 +230,16 @@ export function Call() {
           mic={state.mic}
           camera={state.camera}
           routeLabel={pending ? "…" : outputLabel(current?.kind)}
-          routeA11y={`Audio output: ${current?.name ?? outputLabel(undefined)}`}
+          routeA11y={`Audio and video devices. Output: ${current?.name ?? outputLabel(undefined)}`}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
           unread={chat.unread}
           onChat={toggleChat}
           onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
           onRoute={() => {
-            if (Platform.OS !== "android") return; // iOS: the route picker takes the tap
-            setSheet(sheet === "audio" ? null : "audio");
+            const open = sheet !== "devices";
+            setSheet(open ? "devices" : null);
+            if (open) listCameras().then(setCameras).catch(() => setCameras([]));
             call()?.chat.setOpen(false);
           }}
           onLeave={leave}
@@ -275,7 +295,18 @@ export function Call() {
             savePrefs({ background: id }).catch(() => {});
           }}
         />
-        <AudioRouteSheet visible={sheet === "audio"} onClose={() => setSheet(null)} routes={routes} onSelect={pickRoute} />
+        <DevicesSheet
+          visible={sheet === "devices"}
+          onClose={() => setSheet(null)}
+          routes={routes}
+          pending={pending}
+          cameras={cameras}
+          cameraId={state.cameraId}
+          cameraBusy={cameraBusy}
+          onOutput={pickRoute}
+          onInput={pickMic}
+          onCamera={pickCamera}
+        />
         <PersonSheet
           p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}
           volume={volumeFor ? volumes[volumeFor] ?? 1 : 1}
