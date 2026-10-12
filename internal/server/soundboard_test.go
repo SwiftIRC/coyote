@@ -2,9 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/SwiftIRC/coyote/internal/web"
 )
 
 func mp3() *fstest.MapFile { return &fstest.MapFile{Data: []byte("mp3")} }
@@ -89,5 +92,30 @@ func TestEmbeddedSoundboardHasTheRocket(t *testing.T) {
 	}
 	if knownSound("") || knownSound("nope") || knownSound("../door_open") {
 		t.Fatal("knownSound accepted an id that is not on the board")
+	}
+}
+
+// Every board file must really be MP3, whatever its name says: iOS (AVAudioPlayer)
+// can't decode Ogg Vorbis, so a renamed .ogg plays in browsers and on Android but
+// silently fails on iPhones. MP3 starts with an ID3v2 tag or an MPEG frame sync.
+func TestEmbeddedBoardSoundsAreRealMP3(t *testing.T) {
+	files, err := fs.Glob(web.Assets, soundboardDir+"/*.mp3")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no board sounds found: %v", err)
+	}
+	for _, f := range files {
+		data, err := fs.ReadFile(web.Assets, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id3 := len(data) >= 3 && string(data[:3]) == "ID3"
+		sync := len(data) >= 2 && data[0] == 0xFF && data[1]&0xE0 == 0xE0
+		if !id3 && !sync {
+			head := data
+			if len(head) > 4 {
+				head = head[:4]
+			}
+			t.Errorf("%s is not MP3 (starts %q)", f, head)
+		}
 	}
 }
