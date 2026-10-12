@@ -265,6 +265,9 @@ test("iOS CoyoteAudioRoute reports routes and sets the preferred input; CoyoteRo
   expect(swift).toContain('"CoyoteAudioRoutes"');
   expect(swift).toContain("@objc(selectInput:resolver:rejecter:)");
   expect(swift).toContain("setPreferredInput");
+  expect(swift).toContain("@objc func resetInput()");
+  expect(swift).toContain("setPreferredInput(nil)");
+  expect(read("CoyoteAudioRoute.m")).toContain("RCT_EXTERN_METHOD(resetInput)");
   expect(swift).toContain("availableInputs");
   expect(swift).not.toMatch(/setCategory|setMode|setActive|overrideOutputAudioPort/);
   expect(read("CoyoteRoutePicker.m")).toContain("RCT_EXTERN_MODULE(CoyoteRoutePickerManager, RCTViewManager)");

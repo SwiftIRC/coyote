@@ -31,6 +31,7 @@ export async function startCallAudio(callId: string, video: boolean): Promise<vo
 export function stopCallAudio(): void {
   token++;
   if (Platform.OS === "android") CoyoteAudioRoute?.stop();
+  if (Platform.OS === "ios") CoyoteAudioRoute?.resetInput(); // a picked mic is session-wide
   if (mode === "fallback" || mode === "ios") {
     InCallManager.setKeepScreenOn(false);
     InCallManager.stop();

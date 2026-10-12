@@ -11,6 +11,7 @@ function load(os: "ios" | "android", opts: { module?: boolean; start?: () => Pro
     routes: jest.fn(async () => ({ outputs: [{ id: "u1", kind: "speaker", name: "Speaker" }], selected: "u1" })),
     select: jest.fn(async () => undefined),
     selectInput: jest.fn(async () => undefined),
+    resetInput: jest.fn(),
   };
   const icm = {
     start: jest.fn(), stop: jest.fn(), setKeepScreenOn: jest.fn(),
@@ -178,4 +179,20 @@ test("iOS selectInput sets the preferred input natively; its payloads keep their
   t.mod.watchRoutes((r) => seen.push(r));
   t.emit({ outputs: [], selected: "", inputs: [{ id: "uid-1", kind: "usb", name: "USB Mic" }], input: "uid-1" });
   expect(seen.at(-1)).toMatchObject({ input: "uid-1", inputs: [{ id: "uid-1", kind: "usb" }] });
+});
+
+// setPreferredInput is session-wide and outlives the call: a mic picked in one call
+// must not carry into the next ("no persistence").
+test("iOS: leaving the call clears the preferred microphone", async () => {
+  const t = load("ios");
+  await t.mod.startCallAudio("c1", false);
+  t.mod.stopCallAudio();
+  expect(t.native.resetInput).toHaveBeenCalled();
+});
+
+test("Android: leaving the call has no preferred microphone to clear", async () => {
+  const t = load("android");
+  await t.mod.startCallAudio("c1", false);
+  t.mod.stopCallAudio();
+  expect(t.native.resetInput).not.toHaveBeenCalled();
 });

@@ -47,6 +47,12 @@ class CoyoteAudioRoute: RCTEventEmitter {
     }
   }
 
+  // The preferred input is session-wide and outlives the call: back to the system's
+  // choice when a call ends, so a mic picked in one call doesn't carry into the next.
+  @objc func resetInput() {
+    try? AVAudioSession.sharedInstance().setPreferredInput(nil)
+  }
+
   private static func snapshot() -> [String: Any] {
     let session = AVAudioSession.sharedInstance()
     let inputs: [[String: Any]] = (session.availableInputs ?? []).map {

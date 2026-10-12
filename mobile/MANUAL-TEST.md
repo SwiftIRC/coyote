@@ -292,3 +292,6 @@ browser in the call to watch the result.
     back camera.
 84. **Camera picked while off.** Turn the camera off, pick another camera (the ✓
     moves, nothing turns on), turn the camera on: that camera is used.
+85. **iPhone microphone doesn't carry over.** With AirPods connected, pick iPhone
+    Microphone in a call, leave, and start another call with the AirPods still in:
+    it starts on the AirPods (the system's choice), not the iPhone mic.
