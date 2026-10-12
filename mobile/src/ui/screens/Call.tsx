@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
-import { routeLabel, type AudioRoutes } from "../../core/audioRoutes";
+import { NO_ROUTES, outputLabel, selectedOutput, type Routes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
-import { cycleRoute, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
 import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
@@ -38,7 +38,7 @@ export function Call() {
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
   const width = area?.width ?? window.width - insets.left - insets.right;
   const height = area?.height ?? window.height - insets.top - insets.bottom;
-  const [routes, setRoutes] = useState<AudioRoutes>({ available: [], selected: "" });
+  const [routes, setRoutes] = useState<Routes>(NO_ROUTES);
   const chat = useChat();
   const pollNow = usePoll();
   const volumes = useVolumes();
@@ -82,9 +82,9 @@ export function Call() {
   useEffect(() => {
     if (state?.phase === "in-call" && !audioStarted.current) {
       audioStarted.current = true;
-      startCallAudio(state.camera);
+      startCallAudio(call()?.systemCallId ?? "", state.camera).catch(warn("call audio"));
     }
-  }, [state?.phase, state?.camera]);
+  }, [state?.phase, state?.camera, call]);
   // Back (Android button, gestures, header) must not drop a live call's UI; ask first.
   // `busy` also covers the setup window before any call state exists.
   const liveRef = useRef(busy);
@@ -175,13 +175,13 @@ export function Call() {
         <Controls
           mic={state.mic}
           camera={state.camera}
-          routeLabel={routeLabel(routes.selected)}
+          routeLabel={outputLabel(selectedOutput(routes)?.kind)}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
           unread={chat.unread}
           onChat={toggleChat}
           onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
-          onRoute={() => { cycleRoute(routes).catch(warn("audio route")); }}
+          onRoute={() => {}}
           onLeave={leave}
         />
         <ChatSheet

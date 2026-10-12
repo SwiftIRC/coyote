@@ -146,6 +146,11 @@ export class Call {
     facing: "user", dataSaver: false, localStream: null, participants: [],
   };
 
+  // The id the system call (CallKit / ConnectionService) was started with; "" before join.
+  get systemCallId(): string {
+    return this.callId;
+  }
+
   constructor(private deps: CallDeps, private events: CallEvents) {
     this.roster.subscribe(() => this.update({ participants: this.roster.list() }));
     this.chat = new ChatLog((type, fields) => this.trySend(type, fields), () => deps.now());

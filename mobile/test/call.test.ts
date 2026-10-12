@@ -1011,3 +1011,12 @@ test("quality cap: camera off clears it", async () => {
   await flush();
   expect(peers[0].heights.at(-1)).toBeNull();
 });
+
+test("systemCallId is the id the system call was started with", async () => {
+  const { call, system } = setup();
+  expect(call.systemCallId).toBe("");
+  await call.join(req());
+  const started = system.find((x) => x.startsWith("start "))!;
+  expect(started.split(" ")[1]).toBe(call.systemCallId);
+  expect(call.systemCallId).not.toBe("");
+});
