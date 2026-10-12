@@ -126,7 +126,8 @@ type Room struct {
 	// carrying one skips the password check, so locking a room mid-call doesn't lock
 	// out its own members on their next reconnect (they rejoin with the password they
 	// typed before the lock). It covers anyone admitted earlier in this room's life,
-	// including people who left on purpose; Kick and Ban revoke it.
+	// including people who left on purpose, until the next lock or password change,
+	// which keeps only the refs of those present; Kick and Ban revoke it.
 	admittedRefs map[string]struct{}
 	joins        uint64 // last joinSeq handed out
 
@@ -588,6 +589,21 @@ func (r *Room) SetLock(actorID, password string) error {
 	r.password = password
 	r.locked = password != ""
 	locked := r.locked
+	if locked {
+		// A new password must keep out people who already left, so only the refs of
+		// those in the room now keep their bypass (their reconnects stay seamless).
+		present := map[string]struct{}{}
+		for _, p := range r.parts {
+			if p.Ref != "" {
+				present[p.Ref] = struct{}{}
+			}
+		}
+		for ref := range r.admittedRefs {
+			if _, ok := present[ref]; !ok {
+				delete(r.admittedRefs, ref)
+			}
+		}
+	}
 	r.mu.Unlock()
 	if locked {
 		r.Broadcast(signal.RoomLocked{}, "")

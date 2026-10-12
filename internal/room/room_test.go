@@ -742,3 +742,34 @@ func TestKickLiveSessionRevokesRefDespiteGhost(t *testing.T) {
 		t.Errorf("rejoin after kicking the live session = %v, want ErrBadPassword", err)
 	}
 }
+
+// Locking or changing the password keeps out people who already left: only refs held
+// by someone in the room survive, so current members still reconnect past the lock.
+func TestSetLockForgetsRefsOfDepartedMembers(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	op.Ref = "rop"
+	r.Join(op, "")
+	bob, _ := member("p2", "bob", RoleUser)
+	bob.Ref = "rbob"
+	r.Join(bob, "")
+	carol, _ := member("p3", "carol", RoleUser)
+	carol.Ref = "rcarol"
+	r.Join(carol, "")
+	r.SetLock("p1", "sesame")
+	r.Leave("p2") // bob leaves while the first password is set
+	if err := r.SetLock("p1", "new-secret"); err != nil {
+		t.Fatal(err)
+	}
+	bob2, _ := member("p4", "bob", RoleUser)
+	bob2.Ref = "rbob"
+	if err := r.Join(bob2, ""); err != ErrBadPassword {
+		t.Errorf("departed member after a password change = %v, want ErrBadPassword", err)
+	}
+	r.Leave("p3") // carol was present at the change: her reconnect still bypasses
+	carol2, _ := member("p5", "carol", RoleUser)
+	carol2.Ref = "rcarol"
+	if err := r.Join(carol2, ""); err != nil {
+		t.Errorf("member present at the change, reconnecting = %v, want admitted", err)
+	}
+}
