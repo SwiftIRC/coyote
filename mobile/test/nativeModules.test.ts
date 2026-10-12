@@ -254,14 +254,18 @@ test("CoyoteAudioRoute routes only through Telecom and reads Telecom's real stat
   expect(fs.readFileSync(path.join(dir, "MainApplication.kt"), "utf8")).toContain("add(CoyoteAudioRoutePackage())");
 });
 
-test("iOS CoyoteAudioRoute only reports routes; CoyoteRoutePicker wraps AVRoutePickerView; both are built", () => {
+test("iOS CoyoteAudioRoute reports routes and sets the preferred input; CoyoteRoutePicker wraps AVRoutePickerView; both are built", () => {
   const ios = path.join(__dirname, "..", "ios");
   const read = (f: string) => fs.readFileSync(path.join(ios, "Coyote", f), "utf8");
   expect(read("CoyoteAudioRoute.m")).toContain("RCT_EXTERN_MODULE(CoyoteAudioRoute, RCTEventEmitter)");
   expect(read("CoyoteAudioRoute.m")).toContain("routes:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject");
+  expect(read("CoyoteAudioRoute.m")).toContain("selectInput:(NSString *)uid resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject");
   const swift = read("CoyoteAudioRoute.swift");
   expect(swift).toContain("routeChangeNotification");
   expect(swift).toContain('"CoyoteAudioRoutes"');
+  expect(swift).toContain("@objc(selectInput:resolver:rejecter:)");
+  expect(swift).toContain("setPreferredInput");
+  expect(swift).toContain("availableInputs");
   expect(swift).not.toMatch(/setCategory|setMode|setActive|overrideOutputAudioPort/);
   expect(read("CoyoteRoutePicker.m")).toContain("RCT_EXTERN_MODULE(CoyoteRoutePickerManager, RCTViewManager)");
   expect(read("CoyoteRoutePicker.swift")).toContain("AVRoutePickerView");
