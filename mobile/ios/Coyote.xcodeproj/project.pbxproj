@@ -8,28 +8,29 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-Coyote.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-Coyote.a */; };
+		1326889E15F99186D8BB7C50 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		761780EF2CA45674006654EE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EE /* SceneDelegate.swift */; };
 		761780F12CA45674006654EE /* CoyoteSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780F02CA45674006654EE /* CoyoteSounds.swift */; };
 		761780F32CA45674006654EE /* CoyoteSounds.m in Sources */ = {isa = PBXBuildFile; fileRef = 761780F22CA45674006654EE /* CoyoteSounds.m */; };
-		C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */; };
-		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
-		C0A0D1112E00000000000001 /* CoyoteAudioRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1012E00000000000001 /* CoyoteAudioRoute.swift */; };
-		C0A0D1122E00000000000001 /* CoyoteAudioRoute.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */; };
-		C0A0D1132E00000000000001 /* CoyoteRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */; };
-		C0A0D1142E00000000000001 /* CoyoteRoutePicker.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */; };
-		C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE012E00000000000001 /* CoyoteBackground.swift */; };
-		C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE022E00000000000001 /* CoyoteBackground.m */; };
-		C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */; };
 		761780F52CA45674006654EE /* door_open.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F42CA45674006654EE /* door_open.mp3 */; };
 		761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F62CA45674006654EE /* sounds_drop.mp3 */; };
 		761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 761780F82CA45674006654EE /* sounds_bloop.mp3 */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		C0A0D1112E00000000000001 /* CoyoteAudioRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1012E00000000000001 /* CoyoteAudioRoute.swift */; };
+		C0A0D1122E00000000000001 /* CoyoteAudioRoute.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */; };
+		C0A0D1132E00000000000001 /* CoyoteRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */; };
+		C0A0D1142E00000000000001 /* CoyoteRoutePicker.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */; };
+		C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */; };
+		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
 		C0B0AD132E00000000000001 /* CoyoteBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0B0AD142E00000000000001 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD042E00000000000001 /* SampleHandler.swift */; };
 		C0B0AD152E00000000000001 /* SocketConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD052E00000000000001 /* SocketConnection.swift */; };
 		C0B0AD162E00000000000001 /* SampleUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD062E00000000000001 /* SampleUploader.swift */; };
+		C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE012E00000000000001 /* CoyoteBackground.swift */; };
+		C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE022E00000000000001 /* CoyoteBackground.m */; };
+		C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,26 +69,26 @@
 		761780EE2CA45674006654EE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = Coyote/SceneDelegate.swift; sourceTree = "<group>"; };
 		761780F02CA45674006654EE /* CoyoteSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteSounds.swift; path = Coyote/CoyoteSounds.swift; sourceTree = "<group>"; };
 		761780F22CA45674006654EE /* CoyoteSounds.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteSounds.m; path = Coyote/CoyoteSounds.m; sourceTree = "<group>"; };
-		C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteScreenShare.swift; path = Coyote/CoyoteScreenShare.swift; sourceTree = "<group>"; };
-		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
-		C0A0D1012E00000000000001 /* CoyoteAudioRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteAudioRoute.swift; path = Coyote/CoyoteAudioRoute.swift; sourceTree = "<group>"; };
-		C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteAudioRoute.m; path = Coyote/CoyoteAudioRoute.m; sourceTree = "<group>"; };
-		C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteRoutePicker.swift; path = Coyote/CoyoteRoutePicker.swift; sourceTree = "<group>"; };
-		C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteRoutePicker.m; path = Coyote/CoyoteRoutePicker.m; sourceTree = "<group>"; };
-		C0B0AE012E00000000000001 /* CoyoteBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteBackground.swift; path = Coyote/CoyoteBackground.swift; sourceTree = "<group>"; };
-		C0B0AE022E00000000000001 /* CoyoteBackground.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackground.m; path = Coyote/CoyoteBackground.m; sourceTree = "<group>"; };
-		C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackgroundProcessor.m; path = Coyote/CoyoteBackgroundProcessor.m; sourceTree = "<group>"; };
 		761780F42CA45674006654EE /* door_open.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = door_open.mp3; path = Coyote/Sounds/door_open.mp3; sourceTree = "<group>"; };
 		761780F62CA45674006654EE /* sounds_drop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_drop.mp3; path = Coyote/Sounds/sounds_drop.mp3; sourceTree = "<group>"; };
 		761780F82CA45674006654EE /* sounds_bloop.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = sounds_bloop.mp3; path = Coyote/Sounds/sounds_bloop.mp3; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Coyote/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		C0A0D1012E00000000000001 /* CoyoteAudioRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteAudioRoute.swift; path = Coyote/CoyoteAudioRoute.swift; sourceTree = "<group>"; };
+		C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteAudioRoute.m; path = Coyote/CoyoteAudioRoute.m; sourceTree = "<group>"; };
+		C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteRoutePicker.swift; path = Coyote/CoyoteRoutePicker.swift; sourceTree = "<group>"; };
+		C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteRoutePicker.m; path = Coyote/CoyoteRoutePicker.m; sourceTree = "<group>"; };
+		C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteScreenShare.swift; path = Coyote/CoyoteScreenShare.swift; sourceTree = "<group>"; };
+		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
 		C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoyoteBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0B0AD042E00000000000001 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
 		C0B0AD052E00000000000001 /* SocketConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketConnection.swift; sourceTree = "<group>"; };
 		C0B0AD062E00000000000001 /* SampleUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleUploader.swift; sourceTree = "<group>"; };
 		C0B0AD092E00000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C0B0AD0A2E00000000000001 /* CoyoteBroadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoyoteBroadcast.entitlements; sourceTree = "<group>"; };
+		C0B0AE012E00000000000001 /* CoyoteBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteBackground.swift; path = Coyote/CoyoteBackground.swift; sourceTree = "<group>"; };
+		C0B0AE022E00000000000001 /* CoyoteBackground.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackground.m; path = Coyote/CoyoteBackground.m; sourceTree = "<group>"; };
+		C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteBackgroundProcessor.m; path = Coyote/CoyoteBackgroundProcessor.m; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -285,6 +286,7 @@
 				761780F52CA45674006654EE /* door_open.mp3 in Resources */,
 				761780F72CA45674006654EE /* sounds_drop.mp3 in Resources */,
 				761780F92CA45674006654EE /* sounds_bloop.mp3 in Resources */,
+				1326889E15F99186D8BB7C50 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -420,9 +422,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				CURRENT_PROJECT_VERSION = 10;
 				ENABLE_BITCODE = NO;
-				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
 				INFOPLIST_FILE = Coyote/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -451,8 +453,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 10;
 				CODE_SIGN_ENTITLEMENTS = Coyote/Coyote.entitlements;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = LDVBLCHL4X;
 				INFOPLIST_FILE = Coyote/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -536,6 +539,10 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -543,10 +550,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -604,6 +614,10 @@
 					"\"$(inherited)\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -611,9 +625,12 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -652,6 +669,7 @@
 				CODE_SIGN_ENTITLEMENTS = CoyoteBroadcast/CoyoteBroadcast.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = LDVBLCHL4X;
 				INFOPLIST_FILE = CoyoteBroadcast/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
