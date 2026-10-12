@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { RTCView } from "react-native-webrtc";
+import { VideoView } from "./VideoView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOD_RESULT_TEXT, type ModResult } from "../../core/moderation";
 import type { Participant } from "../../core/roster";
@@ -95,7 +95,7 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
       <View style={styles.root} {...pan.panHandlers}>
         <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { rotate: rotated ? "90deg" : "0deg" }, { scale }] }}>
           {p.screen?.toURL ? (
-            <RTCView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
+            <VideoView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
           ) : (
             <Text style={styles.audioOnly}>🔊 {p.name} is sharing audio</Text>
           )}
