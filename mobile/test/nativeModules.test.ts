@@ -271,3 +271,13 @@ test("iOS CoyoteAudioRoute only reports routes; CoyoteRoutePicker wraps AVRouteP
     expect(pbx.split(`/* ${f} in Sources */`).length - 1).toBe(2);
   }
 });
+
+// Some OEM builds may never deliver CallEndpoints to a self-managed connection: on
+// API 34+ an empty endpoint list must fall back to CallAudioState for listing,
+// the selection and switching, or the picker is empty for the whole call.
+test("CoyoteAudioRoute falls back to CallAudioState when no CallEndpoints arrive", () => {
+  const kt = fs.readFileSync(path.join(__dirname, "..", "android", "app", "src", "main", "java", "net", "swiftirc", "coyote", "CoyoteAudioRouteModule.kt"), "utf8");
+  expect(kt).toMatch(/private fun endpoints\(c: VoiceConnection\): List<CallEndpoint>/);
+  expect(kt.match(/val eps = endpoints\(c\)\s*\n\s*if \(eps\.isNotEmpty\(\)\)/g)?.length).toBe(3); // outputs, selectedId, selectOn
+  expect(kt).not.toMatch(/if \(Build\.VERSION\.SDK_INT >= 34\) \{\s*\n\s*return c\.availableEndpoints/);
+});

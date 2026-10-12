@@ -142,9 +142,8 @@ class CoyoteAudioRouteModule(private val ctx: ReactApplicationContext) :
 
   private fun outputs(): List<Output> {
     val c = conn ?: return emptyList()
-    if (Build.VERSION.SDK_INT >= 34) {
-      return c.availableEndpoints.filterIsInstance<CallEndpoint>().mapNotNull { endpointOutput(it) }
-    }
+    val eps = endpoints(c)
+    if (eps.isNotEmpty()) return eps.mapNotNull { endpointOutput(it) }
     @Suppress("DEPRECATION")
     val s = c.callAudioState ?: return emptyList()
     val mask = s.supportedRouteMask
@@ -162,9 +161,8 @@ class CoyoteAudioRouteModule(private val ctx: ReactApplicationContext) :
 
   private fun selectedId(): String {
     val c = conn ?: return ""
-    if (Build.VERSION.SDK_INT >= 34) {
-      return (c.currentEndpoint as? CallEndpoint)?.let { endpointOutput(it)?.id } ?: ""
-    }
+    val eps = endpoints(c)
+    if (eps.isNotEmpty()) return (c.currentEndpoint as? CallEndpoint)?.let { endpointOutput(it)?.id } ?: ""
     @Suppress("DEPRECATION")
     val s = c.callAudioState ?: return ""
     return when (s.route) {
@@ -178,6 +176,12 @@ class CoyoteAudioRouteModule(private val ctx: ReactApplicationContext) :
       else -> ""
     }
   }
+
+  // API 34+ endpoints as Telecom last reported them. Empty below 34, and on builds
+  // that never deliver them to a self-managed call: callers then use CallAudioState,
+  // which is deprecated on 34 but still reported and honoured.
+  private fun endpoints(c: VoiceConnection): List<CallEndpoint> =
+    if (Build.VERSION.SDK_INT >= 34) c.availableEndpoints.filterIsInstance<CallEndpoint>() else emptyList()
 
   @RequiresApi(34)
   private fun endpointOutput(e: CallEndpoint): Output? = when (e.endpointType) {
@@ -196,8 +200,9 @@ class CoyoteAudioRouteModule(private val ctx: ReactApplicationContext) :
 
   @Suppress("DEPRECATION")
   private fun selectOn(c: VoiceConnection, id: String, promise: Promise?) {
-    if (Build.VERSION.SDK_INT >= 34) {
-      val ep = c.availableEndpoints.filterIsInstance<CallEndpoint>().firstOrNull { endpointOutput(it)?.id == id }
+    val eps = endpoints(c)
+    if (eps.isNotEmpty()) {
+      val ep = eps.firstOrNull { endpointOutput(it)?.id == id }
       if (ep == null) {
         promise?.reject("unknown-output", "No output $id")
         return
