@@ -253,3 +253,21 @@ test("CoyoteAudioRoute routes only through Telecom and reads Telecom's real stat
   expect(kt).not.toMatch(/mask and [\w.]+ !=/);
   expect(fs.readFileSync(path.join(dir, "MainApplication.kt"), "utf8")).toContain("add(CoyoteAudioRoutePackage())");
 });
+
+test("iOS CoyoteAudioRoute only reports routes; CoyoteRoutePicker wraps AVRoutePickerView; both are built", () => {
+  const ios = path.join(__dirname, "..", "ios");
+  const read = (f: string) => fs.readFileSync(path.join(ios, "Coyote", f), "utf8");
+  expect(read("CoyoteAudioRoute.m")).toContain("RCT_EXTERN_MODULE(CoyoteAudioRoute, RCTEventEmitter)");
+  expect(read("CoyoteAudioRoute.m")).toContain("routes:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject");
+  const swift = read("CoyoteAudioRoute.swift");
+  expect(swift).toContain("routeChangeNotification");
+  expect(swift).toContain('"CoyoteAudioRoutes"');
+  expect(swift).not.toMatch(/setCategory|setMode|setActive|overrideOutputAudioPort/);
+  expect(read("CoyoteRoutePicker.m")).toContain("RCT_EXTERN_MODULE(CoyoteRoutePickerManager, RCTViewManager)");
+  expect(read("CoyoteRoutePicker.swift")).toContain("AVRoutePickerView");
+  const pbx = fs.readFileSync(path.join(ios, "Coyote.xcodeproj", "project.pbxproj"), "utf8");
+  for (const f of ["CoyoteAudioRoute.swift", "CoyoteAudioRoute.m", "CoyoteRoutePicker.swift", "CoyoteRoutePicker.m"]) {
+    // PBXBuildFile definition + Sources phase entry.
+    expect(pbx.split(`/* ${f} in Sources */`).length - 1).toBe(2);
+  }
+});
