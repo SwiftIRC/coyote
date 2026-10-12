@@ -718,3 +718,27 @@ func TestJoinedCarriesLocked(t *testing.T) {
 		t.Error("joined.locked false for a joiner of a locked room")
 	}
 }
+
+// The mirror of TestKickGhostKeepsLiveRefBypass: kicking the LIVE session (the newer
+// holder of the ref) must revoke the bypass even while its ghost lingers, or the
+// kicked user walks straight back into the locked room.
+func TestKickLiveSessionRevokesRefDespiteGhost(t *testing.T) {
+	r := New(Config{Slug: "s", Adhoc: true})
+	op, _ := member("p1", "op", RoleUser)
+	r.Join(op, "")
+	ghost, _ := member("p2", "bob", RoleUser)
+	ghost.Ref = "r"
+	r.Join(ghost, "")
+	live, _ := member("p3", "bob", RoleUser)
+	live.Ref = "r"
+	r.Join(live, "")
+	r.SetLock("p1", "sesame")
+	if err := r.Kick("p1", "p3"); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := member("p4", "bob", RoleUser)
+	again.Ref = "r"
+	if err := r.Join(again, ""); err != ErrBadPassword {
+		t.Errorf("rejoin after kicking the live session = %v, want ErrBadPassword", err)
+	}
+}

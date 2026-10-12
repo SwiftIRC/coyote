@@ -55,6 +55,10 @@ type Participant struct {
 	// said muted" (Mic=false, provided) apart from "client said nothing" (Mic=false,
 	// the bool zero value).
 	mediaProvided bool
+	// joinSeq orders joins within the room (set by Join under Room.mu): after a
+	// reconnect the live session is the newer holder of a shared Ref, its ghost the
+	// older one.
+	joinSeq uint64
 }
 
 // SetInitialMedia records the joiner's self-reported mic/camera state from its
@@ -124,6 +128,7 @@ type Room struct {
 	// typed before the lock). It covers anyone admitted earlier in this room's life,
 	// including people who left on purpose; Kick and Ban revoke it.
 	admittedRefs map[string]struct{}
+	joins        uint64 // last joinSeq handed out
 
 	// Op-set session video caps: tier ids the clients map to a resolution/framerate
 	// cap for their camera / screenshare senders. "" means uncapped (auto).
@@ -179,14 +184,16 @@ func (r *Room) rememberOp(p *Participant) {
 
 // forgetRef drops a removed participant's session ref from admittedRefs, so the old
 // session can't rejoin past a lock. After a reconnect the stale old participant can
-// linger holding the live session's ref; if any other participant still holds it,
-// the ref is kept so kicking that ghost doesn't revoke the live session's bypass.
+// linger holding the live session's ref: kicking that ghost (an older holder) keeps
+// the ref so the live session's bypass survives, but kicking the live session (the
+// newest holder) revokes it even though its ghost still lingers.
 func (r *Room) forgetRef(targetID, ref string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if ref != "" {
+		tgt := r.parts[targetID]
 		for id, p := range r.parts {
-			if id != targetID && p.Ref == ref {
+			if id != targetID && p.Ref == ref && (tgt == nil || p.joinSeq > tgt.joinSeq) {
 				return
 			}
 		}
@@ -233,6 +240,8 @@ func (r *Room) Join(p *Participant, password string) error {
 		}
 	}
 	r.hasBeenJoined = true
+	r.joins++
+	p.joinSeq = r.joins
 	if p.Ref != "" {
 		r.admittedRefs[p.Ref] = struct{}{}
 	}
