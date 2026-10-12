@@ -245,3 +245,28 @@ browser in the call to watch the result.
     phone does not get uncomfortably hot.
 69. **Colour.** Switch between None and Blur on iOS: skin tones and colours look the
     same (a colour shift means the composite's pixel format needs BGRA).
+70. **Android call audio (risk check, do first).** On an Android 14+ phone and an
+    Android 9–13 device: join a call and hear the others; they hear you. Audio-only
+    call: it starts on the earpiece and the screen turns off at your ear. Video call:
+    it starts on the speaker. (No call audio at all means Telecom didn't set the
+    call audio mode: report it; the fix is to start incall-manager for the mode only.)
+71. **Output list.** Tap the audio button: a sheet lists Phone, Speaker and any
+    headset; the current one has ✓. Pick Speaker, then Phone: audio moves each time
+    and the button follows.
+72. **Two Bluetooth devices.** Connect two (earbuds and a speaker or car): both are
+    listed by name; picking each moves the call audio there. Mute and unmute your mic:
+    both stay listed.
+73. **Changes from outside the app.** Mid-call, put the earbuds in their case, turn
+    Bluetooth off and on, plug in a wired headset: the button's label follows each
+    change; an open sheet updates live.
+74. **Tablet.** On the tablet: the list shows Speaker (plus any Bluetooth), never
+    Phone.
+75. **Failed switch.** Pick a Bluetooth device and switch it off at the same moment:
+    within 5 s "Couldn't switch to <name>." appears and the label shows the real
+    output.
+76. **iPhone picker.** Tap the audio button: Apple's output sheet opens and lists
+    iPhone, Speaker, AirPods etc. Pick each: audio moves and the label follows. Switch
+    from Control Centre: the label follows too. Video calls still start on the
+    speaker. VoiceOver reads "Audio output: <name>".
+77. **Leaving.** After leaving a call (Android): the screen times out normally again
+    and the proximity sensor no longer blanks it.
