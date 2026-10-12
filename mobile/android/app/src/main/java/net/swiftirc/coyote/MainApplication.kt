@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
           add(CallServicePackage())
           add(CoyoteSoundsPackage())
           add(CoyoteBackgroundPackage())
+          add(CoyoteAudioRoutePackage())
         },
     )
   }

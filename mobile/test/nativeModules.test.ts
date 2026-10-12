@@ -238,3 +238,18 @@ test("callkeep's VoiceConnection forwards audio-route changes", () => {
   expect(notify).toBeGreaterThan(0);
   expect(notify).toBeLessThan(body.indexOf("return;"));
 });
+
+test("CoyoteAudioRoute routes only through Telecom and reads Telecom's real state", () => {
+  const app = path.join(__dirname, "..");
+  const dir = path.join(app, "android", "app", "src", "main", "java", "net", "swiftirc", "coyote");
+  const kt = fs.readFileSync(path.join(dir, "CoyoteAudioRouteModule.kt"), "utf8");
+  expect(exportedNames(kt).sort()).toEqual(["addListener", "removeListeners", "routes", "select", "start", "stop"]);
+  expect(kt).toContain('"CoyoteAudioRoutes"');
+  expect(kt).not.toMatch(/setSpeakerphoneOn|setCommunicationDevice|startBluetoothSco|setMode\(/);
+  // Mute pushes a synthetic CallAudioState through callkeep; never route from it.
+  expect(kt).toContain("c.callAudioState");
+  expect(kt).toContain("override fun onAudioRouteChanged(connection: VoiceConnection)");
+  // Kotlin's `and` binds looser than `!=`: masks must be parenthesised.
+  expect(kt).not.toMatch(/mask and [\w.]+ !=/);
+  expect(fs.readFileSync(path.join(dir, "MainApplication.kt"), "utf8")).toContain("add(CoyoteAudioRoutePackage())");
+});
