@@ -20,12 +20,17 @@ import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types
 import { Volumes } from "./volumes";
 
 export type Facing = "user" | "environment";
+// A camera by facing, or a specific one (devices sheet); deviceId wins when given.
+export interface CameraChoice {
+  facing: Facing;
+  deviceId?: string;
+}
 export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "setCameraSourceHeight" | "close">;
 export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
 
 export interface MediaPort {
   getMic(): Promise<TrackLike | null>; // null: denied or unavailable
-  getCamera(facing: Facing): Promise<TrackLike | null>;
+  getCamera(choice: CameraChoice): Promise<TrackLike | null>;
   createStream(tracks: TrackLike[]): StreamLike;
 }
 
@@ -81,6 +86,7 @@ export interface CallState {
   mic: boolean;
   camera: boolean;
   facing: Facing;
+  cameraId: string | null; // the camera in use, or picked for the next turn-on
   dataSaver: boolean;
   localStream: StreamLike | null;
   participants: Participant[];
@@ -128,6 +134,8 @@ export class Call {
   // moved on while it awaited was superseded, so it stops its track and does nothing.
   private micGen = 0;
   private camGen = 0;
+  // A camera picked in the devices sheet; the next turn-on asks for it. Flip clears it.
+  private cameraPick: string | null = null;
   // True from each socket open (join sent) until that socket's `joined`: an `error`
   // in this window is a refused join and is fatal, even on a reconnect.
   private awaitingJoined = false;
@@ -143,7 +151,7 @@ export class Call {
   private cameraHeightCap: number | null = null;
   private state: CallState = {
     phase: "idle", banner: "", slug: "", selfId: "", role: "", name: "", mic: false, camera: false,
-    facing: "user", dataSaver: false, localStream: null, participants: [],
+    facing: "user", cameraId: null, dataSaver: false, localStream: null, participants: [],
   };
 
   // The id the system call (CallKit / ConnectionService) was started with; "" before join.
@@ -191,7 +199,7 @@ export class Call {
     this.micTrack = await this.deps.media.getMic();
     if (!this.micTrack && this.req.mic) this.events.notice("Microphone unavailable — joining muted.");
     if (this.isLive() && this.req.camera) { // the request may have been amended meanwhile
-      this.camTrack = await this.deps.media.getCamera("user");
+      this.camTrack = await this.deps.media.getCamera({ facing: "user" });
       if (!this.camTrack) this.events.notice("Camera unavailable — joining with it off.");
     }
     if (!this.isLive()) {
@@ -206,7 +214,7 @@ export class Call {
     }
     const mic = !!this.micTrack && want.mic;
     if (this.micTrack) this.micTrack.enabled = mic;
-    this.update({ mic, camera: !!this.camTrack });
+    this.update({ mic, camera: !!this.camTrack, cameraId: this.cameraIdOf(this.camTrack) });
     this.refreshLocalStream();
     if (!mic) this.deps.system.setMuted(this.callId, true);
 
@@ -322,9 +330,12 @@ export class Call {
       return;
     }
     let t: TrackLike | null;
+    const choice: CameraChoice = { facing: this.state.facing, deviceId: this.cameraPick ?? undefined };
     this.cameraOns++;
     try {
-      t = await this.deps.media.getCamera(this.state.facing);
+      t = await this.deps.media.getCamera(choice);
+      // The picked camera is gone (an iPad's USB camera unplugged): fall back to its facing.
+      if (!t && choice.deviceId && gen === this.camGen && this.isLive()) t = await this.deps.media.getCamera({ facing: choice.facing });
     } finally {
       this.cameraOns--;
     }
@@ -337,7 +348,7 @@ export class Call {
       return;
     }
     this.camTrack = t;
-    this.update({ camera: true });
+    this.update({ camera: true, cameraId: this.cameraIdOf(t) ?? choice.deviceId ?? null });
     this.refreshLocalStream();
     if (this.peer && !(await this.peer.replaceTrack("camera", t))) await this.peer.publish(t, "camera");
     this.sendMediaState();
@@ -346,26 +357,49 @@ export class Call {
   async flipCamera(): Promise<void> {
     if (!this.isLive() || !this.ready) return;
     const facing: Facing = this.state.facing === "user" ? "environment" : "user";
+    this.cameraPick = null;
     if (!this.state.camera) {
-      this.update({ facing });
+      this.update({ facing, cameraId: null });
       return;
     }
-    const gen = ++this.camGen;
-    const t = await this.deps.media.getCamera(facing);
-    if (gen !== this.camGen || !this.isLive() || !this.state.camera) {
-      t?.stop(); // camera turned off, or the call ended, while switching
+    await this.swapCamera({ facing });
+  }
+
+  // A camera picked in the devices sheet: swapped in live, or used by the next turn-on.
+  async selectCamera(id: string, facing: Facing): Promise<void> {
+    if (!this.isLive() || !this.ready) return;
+    if (!this.state.camera) {
+      this.cameraPick = id;
+      this.update({ facing, cameraId: id });
       return;
+    }
+    if (id === this.state.cameraId) return;
+    if (await this.swapCamera({ facing, deviceId: id })) this.cameraPick = id;
+  }
+
+  // Replaces the live camera track; false when superseded or the camera won't open.
+  private async swapCamera(choice: CameraChoice): Promise<boolean> {
+    const gen = ++this.camGen;
+    const t = await this.deps.media.getCamera(choice);
+    if (gen !== this.camGen || !this.isLive() || !this.state.camera) {
+      t?.stop(); // camera turned off, superseded, or the call ended while switching
+      return false;
     }
     if (!t) {
       this.events.notice("Could not switch camera.");
-      return;
+      return false;
     }
     const old = this.camTrack;
     this.camTrack = t;
-    this.update({ facing });
+    this.update({ facing: choice.facing, cameraId: this.cameraIdOf(t) ?? choice.deviceId ?? null });
     this.refreshLocalStream();
     if (this.peer) await this.peer.replaceTrack("camera", t);
     old?.stop();
+    return true;
+  }
+
+  private cameraIdOf(t: TrackLike | null): string | null {
+    return t?.getSettings?.().deviceId ?? null;
   }
 
   // Camera off in the background on both platforms (spec); on return, restore it if

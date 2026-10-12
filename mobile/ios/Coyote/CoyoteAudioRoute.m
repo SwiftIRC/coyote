@@ -3,4 +3,6 @@
 
 @interface RCT_EXTERN_MODULE(CoyoteAudioRoute, RCTEventEmitter)
 RCT_EXTERN_METHOD(routes:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(resetInput)
+RCT_EXTERN_METHOD(selectInput:(NSString *)uid resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 @end

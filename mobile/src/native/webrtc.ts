@@ -1,5 +1,6 @@
 import { mediaDevices, MediaStream, RTCIceCandidate, RTCPeerConnection, RTCRtpSender } from "react-native-webrtc";
-import type { Facing, MediaPort } from "../core/call";
+import type { CameraChoice, MediaPort } from "../core/call";
+import { parseCameras, type Camera } from "../core/cameras";
 import type { CodecLike, PeerConnectionLike, StreamLike, TrackLike } from "../core/types";
 
 // No ICE servers: the SFU advertises its public IP (spec, Global Constraints).
@@ -33,9 +34,22 @@ async function firstTrack(constraints: object): Promise<TrackLike | null> {
   }
 }
 
+const CAMERA = { width: 1280, height: 720, frameRate: 30 };
+
 export const media: MediaPort = {
   getMic: () => firstTrack({ audio: true, video: false }),
-  getCamera: (facing: Facing) =>
-    firstTrack({ audio: false, video: { facingMode: facing, width: 1280, height: 720, frameRate: 30 } }),
+  // deviceId wins over facingMode in react-native-webrtc on both platforms; for an
+  // unknown id (a USB camera unplugged) it opens the facing instead, which the library
+  // would otherwise default to the front camera.
+  getCamera: (choice: CameraChoice) =>
+    firstTrack({ audio: false, video: { ...CAMERA, facingMode: choice.facing, ...(choice.deviceId ? { deviceId: choice.deviceId } : {}) } }),
   createStream,
 };
+
+export async function listCameras(): Promise<Camera[]> {
+  try {
+    return parseCameras(await mediaDevices.enumerateDevices());
+  } catch {
+    return [];
+  }
+}

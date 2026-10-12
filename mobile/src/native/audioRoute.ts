@@ -1,6 +1,6 @@
 import { DeviceEventEmitter, NativeEventEmitter, NativeModules, Platform } from "react-native";
 import InCallManager from "react-native-incall-manager";
-import { fromInCallManager, parseRoutes, toInCallManager, type Routes } from "../core/audioRoutes";
+import { androidInputs, fromInCallManager, outputForInput, parseRoutes, toInCallManager, type Routes } from "../core/audioRoutes";
 
 const { CoyoteAudioRoute } = NativeModules;
 
@@ -31,6 +31,7 @@ export async function startCallAudio(callId: string, video: boolean): Promise<vo
 export function stopCallAudio(): void {
   token++;
   if (Platform.OS === "android") CoyoteAudioRoute?.stop();
+  if (Platform.OS === "ios") CoyoteAudioRoute?.resetInput(); // a picked mic is session-wide
   if (mode === "fallback" || mode === "ios") {
     InCallManager.setKeepScreenOn(false);
     InCallManager.stop();
@@ -43,20 +44,23 @@ export function stopCallAudio(): void {
 export function watchRoutes(fn: (r: Routes) => void): () => void {
   const subs: { remove(): void }[] = [];
   if (CoyoteAudioRoute) {
-    subs.push(new NativeEventEmitter(CoyoteAudioRoute).addListener("CoyoteAudioRoutes", (e) => fn(parseRoutes(e))));
+    subs.push(new NativeEventEmitter(CoyoteAudioRoute).addListener("CoyoteAudioRoutes", (e) => {
+      const r = parseRoutes(e);
+      fn(Platform.OS === "android" ? androidInputs(r) : r);
+    }));
     if (Platform.OS === "ios") {
       CoyoteAudioRoute.routes().then((r: unknown) => fn(parseRoutes(r))).catch(() => {});
     }
   }
   if (Platform.OS === "android") {
     subs.push(DeviceEventEmitter.addListener("onAudioDeviceChanged", (e: unknown) => {
-      if (mode === "fallback") fn(fromInCallManager(e));
+      if (mode === "fallback") fn(androidInputs(fromInCallManager(e)));
     }));
   }
   return () => subs.forEach((s) => s.remove());
 }
 
-// Android only: iOS picks outputs in the system route picker.
+// Android only: iOS picks outputs in the system route picker (in the devices sheet).
 export async function selectOutput(id: string): Promise<void> {
   if (mode === "telecom") return CoyoteAudioRoute.select(id);
   if (mode === "fallback") {
@@ -66,4 +70,15 @@ export async function selectOutput(id: string): Promise<void> {
     return;
   }
   throw new Error("audio output selection is not available");
+}
+
+// iOS: the preferred input. Android: mics follow outputs, so switch the output the
+// mic belongs to (nothing to do when it's already in use).
+export async function selectInput(routes: Routes, id: string, video: boolean): Promise<void> {
+  if (Platform.OS === "ios") {
+    if (!CoyoteAudioRoute) throw new Error("microphone selection is not available");
+    return CoyoteAudioRoute.selectInput(id);
+  }
+  const out = outputForInput(routes, id, video);
+  if (out) await selectOutput(out);
 }

@@ -1,5 +1,6 @@
 // The audio-route native glue, with react-native and incall-manager mocked.
 export {}; // a module, so its helpers don't collide with other script-style tests
+import { androidInputs, NO_ROUTES } from "../src/core/audioRoutes";
 type Listener = (e: unknown) => void;
 
 function load(os: "ios" | "android", opts: { module?: boolean; start?: () => Promise<boolean> } = {}) {
@@ -9,6 +10,8 @@ function load(os: "ios" | "android", opts: { module?: boolean; start?: () => Pro
     stop: jest.fn(),
     routes: jest.fn(async () => ({ outputs: [{ id: "u1", kind: "speaker", name: "Speaker" }], selected: "u1" })),
     select: jest.fn(async () => undefined),
+    selectInput: jest.fn(async () => undefined),
+    resetInput: jest.fn(),
   };
   const icm = {
     start: jest.fn(), stop: jest.fn(), setKeepScreenOn: jest.fn(),
@@ -102,9 +105,10 @@ test("watchRoutes: Telecom events always, incall-manager events only in fallback
   await t.mod.startCallAudio("c1", true);
   t.emitIcm({ availableAudioDeviceList: '["SPEAKER_PHONE"]', selectedAudioDevice: "SPEAKER_PHONE" });
   t.emit({ outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }, { id: "x", kind: "nope", name: "?" }], selected: "speaker" });
+  const mic = { id: "builtin", kind: "builtin", name: "Phone microphone" };
   expect(seen).toEqual([
-    { outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }], selected: "speaker" },
-    { outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }], selected: "speaker" },
+    { outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }], selected: "speaker", inputs: [mic], input: "builtin" },
+    { outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }], selected: "speaker", inputs: [mic], input: "builtin" },
   ]);
   stop();
   expect(t.moduleListeners.size).toBe(0);
@@ -116,7 +120,7 @@ test("iOS: incall-manager as before, current output fetched at once and followed
   const seen: unknown[] = [];
   t.mod.watchRoutes((r) => seen.push(r));
   await flush();
-  expect(seen).toEqual([{ outputs: [{ id: "u1", kind: "speaker", name: "Speaker" }], selected: "u1" }]);
+  expect(seen).toEqual([{ outputs: [{ id: "u1", kind: "speaker", name: "Speaker" }], selected: "u1", inputs: [], input: "" }]);
   await t.mod.startCallAudio("c1", true);
   expect(t.native.start).not.toHaveBeenCalled();
   expect(t.icm.start).toHaveBeenCalledWith({ media: "video", auto: true });
@@ -131,4 +135,64 @@ test("without the native module: fallback on Android, still no crash on watch", 
   await t.mod.startCallAudio("c1", true);
   expect(t.icm.start).toHaveBeenCalled();
   stop();
+});
+
+const androidRoutes = (selected: string) => androidInputs({
+  outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }, { id: "bt:AA", kind: "bluetooth", name: "Buds" }],
+  selected, inputs: [], input: "",
+});
+
+test("Android payloads gain the microphones their outputs bring", async () => {
+  const t = load("android");
+  await t.mod.startCallAudio("c1", false);
+  const seen: unknown[] = [];
+  t.mod.watchRoutes((r) => seen.push(r));
+  t.emit({ outputs: [{ id: "speaker", kind: "speaker", name: "Speaker" }, { id: "bt:AA", kind: "bluetooth", name: "Buds" }], selected: "bt:AA" });
+  expect(seen.at(-1)).toMatchObject({ input: "bt:AA", inputs: [{ id: "builtin" }, { id: "bt:AA", name: "Buds" }] });
+});
+
+test("the Android fallback's routes gain microphones too", async () => {
+  const t = load("android", { start: async () => false });
+  await t.mod.startCallAudio("c1", false);
+  const seen: unknown[] = [];
+  t.mod.watchRoutes((r) => seen.push(r));
+  t.emitIcm({ availableAudioDeviceList: '["EARPIECE","SPEAKER_PHONE"]', selectedAudioDevice: "SPEAKER_PHONE" });
+  expect(seen.at(-1)).toMatchObject({ input: "builtin", inputs: [{ id: "builtin" }] });
+});
+
+test("Android selectInput switches to the output the mic belongs to", async () => {
+  const t = load("android");
+  await t.mod.startCallAudio("c1", true);
+  await t.mod.selectInput(androidRoutes("bt:AA"), "builtin", true);
+  expect(t.native.select).toHaveBeenCalledWith("speaker");
+  t.native.select.mockClear();
+  await t.mod.selectInput(androidRoutes("bt:AA"), "bt:AA", true);
+  expect(t.native.select).not.toHaveBeenCalled();
+  expect(t.native.selectInput).not.toHaveBeenCalled();
+});
+
+test("iOS selectInput sets the preferred input natively; its payloads keep their inputs", async () => {
+  const t = load("ios");
+  await t.mod.selectInput(NO_ROUTES, "uid-1", false);
+  expect(t.native.selectInput).toHaveBeenCalledWith("uid-1");
+  const seen: unknown[] = [];
+  t.mod.watchRoutes((r) => seen.push(r));
+  t.emit({ outputs: [], selected: "", inputs: [{ id: "uid-1", kind: "usb", name: "USB Mic" }], input: "uid-1" });
+  expect(seen.at(-1)).toMatchObject({ input: "uid-1", inputs: [{ id: "uid-1", kind: "usb" }] });
+});
+
+// setPreferredInput is session-wide and outlives the call: a mic picked in one call
+// must not carry into the next ("no persistence").
+test("iOS: leaving the call clears the preferred microphone", async () => {
+  const t = load("ios");
+  await t.mod.startCallAudio("c1", false);
+  t.mod.stopCallAudio();
+  expect(t.native.resetInput).toHaveBeenCalled();
+});
+
+test("Android: leaving the call has no preferred microphone to clear", async () => {
+  const t = load("android");
+  await t.mod.startCallAudio("c1", false);
+  t.mod.stopCallAudio();
+  expect(t.native.resetInput).not.toHaveBeenCalled();
 });

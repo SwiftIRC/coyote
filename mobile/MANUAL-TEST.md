@@ -264,9 +264,34 @@ browser in the call to watch the result.
 75. **Failed switch.** Pick a Bluetooth device and switch it off at the same moment:
     within 5 s "Couldn't switch to <name>." appears and the label shows the real
     output.
-76. **iPhone picker.** Tap the audio button: Apple's output sheet opens and lists
-    iPhone, Speaker, AirPods etc. Pick each: audio moves and the label follows. Switch
-    from Control Centre: the label follows too. Video calls still start on the
-    speaker. VoiceOver reads "Audio output: <name>".
+76. **iPhone output.** Tap the audio button: the devices sheet opens; its Output row
+    shows the current output. Tap the row: Apple's output sheet opens and lists
+    iPhone, Speaker, AirPods etc. Pick each: audio moves and the row and button
+    follow. Switch from Control Centre: they follow too. Video calls still start on
+    the speaker. VoiceOver reads "Audio and video devices. Output: <name>" on the
+    button and "Audio output: <name>. Change" on the row.
 77. **Leaving.** After leaving a call (Android): the screen times out normally again
     and the proximity sensor no longer blanks it.
+78. **Devices sheet (Android).** Tap the audio button: Output, Microphone and Camera
+    sections; picking a row keeps the sheet open and moves the ✓ (with "…" briefly).
+79. **Android microphones.** With Bluetooth earbuds connected: Microphone lists Phone
+    microphone and the earbuds by name. Pick the earbuds' mic: output moves to them
+    and the others hear you through them. Pick Phone microphone: output moves to the
+    earpiece (audio-only call) or the speaker (video call). With a wired headset,
+    "Headset microphone" appears and works the same way.
+80. **Android cameras.** Camera lists every camera ("Front camera", "Back camera",
+    "Back camera 2" …). Pick each with the camera on: the self-view and what others
+    see switch live; a background effect stays on. Flip after a pick: the ✓ follows.
+81. **iPhone microphones.** Microphone lists iPhone Microphone and, when connected,
+    AirPods / a wired headset mic. Pick each: the others hear you through it; picking
+    AirPods also moves the output to them.
+82. **iPhone cameras.** Camera lists Front Camera, Back Camera and, where the phone has
+    them, Back Ultra Wide / Telephoto. Pick each: switches live. Flip after a pick works.
+83. **iPad USB devices.** Plug in a USB camera and a USB mic: both listed and
+    selectable. Unplug the camera, turn the camera off and on: it falls back to the
+    back camera.
+84. **Camera picked while off.** Turn the camera off, pick another camera (the ✓
+    moves, nothing turns on), turn the camera on: that camera is used.
+85. **iPhone microphone doesn't carry over.** With AirPods connected, pick iPhone
+    Microphone in a call, leave, and start another call with the AirPods still in:
+    it starts on the AirPods (the system's choice), not the iPhone mic.
