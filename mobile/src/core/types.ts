@@ -37,7 +37,7 @@ export interface TrackLike {
   // react-native-webrtc: stop() only marks the track ended; release() disposes
   // the native track and its capturer (and Android's screen-capture service).
   release?(): void;
-  getSettings?(): { height?: number; width?: number };
+  getSettings?(): { height?: number; width?: number; deviceId?: string };
   addEventListener?(type: "ended", fn: () => void): void;
 }
 

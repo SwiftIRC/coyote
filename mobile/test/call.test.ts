@@ -1,4 +1,4 @@
-import { Call, type CallOutcome, type CallState, type JoinRequest } from "../src/core/call";
+import { Call, type CameraChoice, type CallOutcome, type CallState, type JoinRequest } from "../src/core/call";
 import type { PeerEvents } from "../src/core/peer";
 import { parseRoomInput } from "../src/core/link";
 import { Signaling } from "../src/core/signaling";
@@ -58,8 +58,9 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const mics: FakeTrack[] = [];
   const cams: FakeTrack[] = [];
   const screens: FakeTrack[] = [];
+  const camChoices: CameraChoice[] = [];
   const effects: string[] = [];
-  const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void> };
+  const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void>, missing: new Set<string>() };
   let ids = 0;
   const call = new Call({
     createSignaling: (url) => new Signaling(url, {
@@ -78,9 +79,11 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
         mics.push(t);
         return ctl.deferMic ? new Promise<FakeTrack>((r) => ctl.micWaits.push(() => r(t))) : Promise.resolve(t);
       },
-      getCamera: () => {
-        if (opts.camDenied) return Promise.resolve(null);
+      getCamera: (choice) => {
+        camChoices.push(choice);
+        if (opts.camDenied || (choice.deviceId && ctl.missing.has(choice.deviceId))) return Promise.resolve(null);
         const t = new FakeTrack("video");
+        t.deviceId = choice.deviceId ?? (choice.facing === "user" ? "cam-front" : "cam-back");
         cams.push(t);
         return ctl.deferCam ? new Promise<FakeTrack>((r) => ctl.camWaits.push(() => r(t))) : Promise.resolve(t);
       },
@@ -122,7 +125,7 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
     notice: (t) => notices.push(t),
     selfRenamed: (n) => renames.push(n),
   });
-  return { call, timers, peers, system, notices, ends, states, mics, cams, screens, effects, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
+  return { call, timers, peers, system, notices, ends, states, mics, cams, camChoices, screens, effects, ctl, chimes, renames, clipCalls, setBoard: (b: unknown[] | null) => { board = b; } };
 }
 
 const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
@@ -1019,4 +1022,75 @@ test("systemCallId is the id the system call was started with", async () => {
   const started = system.find((x) => x.startsWith("start "))!;
   expect(started.split(" ")[1]).toBe(call.systemCallId);
   expect(call.systemCallId).not.toBe("");
+});
+
+test("selectCamera swaps the live camera to that device and the next turn-on reuses it", async () => {
+  const { call, peers, cams, camChoices } = await inCall();
+  expect(call.getState().cameraId).toBe("cam-front");
+  await call.selectCamera("wide2", "environment");
+  expect(camChoices.at(-1)).toEqual({ facing: "environment", deviceId: "wide2" });
+  expect(call.getState()).toMatchObject({ facing: "environment", cameraId: "wide2" });
+  expect(peers[0].replaced.at(-1)).toEqual(["camera", cams[1]]);
+  expect(cams[0].stopped).toBe(true);
+  await call.setCamera(false);
+  await call.setCamera(true);
+  expect(camChoices.at(-1)).toEqual({ facing: "environment", deviceId: "wide2" });
+});
+
+test("selectCamera on the current camera does nothing", async () => {
+  const { call, cams } = await inCall();
+  await call.selectCamera("cam-front", "user");
+  expect(cams).toHaveLength(1);
+});
+
+test("selectCamera with the camera off is used by the next turn-on", async () => {
+  const { call, cams, camChoices } = await inCall({ camera: false });
+  await call.selectCamera("ext", "environment");
+  expect(cams).toHaveLength(0);
+  expect(call.getState()).toMatchObject({ camera: false, facing: "environment", cameraId: "ext" });
+  await call.setCamera(true);
+  expect(camChoices.at(-1)).toEqual({ facing: "environment", deviceId: "ext" });
+  expect(call.getState()).toMatchObject({ camera: true, cameraId: "ext" });
+});
+
+test("a chosen camera that's gone falls back to its facing on turn-on", async () => {
+  const { call, ctl, camChoices } = await inCall({ camera: false });
+  await call.selectCamera("ext", "environment");
+  ctl.missing.add("ext");
+  await call.setCamera(true);
+  expect(camChoices.slice(-2)).toEqual([{ facing: "environment", deviceId: "ext" }, { facing: "environment" }]);
+  expect(call.getState()).toMatchObject({ camera: true, cameraId: "cam-back" });
+});
+
+test("a camera that fails to open keeps the old one and shows the notice", async () => {
+  const { call, ctl, cams, notices } = await inCall();
+  ctl.missing.add("tele");
+  await call.selectCamera("tele", "environment");
+  expect(notices).toContain("Could not switch camera.");
+  expect(call.getState()).toMatchObject({ camera: true, facing: "user", cameraId: "cam-front" });
+  expect(cams[0].stopped).toBe(false);
+});
+
+test("of two quick camera picks the newer wins; the stale track is stopped", async () => {
+  const { call, ctl, cams } = await inCall();
+  ctl.deferCam = true;
+  const a = call.selectCamera("a", "environment");
+  const b = call.selectCamera("b", "environment");
+  ctl.camWaits[0]();
+  ctl.camWaits[1]();
+  await a;
+  await b;
+  expect(cams[1].stopped).toBe(true);
+  expect(call.getState().cameraId).toBe("b");
+});
+
+test("flip after a pick goes by facing and forgets the pick", async () => {
+  const { call, camChoices } = await inCall();
+  await call.selectCamera("wide2", "environment");
+  await call.flipCamera();
+  expect(camChoices.at(-1)).toEqual({ facing: "user" });
+  expect(call.getState()).toMatchObject({ facing: "user", cameraId: "cam-front" });
+  await call.setCamera(false);
+  await call.setCamera(true);
+  expect(camChoices.at(-1)?.deviceId).toBeUndefined();
 });
