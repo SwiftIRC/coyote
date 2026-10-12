@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
-import { NO_ROUTES, outputLabel, selectedOutput, type Routes } from "../../core/audioRoutes";
+import { NO_ROUTES, outputLabel, pendingOutcome, pickOutput, selectedOutput, type Pending, type Routes } from "../../core/audioRoutes";
 import { gridColumns } from "../../core/grid";
 import { gridTiles, screenFor } from "../../core/tiles";
-import { startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { useCall } from "../CallContext";
 import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
+import { AudioRouteSheet } from "../components/AudioRouteSheet";
 import { BackgroundSheet } from "../components/BackgroundSheet";
 import { ChatSheet } from "../components/ChatSheet";
 import { PollForm } from "../components/PollForm";
@@ -31,7 +32,7 @@ const warn = (what: string) => (e: unknown) => console.warn(`${what} failed`, e)
 
 export function Call() {
   const nav = useNavigation<NavigationProp<RootStack>>();
-  const { state, notices, leave, call, outcome, takePendingLink, busy } = useCall();
+  const { state, notices, notify, leave, call, outcome, takePendingLink, busy } = useCall();
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // The call area inside the system bars; measured once laid out, estimated before.
@@ -39,6 +40,7 @@ export function Call() {
   const width = area?.width ?? window.width - insets.left - insets.right;
   const height = area?.height ?? window.height - insets.top - insets.bottom;
   const [routes, setRoutes] = useState<Routes>(NO_ROUTES);
+  const [pending, setPending] = useState<Pending | null>(null);
   const chat = useChat();
   const pollNow = usePoll();
   const volumes = useVolumes();
@@ -47,7 +49,7 @@ export function Call() {
   const bg = useBackground();
   const loadScenes = useCallback(() => { call()?.background.loadScenes().catch(warn("scenes")); }, [call]);
   const [volumeFor, setVolumeFor] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | "background" | null>(null);
+  const [sheet, setSheet] = useState<"chat" | "more" | "poll-form" | "background" | "audio" | null>(null);
   const toggleChat = () => {
     const open = sheet !== "chat";
     setSheet(open ? "chat" : null);
@@ -85,6 +87,27 @@ export function Call() {
       startCallAudio(call()?.systemCallId ?? "", state.camera).catch(warn("call audio"));
     }
   }, [state?.phase, state?.camera, call]);
+
+  // A requested output switch: settled by the next report that selects it, failed
+  // when the output vanishes, the platform rejects it, or 5 s pass.
+  useEffect(() => {
+    if (!pending) return;
+    const fail = () => {
+      setPending(null);
+      notify(`Couldn't switch to ${pending.name}.`);
+    };
+    const o = pendingOutcome(pending, routes, Date.now());
+    if (o.kind === "done") {
+      setPending(null);
+      return;
+    }
+    if (o.kind === "failed") {
+      fail();
+      return;
+    }
+    const t = setTimeout(fail, o.ms);
+    return () => clearTimeout(t);
+  }, [pending, routes, notify]);
   // Back (Android button, gestures, header) must not drop a live call's UI; ask first.
   // `busy` also covers the setup window before any call state exists.
   const liveRef = useRef(busy);
@@ -146,6 +169,18 @@ export function Call() {
   const tileW = Math.floor(width / cols);
   const tileH = Math.floor(gridH / rows);
   const viewed = viewing ? screenFor(people, viewing) : null;
+  const current = selectedOutput(routes);
+  const pickRoute = (id: string) => {
+    setSheet(null);
+    const p = pickOutput(routes, id, Date.now());
+    if (!p) return;
+    setPending(p);
+    // at: 0 marks it failed; the pending effect shows the notice.
+    selectOutput(id).catch((e) => {
+      console.warn("audio output failed", e);
+      setPending((cur) => (cur === p ? { ...p, at: 0 } : cur));
+    });
+  };
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
@@ -175,13 +210,18 @@ export function Call() {
         <Controls
           mic={state.mic}
           camera={state.camera}
-          routeLabel={outputLabel(selectedOutput(routes)?.kind)}
+          routeLabel={pending ? "…" : outputLabel(current?.kind)}
+          routeA11y={`Audio output: ${current?.name ?? outputLabel(undefined)}`}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
           unread={chat.unread}
           onChat={toggleChat}
           onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
-          onRoute={() => {}}
+          onRoute={() => {
+            if (Platform.OS !== "android") return; // iOS: the route picker takes the tap
+            setSheet(sheet === "audio" ? null : "audio");
+            call()?.chat.setOpen(false);
+          }}
           onLeave={leave}
         />
         <ChatSheet
@@ -235,6 +275,7 @@ export function Call() {
             savePrefs({ background: id }).catch(() => {});
           }}
         />
+        <AudioRouteSheet visible={sheet === "audio"} onClose={() => setSheet(null)} routes={routes} onSelect={pickRoute} />
         <PersonSheet
           p={volumeFor ? people.find((x) => x.id === volumeFor) ?? null : null}
           volume={volumeFor ? volumes[volumeFor] ?? 1 : 1}

@@ -1,12 +1,14 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { unreadLabel } from "../../core/chat";
+import { RoutePicker } from "../../native/RoutePicker";
 import { colors } from "../theme";
 
 interface Props {
   mic: boolean;
   camera: boolean;
   routeLabel: string;
+  routeA11y: string;
   unread: number;
   onMic(): void;
   onCamera(): void;
@@ -16,11 +18,12 @@ interface Props {
   onLeave(): void;
 }
 
-interface BtnProps { label: string; onPress(): void; active?: boolean; danger?: boolean; a11y: string; fit?: boolean }
+interface BtnProps { label: string; onPress(): void; active?: boolean; danger?: boolean; a11y: string; fit?: boolean; hidden?: boolean }
 
-function Btn({ label, onPress, active = true, danger = false, a11y, fit = false }: BtnProps) {
+function Btn({ label, onPress, active = true, danger = false, a11y, fit = false, hidden = false }: BtnProps) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y}
+      accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       style={[styles.btn, fit && styles.fit, !active && styles.off, danger && styles.danger]}>
       <Text style={styles.text} numberOfLines={fit ? 1 : undefined} adjustsFontSizeToFit={fit} minimumFontScale={0.6}>{label}</Text>
     </Pressable>
@@ -33,7 +36,15 @@ export function Controls(p: Props) {
     <View style={styles.bar}>
       <Btn label={p.mic ? "🎙" : "🔇"} onPress={p.onMic} active={p.mic} a11y={p.mic ? "Mute microphone" : "Unmute microphone"} />
       <Btn label={p.camera ? "📷" : "🚫"} onPress={p.onCamera} active={p.camera} a11y={p.camera ? "Turn camera off" : "Turn camera on"} />
-      <Btn label={p.routeLabel} onPress={p.onRoute} fit a11y={`Audio output: ${p.routeLabel}`} />
+      {RoutePicker ? (
+        // iOS: the system route picker sits on top and takes the tap and VoiceOver.
+        <View>
+          <Btn label={p.routeLabel} onPress={p.onRoute} fit a11y={p.routeA11y} hidden />
+          <RoutePicker style={StyleSheet.absoluteFill} accessible accessibilityLabel={p.routeA11y} />
+        </View>
+      ) : (
+        <Btn label={p.routeLabel} onPress={p.onRoute} fit a11y={p.routeA11y} />
+      )}
       <View>
         <Btn label="💬" onPress={p.onChat} a11y={p.unread ? `Chat, ${unreadLabel(p.unread)} unread` : "Chat"} />
         {p.unread > 0 ? <Text style={styles.badge} pointerEvents="none">{unreadLabel(p.unread)}</Text> : null}

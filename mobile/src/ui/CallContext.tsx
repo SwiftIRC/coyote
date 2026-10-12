@@ -9,6 +9,8 @@ export interface CallCtx {
   state: CallState | null;
   outcome: CallOutcome | null;
   notices: string[];
+  /** Shows a transient notice in the call's banner. */
+  notify(text: string): void;
   join(req: JoinRequest): Promise<void>;
   leave(): void;
   call(): Call | null;
@@ -123,7 +125,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => () => active.current?.call.leave(), []);
 
   const busy = joining || (!!state && state.phase !== "ended" && state.phase !== "idle");
-  return <Ctx.Provider value={{ state, outcome, notices, join, leave, call, busy, switchTo, takePendingLink }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ state, outcome, notices, notify: pushNotice, join, leave, call, busy, switchTo, takePendingLink }}>{children}</Ctx.Provider>;
 }
 
 export function useCall(): CallCtx {
