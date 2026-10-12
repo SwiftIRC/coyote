@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.oney.WebRTCModule.WebRTCModuleOptions
 import com.oney.WebRTCModule.videoEffects.ProcessorProvider
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
 
@@ -27,6 +28,9 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Screen sharing: react-native-webrtc starts its mediaProjection foreground service
+    // only when asked. Android 14+ refuses to capture without one (SecurityException).
+    WebRTCModuleOptions.getInstance().enableMediaProjectionService = true
     // The camera-frame hook for background effects (JS attaches it by this name).
     ProcessorProvider.addProcessor("coyote-background", VideoFrameProcessorFactoryInterface { BackgroundEngine })
     loadReactNative(this)
