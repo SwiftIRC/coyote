@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { VideoView } from "./VideoView";
+import { RTCView } from "react-native-webrtc";
 import type { Participant } from "../../core/roster";
 import { colors } from "../theme";
 
@@ -10,7 +10,7 @@ export const ScreenTile = memo(function ScreenTileView({ p, width, height, onOpe
   return (
     <Pressable style={[styles.tile, { width, height }]} onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${p.name}'s screen, open full screen`}>
       {p.screen?.toURL ? (
-        <VideoView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
+        <RTCView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
       ) : (
         <Text style={styles.audioOnly}>🔊 Sharing audio</Text>
       )}

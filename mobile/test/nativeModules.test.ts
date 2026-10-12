@@ -86,6 +86,18 @@ test("Android declares the media-projection foreground-service permission (Andro
   expect(manifest).toContain('android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION');
 });
 
+// Android RTCView keeps rendering at its old size when React Native resizes it (the
+// grid gaining a tile) until the frame resolution changes. The patch re-runs the same
+// relayout the resolution-change path uses whenever the view's size changes.
+test("react-native-webrtc's Android RTCView re-lays out its renderer on resize (patched)", () => {
+  const view = fs.readFileSync(path.join(__dirname, "..", "node_modules", "react-native-webrtc", "android", "src",
+    "main", "java", "com", "oney", "WebRTCModule", "WebRTCView.java"), "utf8");
+  const at = view.indexOf("protected void onSizeChanged(int w, int h, int oldw, int oldh)");
+  expect(at).toBeGreaterThan(-1);
+  expect(view.slice(at, at + 400)).toContain("post(requestSurfaceViewRendererLayoutRunnable)");
+  expect(fs.existsSync(path.join(__dirname, "..", "patches", "react-native-webrtc+124.0.8.patch"))).toBe(true);
+});
+
 // react-native-webrtc only starts its mediaProjection foreground service when the app
 // opts in; without it Android 14+ throws SecurityException in startCapture, which the
 // library merely logs, leaving a "live" screen track that never sends a frame.
