@@ -1,6 +1,6 @@
 import React, { memo, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { VideoView } from "./VideoView";
+import { RTCView } from "react-native-webrtc";
 import type { Participant } from "../../core/roster";
 import { setStreamVolume } from "../../native/volume";
 import { colors } from "../theme";
@@ -21,7 +21,7 @@ export const Tile = memo(function TileView({ p, width, height, volume, dataSaver
       accessibilityHint="Long-press to change this person's volume"
     >
       {showVideo ? (
-        <VideoView streamURL={p.video!.toURL!()} style={StyleSheet.absoluteFill} objectFit="cover" />
+        <RTCView streamURL={p.video!.toURL!()} style={StyleSheet.absoluteFill} objectFit="cover" />
       ) : (
         <Avatar name={p.name} gravatar={p.gravatar} size={Math.min(width, height) * 0.4} />
       )}

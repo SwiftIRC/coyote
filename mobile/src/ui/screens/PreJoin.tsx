@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { VideoView } from "../components/VideoView";
+import { RTCView } from "react-native-webrtc";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchScenes, peekInvite, peekRoom } from "../../core/api";
 import { Backgrounds, labelFor, parseScenes } from "../../core/backgrounds";
@@ -184,7 +184,7 @@ export function PreJoin() {
         </Text>
         <View style={[styles.preview, { height: previewHeight }]}>
           {camera && preview?.toURL ? (
-            <VideoView streamURL={preview.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror />
+            <RTCView streamURL={preview.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror />
           ) : (
             <Text style={styles.muted}>Camera off</Text>
           )}
