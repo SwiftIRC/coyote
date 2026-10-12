@@ -1217,3 +1217,34 @@ func TestTransportDownClosesSignaling(t *testing.T) {
 		t.Error("the peer's room should be gone once its only peer was removed")
 	}
 }
+
+// offerDropper is a Signaler whose send queue "overflows" on every offer (Send
+// returns false), recording whether the SFU then closed the socket.
+type offerDropper struct{ closeRecorder }
+
+func (d *offerDropper) Send(v any) bool {
+	_, isOffer := v.(signal.Offer)
+	return !isOffer
+}
+
+// A server offer that can't be delivered must close the signaling socket. Logging
+// it and moving on left the peer silent: the forwards that offer negotiated stayed
+// unbound, and a settled call might never renegotiate again. Closing hands recovery
+// to the client's ordinary reconnect, exactly as a dead media transport does.
+func TestDroppedOfferClosesSignaling(t *testing.T) {
+	old := newcomerOfferDelay
+	newcomerOfferDelay = 50 * time.Millisecond
+	t.Cleanup(func() { newcomerOfferDelay = old })
+
+	s := testSFU(t)
+	p1 := newTestClient(t, s, "room", "p1")
+	writeTestRTPLoop(t, p1.publish("camera"))
+	p1.waitConnected()
+	waitForRoomTracks(t, s, "room", 1, p1)
+
+	sig := &offerDropper{}
+	if _, err := s.AddPeer("room", "p2", sig); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, sig.wasClosed)
+}
