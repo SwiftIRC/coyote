@@ -220,3 +220,21 @@ test("Android CoyoteBackground: exports, registration, ML Kit, frame ownership",
   const gradle = fs.readFileSync(path.join(__dirname, "..", "android", "app", "build.gradle"), "utf8");
   expect(gradle).toContain("com.google.mlkit:segmentation-selfie:16.0.0-beta6");
 });
+
+// CoyoteAudioRoute follows Telecom's routes through callkeep's VoiceConnection
+// (patched): a ping only, so callkeep's synthetic mute states (no Bluetooth
+// devices) never reach the picker.
+test("callkeep's VoiceConnection forwards audio-route changes", () => {
+  const file = path.join(__dirname, "..", "node_modules", "react-native-callkeep", "android",
+    "src", "main", "java", "io", "wazo", "callkeep", "VoiceConnection.java");
+  const src = fs.readFileSync(file, "utf8");
+  expect(src).toMatch(/public interface AudioRouteListener\s*\{\s*void onAudioRouteChanged\(VoiceConnection connection\);\s*\}/);
+  expect(src).toContain("public static volatile AudioRouteListener audioRouteListener");
+  expect(src).toMatch(/public void onCallEndpointChanged\(CallEndpoint endpoint\)/);
+  expect(src).toMatch(/public void onAvailableCallEndpointsChanged\(List<CallEndpoint> endpoints\)/);
+  // Forwarded before the mute early return, so route-only changes reach the app.
+  const body = src.slice(src.indexOf("public void onCallAudioStateChanged"));
+  const notify = body.indexOf("notifyAudioRoute();");
+  expect(notify).toBeGreaterThan(0);
+  expect(notify).toBeLessThan(body.indexOf("return;"));
+});

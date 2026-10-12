@@ -22,6 +22,73 @@ index 025480a..6e8137c 100644
      public void startCall(String uuid, String number, String callerName) {
          this.startCall(uuid, number, callerName, false, null);
      }
+diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
+index 1ea76fb..1c9bf27 100644
+--- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
++++ b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
+@@ -26,6 +26,7 @@ import android.os.Handler;
+ import androidx.annotation.Nullable;
+ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+ import android.telecom.CallAudioState;
++import android.telecom.CallEndpoint;
+ import android.telecom.Connection;
+ import android.telecom.DisconnectCause;
+ import android.telecom.TelecomManager;
+@@ -35,7 +36,10 @@ import android.util.Log;
+ import org.json.JSONException;
+ import org.json.JSONObject;
+ 
++import java.util.ArrayList;
++import java.util.Collections;
+ import java.util.HashMap;
++import java.util.List;
+ 
+ import static io.wazo.callkeep.Constants.ACTION_ANSWER_CALL;
+ import static io.wazo.callkeep.Constants.ACTION_AUDIO_SESSION;
+@@ -61,6 +65,35 @@ public class VoiceConnection extends Connection {
+     private Context context;
+     private static final String TAG = "RNCallKeep";
+ 
++    // Coyote: lets the app's CoyoteAudioRoute module follow Telecom's audio routes.
++    // A ping only: the module reads Telecom's state itself, because setMutedCall
++    // feeds onCallAudioStateChanged a synthetic state without Bluetooth devices.
++    public interface AudioRouteListener {
++        void onAudioRouteChanged(VoiceConnection connection);
++    }
++    public static volatile AudioRouteListener audioRouteListener;
++    // CallEndpoint / List<CallEndpoint> on API 34+, typed loosely so older APIs
++    // never resolve the class.
++    public volatile Object currentEndpoint;
++    public volatile List<Object> availableEndpoints = Collections.emptyList();
++
++    private void notifyAudioRoute() {
++        AudioRouteListener l = audioRouteListener;
++        if (l != null) l.onAudioRouteChanged(this);
++    }
++
++    @Override
++    public void onCallEndpointChanged(CallEndpoint endpoint) {
++        currentEndpoint = endpoint;
++        notifyAudioRoute();
++    }
++
++    @Override
++    public void onAvailableCallEndpointsChanged(List<CallEndpoint> endpoints) {
++        availableEndpoints = new ArrayList<Object>(endpoints);
++        notifyAudioRoute();
++    }
++
+     VoiceConnection(Context context, HashMap<String, String> handle) {
+         super();
+         this.handle = handle;
+@@ -92,6 +125,7 @@ public class VoiceConnection extends Connection {
+ 
+         handle.put("output", CallAudioState.audioRouteToString(state.getRoute()));
+         sendCallRequestToActivity(ACTION_DID_CHANGE_AUDIO_ROUTE, handle);
++        notifyAudioRoute();
+ 
+         if (state.isMuted() == this.isMuted) {
+             return;
 diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
 index 5d58692..77a02a6 100644
 --- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
