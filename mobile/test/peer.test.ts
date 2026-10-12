@@ -81,6 +81,32 @@ test("glare: the polite client applies the server offer directly, answers, then 
   expect(sig.ofType("offer")).toHaveLength(2); // our rolled-back offer, re-sent once stable
 });
 
+// The newcomer race (server review item 2): a slow client's first offer is still
+// unanswered when the server's 3 s newcomer fallback offers it the room. The server
+// is impolite, so it ignores that client offer and never answers it. The client
+// must not stay in have-local-offer waiting for that answer: it answers the
+// server, re-offers its own media, and settles once the re-offer is answered.
+test("newcomer race: an offer the server ignores in favour of its fallback still converges", async () => {
+  const { sig, pc, peer, events } = make();
+  await peer.start([{ track: new FakeTrack("audio"), kind: "mic" }]);
+  await flush();
+  expect(sig.ofType("offer")).toHaveLength(1); // offer 1: the server will ignore it
+  expect(pc.signalingState).toBe("have-local-offer");
+
+  sig.receive({ type: "offer", sdp: "newcomer-fallback" }); // no answer to offer 1, ever
+  await flush();
+  expect(sig.ofType("answer")).toEqual([{ type: "answer", sdp: "answer-to-newcomer-fallback" }]);
+  const offers = sig.ofType("offer");
+  expect(offers).toHaveLength(2); // offer 2 re-sends the mic
+  expect(Object.values(offers[1].kinds)).toEqual(["mic"]);
+
+  sig.receive({ type: "answer", sdp: "answer-to-offer-2" });
+  await flush();
+  expect(pc.signalingState).toBe("stable");
+  expect(sig.ofType("offer")).toHaveLength(2); // settled: no further offers
+  expect(events.errors).toEqual([]);
+});
+
 test("a server offer with no glare is answered and does not trigger a re-offer", async () => {
   const { sig, pc, peer } = make();
   await peer.start([]);
