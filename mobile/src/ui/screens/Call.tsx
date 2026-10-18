@@ -5,8 +5,10 @@ import { CommonActions, useNavigation, type NavigationProp } from "@react-naviga
 import { NO_ROUTES, outputLabel, pendingOutcome, pickInput, pickOutput, selectedOutput, type Pending, type Routes } from "../../core/audioRoutes";
 import { cameraFacing, type Camera } from "../../core/cameras";
 import { gridColumns } from "../../core/grid";
+import { PIP_OFF, pipOthers, pipParams, pipTile, runPipAction } from "../../core/pip";
 import { gridTiles, screenFor } from "../../core/tiles";
 import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { setPip, watchPip, watchPipActions } from "../../native/pip";
 import { listCameras } from "../../native/webrtc";
 import { useCall } from "../CallContext";
 import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
@@ -25,6 +27,7 @@ import { PersonSheet } from "../components/PersonSheet";
 import { ScreenTile } from "../components/ScreenTile";
 import { SharingPill } from "../components/SharingPill";
 import { OwnShareTile } from "../components/OwnShareTile";
+import { PipView } from "../components/PipView";
 import { ScreenViewer } from "../components/ScreenViewer";
 import type { RootStack } from "../navigation";
 import { colors } from "../theme";
@@ -65,6 +68,30 @@ export function Call() {
   const audioStarted = useRef(false);
   const phase = state?.phase;
   const hasState = !!state;
+
+  // Android picture-in-picture: allowed while the call is up. Entering it closes
+  // everything over the grid, since the window shows a single tile.
+  const [inPip, setInPip] = useState(false);
+  useEffect(() => watchPip((v) => {
+    setInPip(v);
+    if (!v) return;
+    setSheet(null);
+    setViewing(null);
+    setVolumeFor(null);
+    call()?.chat.setOpen(false);
+  }), [call]);
+  const pip = pipParams(state);
+  useEffect(() => {
+    setPip({ enabled: pip.enabled, micOn: pip.micOn, aspect: pip.aspect });
+  }, [pip.enabled, pip.micOn, pip.aspect]);
+  useEffect(() => () => setPip(PIP_OFF), []);
+  // The PiP mic button flips the mic as it is now, not as it was when subscribed.
+  const micRef = useRef(false);
+  micRef.current = !!state?.mic;
+  useEffect(() => watchPipActions((a) => runPipAction(a, {
+    toggleMic: () => { call()?.setMic(!micRef.current).catch(warn("mic")); },
+    hangup: leave,
+  })), [call, leave]);
 
   useEffect(() => {
     const stop = watchRoutes(setRoutes);
@@ -163,6 +190,18 @@ export function Call() {
           <Text style={styles.leaveText}>Leave</Text>
         </Pressable>
       </View>
+    );
+  }
+  if (inPip) {
+    const t = pipTile(state.participants);
+    return (
+      <PipView
+        tile={t}
+        others={pipOthers(t, state.participants)}
+        self={{ name: state.name, stream: state.camera && !hideSelf ? state.localStream : null }}
+        volumes={volumes}
+        dataSaver={state.dataSaver}
+      />
     );
   }
   const people = state.participants;
