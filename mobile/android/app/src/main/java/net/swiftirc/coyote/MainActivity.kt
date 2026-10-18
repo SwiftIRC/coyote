@@ -1,5 +1,6 @@
 package net.swiftirc.coyote
 
+import android.content.res.Configuration
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -19,4 +20,25 @@ class MainActivity : ReactActivity() {
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+
+  // Picture-in-picture for a live call (Pip).
+  override fun onStart() {
+    super.onStart()
+    Pip.onStart(this)
+  }
+
+  override fun onStop() {
+    super.onStop()
+    Pip.onStop()
+  }
+
+  override fun onUserLeaveHint() {
+    super.onUserLeaveHint()
+    Pip.onUserLeaveHint(this)
+  }
+
+  override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+    Pip.onModeChanged(isInPictureInPictureMode)
+  }
 }
