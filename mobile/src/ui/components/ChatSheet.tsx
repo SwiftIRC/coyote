@@ -45,8 +45,11 @@ type SoundboardActions = {
   stop(): "sent" | "offline" | "not-mine";
 };
 
-export function ChatSheet({ visible, onClose, send, isOp, polls, soundboard }: {
-  visible: boolean; onClose(): void; send(text: string): SendResult; isOp: boolean; polls: PollActions; soundboard: SoundboardActions;
+export function ChatSheet({ visible, onClose, send, draft, onDraft, isOp, polls, soundboard }: {
+  visible: boolean; onClose(): void; send(text: string): SendResult;
+  // The unsent message, kept by the call so it survives this sheet unmounting.
+  draft: string; onDraft(text: string): void;
+  isOp: boolean; polls: PollActions; soundboard: SoundboardActions;
 }) {
   const chat = useChat();
   const poll = usePoll();
@@ -54,7 +57,7 @@ export function ChatSheet({ visible, onClose, send, isOp, polls, soundboard }: {
   const hasSounds = !!board.sounds?.length;
   const [pickedTab, setTab] = useState<"chat" | "poll" | "sounds">("chat");
   const tab = pickedTab === "sounds" && !hasSounds ? "chat" : pickedTab;
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft);
   const [error, setError] = useState("");
   const list = useRef<FlatList<ChatEntry>>(null);
   const atBottom = useRef(true);
@@ -116,7 +119,7 @@ export function ChatSheet({ visible, onClose, send, isOp, polls, soundboard }: {
           <TextInput
             style={styles.input}
             value={text}
-            onChangeText={(t) => { setText(t); if (error) setError(""); }}
+            onChangeText={(t) => { setText(t); onDraft(t); if (error) setError(""); }}
             placeholder="Message"
             placeholderTextColor={colors.muted}
             maxLength={CHAT_MAX}

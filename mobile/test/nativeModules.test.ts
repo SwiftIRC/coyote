@@ -288,3 +288,35 @@ test("CoyoteAudioRoute falls back to CallAudioState when no CallEndpoints arrive
   expect(kt.match(/val eps = endpoints\(c\)\s*\n\s*if \(eps\.isNotEmpty\(\)\)/g)?.length).toBe(3); // outputs, selectedId, selectOn
   expect(kt).not.toMatch(/if \(Build\.VERSION\.SDK_INT >= 34\) \{\s*\n\s*return c\.availableEndpoints/);
 });
+
+// Picture-in-picture (Android): the manifest opts in, MainActivity forwards the four
+// callbacks Pip needs, and the module is registered.
+describe("picture-in-picture wiring", () => {
+  const app = path.join(__dirname, "..", "android", "app", "src", "main");
+  const read = (...p: string[]) => fs.readFileSync(path.join(app, ...p), "utf8");
+  const kt = (f: string) => read("java", "net", "swiftirc", "coyote", f);
+
+  test("MainActivity declares supportsPictureInPicture", () => {
+    const activity = read("AndroidManifest.xml").match(/<activity[\s\S]*?android:name="\.MainActivity"[\s\S]*?>/)?.[0] ?? "";
+    expect(activity).toContain('android:supportsPictureInPicture="true"');
+  });
+
+  test("MainActivity forwards onStart, onStop, onUserLeaveHint and PiP mode changes", () => {
+    const src = kt("MainActivity.kt");
+    expect(src).toMatch(/override fun onStart\(\)[\s\S]*?Pip\.onStart\(this\)/);
+    expect(src).toMatch(/override fun onStop\(\)[\s\S]*?Pip\.onStop\(\)/);
+    expect(src).toMatch(/override fun onUserLeaveHint\(\)[\s\S]*?Pip\.onUserLeaveHint\(this\)/);
+    expect(src).toMatch(/override fun onPictureInPictureModeChanged\([\s\S]*?Pip\.onModeChanged\(/);
+  });
+
+  test("CoyotePipPackage is registered", () => {
+    expect(kt("MainApplication.kt")).toContain("add(CoyotePipPackage())");
+  });
+
+  test("the PiP button receiver is not exported and its intents are explicit", () => {
+    const src = kt("Pip.kt");
+    expect(src).toContain("RECEIVER_NOT_EXPORTED");
+    expect(src).toContain("setPackage(");
+    expect(src).toContain("FLAG_IMMUTABLE");
+  });
+});

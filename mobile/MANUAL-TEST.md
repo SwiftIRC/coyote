@@ -299,3 +299,33 @@ browser in the call to watch the result.
     call, chat, play a board sound, turn on a background effect, share the screen,
     switch output/mic/camera from the devices sheet, take an incoming call from the
     lock screen, leave. Nothing crashes (check `adb logcat` for `FATAL EXCEPTION`).
+
+## Picture-in-picture (1.8.0, Android)
+
+87. **Auto-enter (Android 12+).** In a video call, press Home and then swipe up from
+    another app: the call shrinks smoothly into a floating window each time. The others
+    still see your camera and hear you.
+88. **Older Android (8–11, if a device is available).** Press Home in a call: it enters
+    PiP.
+89. **PiP buttons.** Tap the window: Mute shows a mic icon; tap it: others stop hearing
+    you and it turns into Unmute (mic-off icon); tap again: back. Muting from the call
+    screen before going to PiP shows Unmute. Hang up ends the call.
+90. **Hang up / kicked in PiP.** Hang up from the window, and (in another call) get kicked
+    by an op while in PiP: the window expands to the app, showing Home (with the
+    "removed" message for the kick).
+91. **Swipe the window away.** You stay in the call (notification shown); others see your
+    camera go off. Open the app: camera back on, full call screen.
+92. **Screenshare in PiP.** Someone shares: the window shows the share in 16:9 and "+N";
+    when they stop, it switches to the first person in 3:4.
+93. **Sheets and the viewer.** Open the chat sheet with the keyboard up, press Home: the
+    window shows the tile. Expand: the call screen with nothing open. Same with the
+    full-screen screen viewer open.
+94. **Alone.** Alone in the room, press Home: the window shows your self view (or your
+    initials with the camera off or Hide self on).
+95. **Expand.** Tap the window, then expand: back to the full call screen, camera still
+    on, no duplicate app window in Recents.
+96. **Not outside calls.** Press Home on Home, on PreJoin and while "Connecting…": no PiP.
+97. **PiP off in settings.** Settings → Apps → Coyote → Picture-in-picture off: Home in a
+    call behaves as before (camera off in the background, back on return). Turn it on again.
+98. **Incoming phone call in PiP.** Answer a phone call while the window is up: nothing
+    crashes; the call carries on afterwards.

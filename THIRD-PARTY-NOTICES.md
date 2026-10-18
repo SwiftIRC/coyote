@@ -94,6 +94,12 @@ The same mechanism is how you add your own: drop a `.webp` into
 `internal/web/assets/img/bg/` and rebuild. The filename becomes the chip label, and
 there is nothing else to update.
 
+### Android picture-in-picture icons — `mobile/android/app/src/main/res/drawable/ic_pip_*.xml`
+
+The mic, mic-off and call-end glyphs are the path data of Google's Material Icons
+(<https://github.com/google/material-design-icons>), licensed under the Apache License
+2.0 (<https://www.apache.org/licenses/LICENSE-2.0>). Only the fill colour was changed.
+
 ---
 
 ## Not bundled in the repository, but linked into a build

@@ -23,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
           add(CoyoteSoundsPackage())
           add(CoyoteBackgroundPackage())
           add(CoyoteAudioRoutePackage())
+          add(CoyotePipPackage())
         },
     )
   }
