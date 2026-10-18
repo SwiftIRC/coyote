@@ -149,3 +149,25 @@ test("poll open adds a card and counts unread; close counts unread; update doesn
   log.onPollEvent("open", "p2");
   expect(log.getSnapshot().unread).toBe(0);
 });
+
+// The unsent draft lives in the log, so it survives the chat sheet unmounting
+// (Android picture-in-picture replaces the call screen with one tile).
+test("the draft is kept until a send goes out, and doesn't notify", () => {
+  const { log } = make();
+  const s0 = log.getSnapshot();
+  expect(log.draft).toBe("");
+  log.setDraft("half a thou");
+  expect(log.draft).toBe("half a thou");
+  expect(log.getSnapshot()).toBe(s0); // typing doesn't re-render chat readers
+  expect(log.send("   ")).toBe("empty");
+  expect(log.draft).toBe("half a thou");
+  expect(log.send("half a thought")).toBe("sent");
+  expect(log.draft).toBe("");
+});
+
+test("a send that fails keeps the draft", () => {
+  const { log } = make(false);
+  log.setDraft("hello");
+  expect(log.send("hello")).toBe("offline");
+  expect(log.draft).toBe("hello");
+});

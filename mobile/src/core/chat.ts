@@ -26,6 +26,9 @@ export class ChatLog {
   private seq = 0;
   private lastSeenTs = 0;
   private listeners = new Set<() => void>();
+  // The unsent message, kept here so it outlives the chat sheet. Not in the snapshot:
+  // typing shouldn't re-render everything that reads the log.
+  draft = "";
 
   constructor(private sender: Sender, private nowMs: () => number) {}
 
@@ -76,7 +79,13 @@ export class ChatLog {
     const t = text.trim();
     if (!t) return "empty";
     if ([...t].length > CHAT_MAX) return "too-long";
-    return this.sender("chat", { text: t }) ? "sent" : "offline";
+    if (!this.sender("chat", { text: t })) return "offline";
+    this.draft = "";
+    return "sent";
+  }
+
+  setDraft(text: string): void {
+    this.draft = text;
   }
 
   subscribe = (fn: () => void): (() => void) => {

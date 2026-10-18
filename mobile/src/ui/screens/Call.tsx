@@ -287,6 +287,8 @@ export function Call() {
           visible={sheet === "chat"}
           onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
           send={(t) => call()?.chat.send(t) ?? "offline"}
+          draft={call()?.chat.draft ?? ""}
+          onDraft={(t) => call()?.chat.setDraft(t)}
           isOp={state.role === "op"}
           polls={{ vote: (i) => call()?.polls.vote(i) ?? "offline", close: () => call()?.polls.close() ?? "offline" }}
           soundboard={{
