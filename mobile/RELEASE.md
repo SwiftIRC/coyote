@@ -62,6 +62,12 @@ cd mobile && npm ci && cd android && ./gradlew bundleRelease
 Upload `app/build/outputs/bundle/release/app-release.aab` to Play Console → Testing →
 Internal testing.
 
+Release builds are shrunk and obfuscated by R8 (1.7.1+). The bundle carries the R8
+mapping file, so Play deobfuscates crash stack traces on its own; a local copy is at
+`app/build/outputs/mapping/release/mapping.txt` for `retrace`. A crash that only
+happens in release (`ClassNotFoundException`, `NoSuchMethodError`) usually means a
+class reached by reflection or JNI needs a `-keep` rule in `app/proguard-rules.pro`.
+
 ## Before every release
 
 Run `mobile/MANUAL-TEST.md` on both platforms.

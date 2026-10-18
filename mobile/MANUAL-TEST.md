@@ -295,3 +295,7 @@ browser in the call to watch the result.
 85. **iPhone microphone doesn't carry over.** With AirPods connected, pick iPhone
     Microphone in a call, leave, and start another call with the AirPods still in:
     it starts on the AirPods (the system's choice), not the iPhone mic.
+86. **R8 release build (Android).** On a Play (release) build: sign in, join a video
+    call, chat, play a board sound, turn on a background effect, share the screen,
+    switch output/mic/camera from the devices sheet, take an incoming call from the
+    lock screen, leave. Nothing crashes (check `adb logcat` for `FATAL EXCEPTION`).
