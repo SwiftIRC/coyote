@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text } from "react-native";
 import { RTCView } from "react-native-webrtc";
+import { isDrag } from "../../core/drag";
 import type { StreamLike } from "../../core/types";
 import { colors } from "../theme";
 
@@ -8,7 +9,7 @@ import { colors } from "../theme";
 export function SelfView({ stream, onFlip }: { stream: StreamLike | null; onFlip(): void }) {
   const pos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_e, g) => isDrag(g),
     onPanResponderGrant: () => pos.extractOffset(),
     onPanResponderMove: Animated.event([null, { dx: pos.x, dy: pos.y }], { useNativeDriver: false }),
     onPanResponderRelease: () => pos.flattenOffset(),

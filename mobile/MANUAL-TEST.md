@@ -352,3 +352,6 @@ browser in the call to watch the result.
      then pick each camera in Devices: your preview and their view switch within about a
      second, with no long black gap, and keep working after several switches back and
      forth. With a background effect on, it stays on across the switch.
+105. **⟳ on the self view.** Tap the ⟳ on your self view: front and back cameras swap,
+     every tap (Android especially). Dragging the self view still moves it, including a
+     drag that starts on the ⟳.
