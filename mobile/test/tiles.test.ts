@@ -1,4 +1,4 @@
-import { gridTiles, screenFor } from "../src/core/tiles";
+import { cameraFor, gridTiles, screenFor, viewedFor } from "../src/core/tiles";
 import type { Participant } from "../src/core/roster";
 import { FakeStream } from "./fakes";
 
@@ -26,4 +26,23 @@ test("your own share is the first tile, only while sharing", () => {
   expect(gridTiles([person("a")], true)[0].kind).toBe("own-screen");
   expect(gridTiles([person("a")]).map((t) => t.key)).toEqual(["a"]);
   expect(gridTiles([], true).map((t) => t.key)).toEqual(["self:screen"]);
+});
+
+test("cameraFor needs the camera on, a video stream and data saver off", () => {
+  const v = new FakeStream([]);
+  expect(cameraFor([person("a", { video: v })], "a", false)?.id).toBe("a");
+  expect(cameraFor([person("a", { video: v, camera: false })], "a", false)).toBeNull();
+  expect(cameraFor([person("a")], "a", false)).toBeNull();
+  expect(cameraFor([person("a", { video: v })], "a", true)).toBeNull();
+  expect(cameraFor([], "a", false)).toBeNull();
+});
+
+test("viewedFor shows the screen or the camera that was opened, until it goes", () => {
+  const s = new FakeStream([]);
+  const a = person("a", { video: s, screen: s });
+  expect(viewedFor([a], { kind: "screen", id: "a" }, false)).toEqual({ kind: "screen", p: a });
+  expect(viewedFor([a], { kind: "camera", id: "a" }, false)).toEqual({ kind: "camera", p: a });
+  expect(viewedFor([person("a", { video: s })], { kind: "screen", id: "a" }, false)).toBeNull();
+  expect(viewedFor([person("a", { screen: s })], { kind: "camera", id: "a" }, false)).toBeNull();
+  expect(viewedFor([a], null, false)).toBeNull();
 });

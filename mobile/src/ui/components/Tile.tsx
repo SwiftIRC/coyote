@@ -6,8 +6,8 @@ import { setStreamVolume } from "../../native/volume";
 import { colors } from "../theme";
 import { Avatar } from "./Avatar";
 
-export const Tile = memo(function TileView({ p, width, height, volume, dataSaver, onLongPress }: {
-  p: Participant; width: number; height: number; volume: number; dataSaver: boolean; onLongPress(): void;
+export const Tile = memo(function TileView({ p, width, height, volume, dataSaver, onPress, onLongPress }: {
+  p: Participant; width: number; height: number; volume: number; dataSaver: boolean; onPress?(): void; onLongPress(): void;
 }) {
   useEffect(() => {
     setStreamVolume(p.audio, volume);
@@ -16,9 +16,10 @@ export const Tile = memo(function TileView({ p, width, height, volume, dataSaver
   return (
     <Pressable
       style={[styles.tile, { width, height }]}
+      onPress={showVideo ? onPress : undefined}
       onLongPress={onLongPress}
       delayLongPress={350}
-      accessibilityHint="Long-press to change this person's volume"
+      accessibilityHint={showVideo && onPress ? "Tap to open full screen; long-press to change this person's volume" : "Long-press to change this person's volume"}
     >
       {showVideo ? (
         <RTCView streamURL={p.video!.toURL!()} style={StyleSheet.absoluteFill} objectFit="cover" />

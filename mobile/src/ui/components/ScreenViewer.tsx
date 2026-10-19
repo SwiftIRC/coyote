@@ -11,11 +11,14 @@ import { Slider } from "./Slider";
 const MAX_ZOOM = 5;
 const dist = (t: ReadonlyArray<{ pageX: number; pageY: number }>) => Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
 
-// Full-screen share: pinch to zoom, drag to pan, ⟲ rotates 90° (the app is
-// portrait-locked), and a volume slider when the share has audio.
-export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
-  p: Participant | null; onClose(): void; isOp: boolean; onStopShare(id: string): ModResult;
+// Full-screen share or camera: pinch to zoom, drag to pan, ⟲ rotates 90° (the app
+// is portrait-locked). A share also gets a volume slider when it has audio, and
+// Stop share for ops.
+export function ScreenViewer({ v, onClose, isOp, onStopShare }: {
+  v: { kind: "screen" | "camera"; p: Participant } | null; onClose(): void; isOp: boolean; onStopShare(id: string): ModResult;
 }) {
+  const p = v?.p ?? null;
+  const screen = v?.kind === "screen";
   const win = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [rotated, setRotated] = useState(false);
@@ -33,9 +36,9 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
     ty.setValue(0);
   };
 
-  // Start fresh only when a different participant's share is opened. The body
+  // Start fresh only when a different share or camera is opened. The body
   // touches only stable refs, so it is inlined rather than calling `reset`.
-  const id = p?.id;
+  const id = v ? `${v.kind}:${v.p.id}` : undefined;
   useEffect(() => {
     if (!id) return;
     Object.assign(g, { scale: 1, x: 0, y: 0 });
@@ -47,17 +50,16 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
     setStopMsg("");
   }, [id, g, scale, tx, ty]);
 
+  const screenAudio = screen ? p?.screenAudio ?? null : null;
   useEffect(() => {
-    const audio = p?.screenAudio ?? null;
-    setStreamVolume(audio, volume);
-  }, [p?.screenAudio, volume]);
+    setStreamVolume(screenAudio, volume);
+  }, [screenAudio, volume]);
 
   // Closing (or switching) the viewer puts the share's audio back to 100%, so a
   // boosted or muted level does not linger on the tile with no control.
   useEffect(() => {
-    const audio = p?.screenAudio ?? null;
-    return () => setStreamVolume(audio, 1);
-  }, [p?.screenAudio]);
+    return () => setStreamVolume(screenAudio, 1);
+  }, [screenAudio]);
 
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -88,14 +90,15 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
   })).current;
 
   if (!p) return null;
+  const stream = screen ? p.screen : p.video;
   const w = rotated ? win.height : win.width;
   const h = rotated ? win.width : win.height;
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} supportedOrientations={["portrait"]} statusBarTranslucent>
       <View style={styles.root} {...pan.panHandlers}>
         <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { rotate: rotated ? "90deg" : "0deg" }, { scale }] }}>
-          {p.screen?.toURL ? (
-            <RTCView streamURL={p.screen.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
+          {stream?.toURL ? (
+            <RTCView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="contain" />
           ) : (
             <Text style={styles.audioOnly}>🔊 {p.name} is sharing audio</Text>
           )}
@@ -103,10 +106,10 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
       </View>
       <View style={[styles.top, { top: insets.top + 8 }]}>
         <Pressable onPress={onClose} style={styles.btn} accessibilityRole="button" accessibilityLabel="Close"><Text style={styles.btnText}>✕</Text></Pressable>
-        <Text style={styles.title} numberOfLines={1}>{p.name} (screen)</Text>
+        <Text style={styles.title} numberOfLines={1}>{screen ? `${p.name} (screen)` : p.name}</Text>
         <Pressable onPress={() => { setRotated((r) => !r); reset(); }} style={styles.btn} accessibilityRole="button" accessibilityLabel="Rotate"><Text style={styles.btnText}>⟲</Text></Pressable>
       </View>
-      {isOp ? (
+      {screen && isOp ? (
         <View style={[styles.stopWrap, { top: insets.top + 60 }]}>
           <Pressable
             onPress={() => { const r = onStopShare(p.id); setStopMsg(r === "sent" ? "" : MOD_RESULT_TEXT[r] || ""); }}
@@ -119,7 +122,7 @@ export function ScreenViewer({ p, onClose, isOp, onStopShare }: {
           {stopMsg ? <Text style={styles.vol}>{stopMsg}</Text> : null}
         </View>
       ) : null}
-      {p.screenAudio ? (
+      {screenAudio ? (
         <View style={[styles.bottom, { bottom: insets.bottom + 12 }]}>
           <Text style={styles.vol}>Volume {Math.round(volume * 100)}%</Text>
           <Slider value={volume} min={0} max={2} step={0.05} onChange={setVolume} accessibilityLabel="Screen share volume" />

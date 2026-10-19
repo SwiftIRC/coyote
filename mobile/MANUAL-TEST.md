@@ -355,3 +355,18 @@ browser in the call to watch the result.
 105. **⟳ on the self view.** Tap the ⟳ on your self view: front and back cameras swap,
      every tap (Android especially). Dragging the self view still moves it, including a
      drag that starts on the ⟳.
+
+## Focusing on a camera (iOS and Android)
+
+106. **Tap a camera.** In a call with a browser holding something up to its camera, tap
+     their tile: their video opens full screen, uncropped, titled with just their name.
+     Pinch to zoom (up to 5x), drag to pan, ⟲ rotates; no volume slider or Stop share,
+     even as op. ✕ (or Android back) returns to the grid. Long-press on the tile still
+     opens their volume sheet, and a tap with their camera off, or with data saver on,
+     does nothing.
+107. **It closes by itself.** With their camera open full screen, have the browser turn its
+     camera off: the viewer closes. Again, and have the browser leave: the viewer closes.
+     Open their screenshare, then their camera: each opens unzoomed.
+108. **PiP shows who you focused on (Android).** While the browser shares its screen, open
+     another person's camera full screen and press Home: the PiP window shows that
+     person, not the share. Back in the app the grid shows, with the viewer closed.

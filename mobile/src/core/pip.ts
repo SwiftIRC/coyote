@@ -1,8 +1,10 @@
 import type { CallState } from "./call";
 import type { Participant } from "./roster";
+import { viewedFor, type Viewing } from "./tiles";
 
-// What the Android picture-in-picture window shows: someone's screenshare, else the
-// first person in grid order, else yourself when alone. Your own share never: it's
+// What the Android picture-in-picture window shows: what you had open full screen,
+// else someone's screenshare, else the first person in grid order, else yourself
+// when alone. Your own share never: it's
 // what you're already looking at.
 export type PipTile =
   | { kind: "screen"; p: Participant }
@@ -20,7 +22,10 @@ export interface PipParams {
 
 export const PIP_OFF: PipParams = { enabled: false, micOn: false, aspect: "person" };
 
-export function pipTile(people: Participant[]): PipTile {
+export function pipTile(people: Participant[], focus: Viewing | null = null, dataSaver = false): PipTile {
+  const v = viewedFor(people, focus, dataSaver);
+  if (v?.kind === "camera") return { kind: "person", p: v.p };
+  if (v?.p.screen) return { kind: "screen", p: v.p };
   const sharer = people.find((p) => !!p.screen); // an audio-only share has nothing to show
   if (sharer) return { kind: "screen", p: sharer };
   return people.length ? { kind: "person", p: people[0] } : { kind: "self" };
@@ -31,9 +36,9 @@ export function pipOthers(t: PipTile, people: Participant[]): number {
   return t.kind === "self" ? 0 : people.length - 1;
 }
 
-export function pipParams(s: Pick<CallState, "phase" | "mic" | "participants"> | null): PipParams {
+export function pipParams(s: Pick<CallState, "phase" | "mic" | "participants" | "dataSaver"> | null, focus: Viewing | null = null): PipParams {
   if (!s || (s.phase !== "in-call" && s.phase !== "reconnecting")) return PIP_OFF;
-  return { enabled: true, micOn: s.mic, aspect: pipTile(s.participants).kind === "screen" ? "screen" : "person" };
+  return { enabled: true, micOn: s.mic, aspect: pipTile(s.participants, focus, s.dataSaver).kind === "screen" ? "screen" : "person" };
 }
 
 export function runPipAction(a: PipAction, h: { toggleMic(): void; hangup(): void }): void {

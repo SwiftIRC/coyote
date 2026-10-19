@@ -6,7 +6,7 @@ import { NO_ROUTES, outputLabel, pendingOutcome, pickInput, pickOutput, selected
 import { cameraFacing, type Camera } from "../../core/cameras";
 import { gridColumns } from "../../core/grid";
 import { PIP_OFF, pipOthers, pipParams, pipTile, runPipAction } from "../../core/pip";
-import { gridTiles, screenFor } from "../../core/tiles";
+import { gridTiles, viewedFor, type Viewing } from "../../core/tiles";
 import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { setPip, watchPip, watchPipActions } from "../../native/pip";
 import { listCameras } from "../../native/webrtc";
@@ -64,7 +64,11 @@ export function Call() {
   };
   const [hideSelf, setHideSelf] = useState(false);
   useEffect(() => { loadPrefs().then((p) => setHideSelf(p.hideSelf)).catch(() => {}); }, []);
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<Viewing | null>(null);
+  // What was open full screen when PiP started, for the PiP window to show.
+  const [pipFocus, setPipFocus] = useState<Viewing | null>(null);
+  const viewingRef = useRef(viewing);
+  viewingRef.current = viewing;
   const audioStarted = useRef(false);
   const phase = state?.phase;
   const hasState = !!state;
@@ -74,13 +78,14 @@ export function Call() {
   const [inPip, setInPip] = useState(false);
   useEffect(() => watchPip((v) => {
     setInPip(v);
+    setPipFocus(v ? viewingRef.current : null);
     if (!v) return;
     setSheet(null);
     setViewing(null);
     setVolumeFor(null);
     call()?.chat.setOpen(false);
   }), [call]);
-  const pip = pipParams(state);
+  const pip = pipParams(state, inPip ? pipFocus : viewing);
   useEffect(() => {
     setPip({ enabled: pip.enabled, micOn: pip.micOn, aspect: pip.aspect });
   }, [pip.enabled, pip.micOn, pip.aspect]);
@@ -106,9 +111,9 @@ export function Call() {
     if (volumeFor && state && !state.participants.some((x) => x.id === volumeFor)) setVolumeFor(null);
   }, [volumeFor, state]);
 
-  // Drop a stale viewer id once the share is gone.
+  // Close the viewer once the share or camera is gone.
   useEffect(() => {
-    if (viewing && state && !screenFor(state.participants, viewing)) setViewing(null);
+    if (viewing && state && !viewedFor(state.participants, viewing, state.dataSaver)) setViewing(null);
   }, [viewing, state]);
 
   // Call audio starts once the call is up, in video mode if the camera is on.
@@ -193,7 +198,7 @@ export function Call() {
     );
   }
   if (inPip) {
-    const t = pipTile(state.participants);
+    const t = pipTile(state.participants, pipFocus, state.dataSaver);
     return (
       <PipView
         tile={t}
@@ -211,7 +216,7 @@ export function Call() {
   const rows = Math.max(1, Math.ceil(tiles.length / cols));
   const tileW = Math.floor(width / cols);
   const tileH = Math.floor(gridH / rows);
-  const viewed = viewing ? screenFor(people, viewing) : null;
+  const viewed = viewedFor(people, viewing, state.dataSaver);
   const current = selectedOutput(routes);
   const pickRoute = (id: string) => {
     const p = pickOutput(routes, id, Date.now());
@@ -250,11 +255,12 @@ export function Call() {
             tiles.map((t) => t.kind === "own-screen"
               ? <OwnShareTile key={t.key} width={tileW} height={tileH} />
               : t.kind === "screen"
-              ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing(t.p.id)} />
+              ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing({ kind: "screen", id: t.p.id })} />
               : <Tile
                 key={t.key} p={t.p} width={tileW} height={tileH}
                 volume={volumes[t.p.id] ?? 1}
                 dataSaver={state.dataSaver}
+                onPress={() => setViewing({ kind: "camera", id: t.p.id })}
                 onLongPress={() => setVolumeFor(t.p.id)}
               />)
           )}
@@ -360,7 +366,7 @@ export function Call() {
             ban: (id) => call()?.moderation.ban(id) ?? "offline",
           }}
         />
-        <ScreenViewer p={viewed} onClose={() => setViewing(null)} isOp={state.role === "op"} onStopShare={(id) => call()?.moderation.stopShare(id) ?? "offline"} />
+        <ScreenViewer v={viewed} onClose={() => setViewing(null)} isOp={state.role === "op"} onStopShare={(id) => call()?.moderation.stopShare(id) ?? "offline"} />
       </View>
     </View>
   );
