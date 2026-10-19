@@ -53,11 +53,17 @@ open ios/Coyote.xcworkspace
 Select your team on the Coyote and CoyoteBroadcast targets (Signing & Capabilities), choose
 "Any iOS Device", Product → Archive, then Distribute App → TestFlight & App Store.
 
-Export compliance: `Info.plist` sets `ITSAppUsesNonExemptEncryption` to `true`, because call
-media is encrypted with DTLS-SRTP by the BoringSSL that react-native-webrtc bundles (standard
-algorithms, in addition to Apple's). Answer App Store Connect's questions accordingly: standard
-algorithms, mass market. Distribution in France needs the ANSSI encryption declaration on file;
-without it, leave France out of the app's availability.
+Export compliance: call media is encrypted with DTLS-SRTP by the BoringSSL that
+react-native-webrtc bundles (standard algorithms, in addition to Apple's). Answer App Store
+Connect's questions accordingly: standard algorithms, mass market. Distribution in France needs
+the ANSSI encryption declaration on file; without it, leave France out of the app's availability.
+
+`Info.plist` deliberately omits `ITSAppUsesNonExemptEncryption` while the encryption
+documentation is pending review in App Store Connect: with the key set to `true`, uploads are
+rejected until the plist also carries the approved document's key value. Answer the questions
+per build in App Store Connect instead. Once the document is approved, add both keys back
+(`ITSAppUsesNonExemptEncryption` = `true`, `ITSEncryptionExportComplianceCode` = the key value)
+and restore France.
 
 ## Android → Play internal testing
 
