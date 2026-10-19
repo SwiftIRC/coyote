@@ -36,13 +36,29 @@ async function firstTrack(constraints: object): Promise<TrackLike | null> {
 
 const CAMERA = { width: 1280, height: 720, frameRate: 30 };
 
+function cameraConstraints(choice: CameraChoice) {
+  return { ...CAMERA, facingMode: choice.facing, ...(choice.deviceId ? { deviceId: choice.deviceId } : {}) };
+}
+
 export const media: MediaPort = {
   getMic: () => firstTrack({ audio: true, video: false }),
   // deviceId wins over facingMode in react-native-webrtc on both platforms; for an
   // unknown id (a USB camera unplugged) it opens the facing instead, which the library
   // would otherwise default to the front camera.
-  getCamera: (choice: CameraChoice) =>
-    firstTrack({ audio: false, video: { ...CAMERA, facingMode: choice.facing, ...(choice.deviceId ? { deviceId: choice.deviceId } : {}) } }),
+  getCamera: (choice: CameraChoice) => firstTrack({ audio: false, video: cameraConstraints(choice) }),
+  // applyConstraints switches the track's capturer to the other camera (Android's
+  // CameraVideoCapturer.switchCamera, iOS restarts its capture session on the new
+  // device). The full constraints go too: Android reads the size unconditionally.
+  switchCamera: async (track: TrackLike, choice: CameraChoice) => {
+    const t = track as TrackLike & { applyConstraints?(c: object): Promise<void> };
+    if (!t.applyConstraints) return false;
+    try {
+      await t.applyConstraints(cameraConstraints(choice));
+      return true;
+    } catch {
+      return false;
+    }
+  },
   createStream,
 };
 

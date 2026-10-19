@@ -31,6 +31,8 @@ export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" 
 export interface MediaPort {
   getMic(): Promise<TrackLike | null>; // null: denied or unavailable
   getCamera(choice: CameraChoice): Promise<TrackLike | null>;
+  // Points the live camera track at another camera, in place; false if it can't.
+  switchCamera(track: TrackLike, choice: CameraChoice): Promise<boolean>;
   createStream(tracks: TrackLike[]): StreamLike;
 }
 
@@ -377,24 +379,21 @@ export class Call {
     if (await this.swapCamera({ facing, deviceId: id })) this.cameraPick = id;
   }
 
-  // Replaces the live camera track; false when superseded or the camera won't open.
+  // Switches the live camera track to another camera in place; false when superseded or
+  // the camera won't open. Never opens a second camera alongside the first: phones can't
+  // run two at once (Android delivers no frames, iOS stalls for seconds). The track, its
+  // sender and its background effect all stay as they are.
   private async swapCamera(choice: CameraChoice): Promise<boolean> {
     const gen = ++this.camGen;
-    const t = await this.deps.media.getCamera(choice);
-    if (gen !== this.camGen || !this.isLive() || !this.state.camera) {
-      t?.stop(); // camera turned off, superseded, or the call ended while switching
-      return false;
-    }
-    if (!t) {
+    const t = this.camTrack;
+    if (!t) return false;
+    const ok = await this.deps.media.switchCamera(t, choice);
+    if (gen !== this.camGen || !this.isLive() || this.camTrack !== t) return false; // superseded, off, or ended
+    if (!ok) {
       this.events.notice("Could not switch camera.");
       return false;
     }
-    const old = this.camTrack;
-    this.camTrack = t;
     this.update({ facing: choice.facing, cameraId: this.cameraIdOf(t) ?? choice.deviceId ?? null });
-    this.refreshLocalStream();
-    if (this.peer) await this.peer.replaceTrack("camera", t);
-    old?.stop();
     return true;
   }
 
