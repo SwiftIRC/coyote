@@ -236,6 +236,7 @@ test("kicked: removed, devices released, system call ended, never rejoins", asyn
   expect(sock().closed).toBe(true);
   expect(peers[0].closed).toBe(true);
   expect(mics[0].stopped && cams[0].stopped).toBe(true);
+  expect(mics[0].released && cams[0].released).toBe(true); // stop() alone leaks the native track
   expect(system.at(-1)).toBe("end u2");
   timers.advance(60_000);
   expect(FakeSocket.all).toHaveLength(1);
@@ -420,6 +421,24 @@ test("op force-mute and quality frames apply", async () => {
   expect(call.getState().camera).toBe(false);
   sock().receive({ type: "quality", camera: "high", screen: "low" });
   expect(peers[0].quality).toEqual(["high", "low"]);
+});
+
+// react-native-webrtc's stop() only stops capture; release() frees the native track.
+test("camera off releases the old track after the sender lets go of it", async () => {
+  const { call, peers, cams } = await inCall();
+  await call.setCamera(false);
+  expect(peers[0].replaced).toEqual([["camera", null]]);
+  expect(cams[0].released).toBe(true);
+});
+
+test("a camera that arrives after it was turned off is released", async () => {
+  const { call, cams, ctl } = await inCall({ camera: false });
+  ctl.deferCam = true;
+  const on = call.setCamera(true);
+  await call.setCamera(false);
+  ctl.camWaits[0]();
+  await on;
+  expect(cams[0].released).toBe(true);
 });
 
 test("flip then camera off while switching: the camera stays off", async () => {

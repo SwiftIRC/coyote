@@ -15,7 +15,7 @@ import { RoomClock } from "./roomClock";
 import { Roster, type Participant, type PeerInfo } from "./roster";
 import type { Signaling } from "./signaling";
 import { Soundboard, type ClipPort } from "./soundboard";
-import { ScreenShare, type ScreenCapturePort } from "./screenShare";
+import { discard, ScreenShare, type ScreenCapturePort } from "./screenShare";
 import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types";
 import { Volumes } from "./volumes";
 
@@ -211,7 +211,7 @@ export class Call {
     this.ready = true;
     const want = this.req;
     if (this.camTrack && !want.camera) {
-      this.camTrack.stop(); // turned off while it was being acquired
+      discard(this.camTrack); // turned off while it was being acquired
       this.camTrack = null;
     }
     const mic = !!this.micTrack && want.mic;
@@ -295,7 +295,7 @@ export class Call {
     if (on && !this.micTrack) {
       const t = await this.deps.media.getMic();
       if (gen !== this.micGen || !this.isLive() || this.micTrack) {
-        t?.stop(); // superseded (or a track appeared) while acquiring
+        if (t) discard(t); // superseded (or a track appeared) while acquiring
         return;
       }
       if (!t) {
@@ -327,7 +327,7 @@ export class Call {
       this.update({ camera: false });
       this.refreshLocalStream();
       if (this.peer) await this.peer.replaceTrack("camera", null);
-      old?.stop();
+      if (old) discard(old);
       this.sendMediaState();
       return;
     }
@@ -342,7 +342,7 @@ export class Call {
       this.cameraOns--;
     }
     if (gen !== this.camGen || !this.isLive()) {
-      t?.stop();
+      if (t) discard(t);
       return;
     }
     if (!t) {
@@ -620,8 +620,8 @@ export class Call {
   }
 
   private releaseTracks() {
-    this.micTrack?.stop();
-    this.camTrack?.stop();
+    if (this.micTrack) discard(this.micTrack);
+    if (this.camTrack) discard(this.camTrack);
     this.micTrack = null;
     this.camTrack = null;
     this.update({ localStream: null });
