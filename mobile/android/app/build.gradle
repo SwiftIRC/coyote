@@ -82,8 +82,8 @@ android {
         applicationId "net.swiftirc.coyote"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13
-        versionName "1.8.0"
+        versionCode 14
+        versionName "1.8.1"
     }
     signingConfigs {
         debug {
