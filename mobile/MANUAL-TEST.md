@@ -329,3 +329,19 @@ browser in the call to watch the result.
     call behaves as before (camera off in the background, back on return). Turn it on again.
 98. **Incoming phone call in PiP.** Answer a phone call while the window is up: nothing
     crashes; the call carries on afterwards.
+
+## Closing sheets (iOS and Android)
+
+99. **Drag down anywhere.** In a call, open Chat and drag down on the tab row, then on the
+    empty Poll tab ("No poll in this room"), then on the 🔊 tab: each closes the sheet. A
+    short drag springs back.
+100. **Lists scroll first.** With a long chat, scroll up into the history and drag down: the
+     list scrolls, the sheet stays. Scroll to the very top and pull down again: the sheet
+     follows your finger and closes. Same in More (scrolled down) and the poll form.
+101. **Taps and sideways drags.** In each sheet (Chat, More, Devices, Background, a person's
+     sheet, New poll): buttons, toggles, tabs, the volume slider, text fields and sending a
+     message all still work; nothing closes by accident.
+102. **Android back.** With each sheet open, press back (button or gesture): the sheet
+     closes and you stay in the call. Back again with nothing open: "Leave call?".
+103. **Keyboard up.** Chat with the keyboard up: dragging the sheet down closes it and the
+     keyboard; on Android, back first hides the keyboard, then closes the sheet.

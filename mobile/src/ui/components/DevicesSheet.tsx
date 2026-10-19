@@ -4,7 +4,7 @@ import { selectedOutput, sortInputs, sortOutputs, type InputKind, type OutputKin
 import type { Camera } from "../../core/cameras";
 import { RoutePicker } from "../../native/RoutePicker";
 import { colors } from "../theme";
-import { Sheet } from "./Sheet";
+import { Sheet, useSheetList } from "./Sheet";
 
 const OUTPUT_ICON: Record<OutputKind, string> = { earpiece: "📱", speaker: "🔊", wired: "🎧", bluetooth: "🎧", car: "🚗" };
 const INPUT_ICON: Record<InputKind, string> = { builtin: "🎙", wired: "🎧", bluetooth: "🎧", usb: "🔌" };
@@ -27,11 +27,12 @@ export function DevicesSheet({ visible, onClose, routes, pending, cameras, camer
   cameras: Camera[]; cameraId: string | null; cameraBusy: string | null;
   onOutput(id: string): void; onInput(id: string): void; onCamera(c: Camera): void;
 }) {
+  const list = useSheetList();
   const current = selectedOutput(routes);
   const currentName = current?.name ?? "Audio";
   return (
     <Sheet visible={visible} onClose={onClose} heightFraction={0.6}>
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView {...list} contentContainerStyle={styles.list}>
         <Text style={styles.header}>Output</Text>
         {RoutePicker ? (
           // iOS: Apple's route picker over the row takes the tap and VoiceOver.

@@ -1,11 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Keyboard, PanResponder, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Animated, BackHandler, Keyboard, PanResponder, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { keyboardEvents } from "../../core/keyboard";
+import { sheetCloses, sheetTakesDrag } from "../../core/sheetDrag";
 import { colors, radius } from "../theme";
 
-// Bottom sheet over the call. The area above it stays visible; tapping it, or
-// dragging the handle down, closes the sheet. No gesture/animation libraries.
+type AtTop = { current: boolean };
+// The list (if any) the current touch began in, for deciding who gets a downward drag.
+// One finger drives a sheet at a time, so one slot will do: a sheet clears it as a touch
+// starts, and a list inside sets it just after.
+let touchedList: AtTop | null = null;
+
+// A scrolling list inside a sheet: spread onto the ScrollView/FlatList so a pull down at
+// its top drags the sheet instead. A list with its own onScroll calls this one's too.
+export function useSheetList() {
+  const atTop = useRef<AtTop>({ current: true }).current;
+  return {
+    onTouchStart: () => { touchedList = atTop; },
+    onScroll: (e: { nativeEvent: { contentOffset: { y: number } } }) => { atTop.current = e.nativeEvent.contentOffset.y <= 0; },
+    scrollEventThrottle: 16,
+  };
+}
+
+// Bottom sheet over the call. The area above it stays visible; tapping it, dragging the
+// sheet down (from a list, once it's at its top), or Android's back closes the sheet.
+// No gesture/animation libraries.
 export function Sheet({ visible, onClose, heightFraction = 0.55, children }: {
   visible: boolean; onClose(): void; heightFraction?: number; children: React.ReactNode;
 }) {
@@ -35,20 +54,36 @@ export function Sheet({ visible, onClose, heightFraction = 0.55, children }: {
 
   useEffect(() => { if (!visible) Keyboard.dismiss(); }, [visible]);
 
+  // Registered after the navigator's, so back closes the sheet before leaving the call.
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onCloseRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible]);
+
+  // Captured before the lists see it, so a pull at a list's top moves the sheet.
   const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_e, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onMoveShouldSetPanResponderCapture: (_e, g) => sheetTakesDrag(g, touchedList ? touchedList.current : null),
     onPanResponderMove: (_e, g) => y.setValue(Math.max(0, g.dy)),
     onPanResponderRelease: (_e, g) => {
-      if (g.dy > 80 || g.vy > 0.8) onCloseRef.current();
+      if (sheetCloses(g)) onCloseRef.current();
       else Animated.spring(y, { toValue: 0, useNativeDriver: true }).start();
     },
+    onPanResponderTerminate: () => Animated.spring(y, { toValue: 0, useNativeDriver: true }).start(),
   })).current;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={visible ? "box-none" : "none"}>
       {visible ? <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" /> : null}
-      <Animated.View style={[styles.sheet, { bottom: kb, height: total, paddingBottom: pad, transform: [{ translateY: y }] }]}>
-        <View {...pan.panHandlers} style={styles.handleArea}>
+      <Animated.View
+        {...pan.panHandlers}
+        onTouchStartCapture={() => { touchedList = null; }}
+        style={[styles.sheet, { bottom: kb, height: total, paddingBottom: pad, transform: [{ translateY: y }] }]}
+      >
+        <View style={styles.handleArea}>
           <View style={styles.handle} />
         </View>
         {children}

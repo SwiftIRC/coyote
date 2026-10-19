@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { OPTION_MAX, OPTIONS_MAX, OPTIONS_MIN, QUESTION_MAX, type PollResult } from "../../core/polls";
 import { colors, radius } from "../theme";
-import { Sheet } from "./Sheet";
+import { Sheet, useSheetList } from "./Sheet";
 
 const ERRORS: Partial<Record<PollResult, string>> = {
   invalid: `Add a question and ${OPTIONS_MIN}–${OPTIONS_MAX} options.`,
@@ -13,6 +13,7 @@ const ERRORS: Partial<Record<PollResult, string>> = {
 export function PollForm({ visible, onClose, replacing, create }: {
   visible: boolean; onClose(): void; replacing: boolean; create(q: string, opts: string[]): PollResult;
 }) {
+  const list = useSheetList();
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [msg, setMsg] = useState("");
@@ -26,7 +27,7 @@ export function PollForm({ visible, onClose, replacing, create }: {
   };
   return (
     <Sheet visible={visible} onClose={onClose} heightFraction={0.75}>
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView {...list} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>New poll</Text>
         {replacing ? <Text style={styles.warn}>This replaces the current poll and its votes.</Text> : null}
         <TextInput style={styles.input} placeholder="Question" placeholderTextColor={colors.muted}

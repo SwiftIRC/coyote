@@ -7,7 +7,7 @@ import { linkSegments } from "../../shared/web";
 import { useChat, usePoll, useSoundboard } from "../hooks";
 import { colors, radius } from "../theme";
 import { PollCard } from "./PollCard";
-import { Sheet } from "./Sheet";
+import { Sheet, useSheetList } from "./Sheet";
 import { SoundboardPanel } from "./SoundboardPanel";
 
 const ERRORS: Partial<Record<SendResult, string>> = {
@@ -61,6 +61,10 @@ export function ChatSheet({ visible, onClose, send, draft, onDraft, isOp, polls,
   const [error, setError] = useState("");
   const list = useRef<FlatList<ChatEntry>>(null);
   const atBottom = useRef(true);
+  // One per tab: each list knows whether it is scrolled to its top.
+  const soundsList = useSheetList();
+  const pollList = useSheetList();
+  const chatList = useSheetList();
 
   const submit = () => {
     const r = send(text);
@@ -89,11 +93,11 @@ export function ChatSheet({ visible, onClose, send, draft, onDraft, isOp, polls,
           <View style={styles.spacer} />
         </View>
         {tab === "sounds" ? (
-          <ScrollView contentContainerStyle={styles.list}>
+          <ScrollView {...soundsList} contentContainerStyle={styles.list}>
             <SoundboardPanel board={board} start={soundboard.start} stop={soundboard.stop} />
           </ScrollView>
         ) : tab === "poll" ? (
-          <ScrollView contentContainerStyle={styles.list}>
+          <ScrollView {...pollList} contentContainerStyle={styles.list}>
             {poll
               ? <PollCard poll={poll} isOp={isOp} onVote={polls.vote} onClose={polls.close} />
               : <Text style={styles.system}>No poll in this room.</Text>}
@@ -105,12 +109,14 @@ export function ChatSheet({ visible, onClose, send, draft, onDraft, isOp, polls,
           keyExtractor={(e) => String(e.key)}
           renderItem={({ item }) => <Line e={item} poll={poll} isOp={isOp} polls={polls} />}
           contentContainerStyle={styles.list}
+          onTouchStart={chatList.onTouchStart}
           ListEmptyComponent={<Text style={styles.system}>No messages yet.</Text>}
           onScroll={(ev) => {
+            chatList.onScroll(ev);
             const { contentOffset, contentSize, layoutMeasurement } = ev.nativeEvent;
             atBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
           }}
-          scrollEventThrottle={100}
+          scrollEventThrottle={16}
           onContentSizeChange={() => { if (atBottom.current) list.current?.scrollToEnd({ animated: false }); }}
           keyboardShouldPersistTaps="handled"
         />
