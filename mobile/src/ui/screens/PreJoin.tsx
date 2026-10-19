@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchScenes, peekInvite, peekRoom } from "../../core/api";
 import { Backgrounds, labelFor, parseScenes } from "../../core/backgrounds";
 import { gravatarHash } from "../../core/gravatar";
+import { discard } from "../../core/screenShare";
 import { nickFromToken } from "../../core/token";
 import type { StreamLike, TrackLike } from "../../core/types";
 import { effectPort, onBackgroundTripped } from "../../native/background";
@@ -118,7 +119,7 @@ export function PreJoin() {
   // Camera preview while focused; released before joining (the call acquires its own).
   const stopPreview = useCallback(() => {
     bgStore.setTrack(null).catch(() => {});
-    previewTrack.current?.stop();
+    if (previewTrack.current) discard(previewTrack.current);
     previewTrack.current = null;
     setPreview(null);
   }, [bgStore]);
@@ -127,7 +128,7 @@ export function PreJoin() {
     if (camera) {
       requestCallPermissions(true).then(() => media.getCamera({ facing: "user" })).then((t) => {
         if (cancelled || !t) {
-          t?.stop();
+          if (t) discard(t);
           return;
         }
         previewTrack.current = t;

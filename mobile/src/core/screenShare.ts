@@ -34,7 +34,8 @@ export function captureCancelled(): Error {
   return e;
 }
 
-// Stop, then release: stop() alone leaves the native track and capturer alive.
+// Stop, then release: stop() alone leaves the native track and capturer alive. For any
+// local track (camera, mic, screen) once nothing uses it any more.
 export function discard(track: TrackLike): void {
   track.stop();
   track.release?.();
