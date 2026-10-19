@@ -268,7 +268,6 @@ export function Call() {
         <Controls
           mic={state.mic}
           camera={state.camera}
-          routeLabel={pending ? "…" : outputLabel(current?.kind)}
           routeA11y={`Audio and video devices. Output: ${current?.name ?? outputLabel(undefined)}`}
           onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
           onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}

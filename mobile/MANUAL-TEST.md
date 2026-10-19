@@ -29,7 +29,7 @@ Each change that touches iOS-only native code or configuration names the items t
 7. **A cellular call arrives mid-meeting.** Coyote is held and your mic muted; after
    hanging up, the mic returns to its previous state.
 8. **Bluetooth headset** connect and disconnect mid-call: audio follows. On Android the
-   route button cycles Phone / Speaker / Bluetooth; on iOS it toggles the speaker.
+   headset appears under Devices → Output and can be picked there (iOS: Apple's picker).
 9. **Airplane mode for 10 seconds**, then off: the app rejoins and media resumes.
    "Reconnecting…" or "Media connection lost — rejoining…" may show meanwhile; both
    are fine as long as they clear.
@@ -55,8 +55,8 @@ Each change that touches iOS-only native code or configuration names the items t
     the previous camera keep working; it must not freeze the tile or drop the call.
 18. **Android: hardware back during a call.** "Leave call?" appears. Cancel stays in
     the call; Leave ends the call and the browser sees you go.
-19. **iOS: audio-route button.** A video call starts on Speaker. Tapping the button
-    toggles Phone / Speaker and the audio moves accordingly.
+19. **iOS: audio output.** A video call starts on Speaker. Devices → Output switches
+    Phone / Speaker and the audio moves accordingly.
 20. **Android: deny the microphone permission.** callkeep cannot register the call
     with Telecom, but the call should still work in-app (audio and video as granted,
     leave button works). Expect no system call notification.
@@ -264,7 +264,7 @@ browser in the call to watch the result.
 75. **Failed switch.** Pick a Bluetooth device and switch it off at the same moment:
     within 5 s "Couldn't switch to <name>." appears and the label shows the real
     output.
-76. **iPhone output.** Tap the audio button: the devices sheet opens; its Output row
+76. **iPhone output.** Tap Devices: the devices sheet opens; its Output row
     shows the current output. Tap the row: Apple's output sheet opens and lists
     iPhone, Speaker, AirPods etc. Pick each: audio moves and the row and button
     follow. Switch from Control Centre: they follow too. Video calls still start on
@@ -272,7 +272,7 @@ browser in the call to watch the result.
     button and "Audio output: <name>. Change" on the row.
 77. **Leaving.** After leaving a call (Android): the screen times out normally again
     and the proximity sensor no longer blanks it.
-78. **Devices sheet (Android).** Tap the audio button: Output, Microphone and Camera
+78. **Devices sheet (Android).** Tap Devices: Output, Microphone and Camera
     sections; picking a row keeps the sheet open and moves the ✓ (with "…" briefly).
 79. **Android microphones.** With Bluetooth earbuds connected: Microphone lists Phone
     microphone and the earbuds by name. Pick the earbuds' mic: output moves to them

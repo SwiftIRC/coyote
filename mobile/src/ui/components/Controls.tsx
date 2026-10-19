@@ -6,7 +6,6 @@ import { colors } from "../theme";
 interface Props {
   mic: boolean;
   camera: boolean;
-  routeLabel: string;
   routeA11y: string;
   unread: number;
   onMic(): void;
@@ -34,7 +33,7 @@ export function Controls(p: Props) {
     <View style={styles.bar}>
       <Btn label={p.mic ? "🎙" : "🔇"} onPress={p.onMic} active={p.mic} a11y={p.mic ? "Mute microphone" : "Unmute microphone"} />
       <Btn label={p.camera ? "📷" : "🚫"} onPress={p.onCamera} active={p.camera} a11y={p.camera ? "Turn camera off" : "Turn camera on"} />
-      <Btn label={p.routeLabel} onPress={p.onRoute} fit a11y={p.routeA11y} />
+      <Btn label="Devices" onPress={p.onRoute} fit a11y={p.routeA11y} />
       <View>
         <Btn label="💬" onPress={p.onChat} a11y={p.unread ? `Chat, ${unreadLabel(p.unread)} unread` : "Chat"} />
         {p.unread > 0 ? <Text style={styles.badge} pointerEvents="none">{unreadLabel(p.unread)}</Text> : null}
@@ -48,7 +47,7 @@ export function Controls(p: Props) {
 const styles = StyleSheet.create({
   bar: { flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", paddingVertical: 12, paddingBottom: 28, backgroundColor: colors.bg },
   btn: { minWidth: 52, height: 52, borderRadius: 26, paddingHorizontal: 8, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-  // The route label varies ("Bluetooth"); cap it so 4x52 + 76 + Leave stays within 360 pt.
+  // "Devices" is the one word label besides Leave; cap it so 4x52 + 76 + Leave stays within 360 pt.
   fit: { maxWidth: 76 },
   off: { backgroundColor: "#3a3d44" },
   danger: { backgroundColor: colors.danger },
