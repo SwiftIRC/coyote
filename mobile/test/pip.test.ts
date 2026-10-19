@@ -30,6 +30,31 @@ test("pipTile: alone in the room shows yourself", () => {
   expect(pipTile([])).toEqual({ kind: "self" });
 });
 
+test("pipTile: a camera open full screen wins over a share", () => {
+  const people = [person("a", { screen: stream }), person("b")];
+  expect(pipTile(people, { kind: "camera", id: "b" })).toEqual({ kind: "person", p: people[1] });
+});
+
+test("pipTile: the share open full screen wins over an earlier sharer", () => {
+  const people = [person("a", { screen: stream }), person("b", { screen: stream })];
+  expect(pipTile(people, { kind: "screen", id: "b" })).toEqual({ kind: "screen", p: people[1] });
+});
+
+test("pipTile: a focus with nothing left to show falls back", () => {
+  const a = person("a");
+  expect(pipTile([a, person("b", { camera: false })], { kind: "camera", id: "b" })).toEqual({ kind: "person", p: a });
+  expect(pipTile([a, person("b")], { kind: "camera", id: "b" }, true)).toEqual({ kind: "person", p: a });
+  expect(pipTile([a, person("b", { screenAudio: stream })], { kind: "screen", id: "b" })).toEqual({ kind: "person", p: a });
+  expect(pipTile([a], { kind: "camera", id: "gone" })).toEqual({ kind: "person", p: a });
+});
+
+test("pipParams: a focused camera keeps the person aspect while someone shares", () => {
+  const people = [person("a", { screen: stream }), person("b")];
+  const s = { phase: "in-call" as const, mic: true, dataSaver: false, participants: people };
+  expect(pipParams(s).aspect).toBe("screen");
+  expect(pipParams(s, { kind: "camera", id: "b" }).aspect).toBe("person");
+});
+
 test("pipOthers counts everyone but the one shown", () => {
   const people = [person("a"), person("b", { screen: stream }), person("c")];
   expect(pipOthers(pipTile(people), people)).toBe(2);
@@ -39,15 +64,15 @@ test("pipOthers counts everyone but the one shown", () => {
 
 test("pipParams: on while in-call or reconnecting, with the mic and the tile's aspect", () => {
   const people = [person("a")];
-  expect(pipParams({ phase: "in-call", mic: true, participants: people })).toEqual({ enabled: true, micOn: true, aspect: "person" });
-  expect(pipParams({ phase: "reconnecting", mic: false, participants: [person("b", { screen: stream })] }))
+  expect(pipParams({ phase: "in-call", mic: true, dataSaver: false, participants: people })).toEqual({ enabled: true, micOn: true, aspect: "person" });
+  expect(pipParams({ phase: "reconnecting", mic: false, dataSaver: false, participants: [person("b", { screen: stream })] }))
     .toEqual({ enabled: true, micOn: false, aspect: "screen" });
-  expect(pipParams({ phase: "in-call", mic: true, participants: [] })).toEqual({ enabled: true, micOn: true, aspect: "person" });
+  expect(pipParams({ phase: "in-call", mic: true, dataSaver: false, participants: [] })).toEqual({ enabled: true, micOn: true, aspect: "person" });
 });
 
 test("pipParams: off before the call is up, after it ends, and without a call", () => {
   for (const phase of ["idle", "connecting", "ended"] as const) {
-    expect(pipParams({ phase, mic: true, participants: [person("a")] })).toEqual(PIP_OFF);
+    expect(pipParams({ phase, mic: true, dataSaver: false, participants: [person("a")] })).toEqual(PIP_OFF);
   }
   expect(pipParams(null)).toEqual(PIP_OFF);
   expect(PIP_OFF.enabled).toBe(false);
