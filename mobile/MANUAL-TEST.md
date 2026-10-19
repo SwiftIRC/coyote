@@ -345,3 +345,10 @@ browser in the call to watch the result.
      closes and you stay in the call. Back again with nothing open: "Leave call?".
 103. **Keyboard up.** Chat with the keyboard up: dragging the sheet down closes it and the
      keyboard; on Android, back first hides the keyboard, then closes the sheet.
+
+## Switching cameras (iOS and Android)
+
+104. **Flip and pick.** In a call with someone watching, flip cameras from your self-view,
+     then pick each camera in Devices: your preview and their view switch within about a
+     second, with no long black gap, and keep working after several switches back and
+     forth. With a background effect on, it stays on across the switch.

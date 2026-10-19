@@ -33,3 +33,24 @@ test("a camera by facing has no deviceId", async () => {
   expect(video.facingMode).toBe("user");
   expect(video).not.toHaveProperty("deviceId");
 });
+
+// Switching keeps the capture size: Android's applyConstraints reads width, height and
+// frameRate unconditionally, and both sides would otherwise reset them to defaults.
+test("switchCamera re-points the live track with the full camera constraints", async () => {
+  const t = load();
+  const applyConstraints = jest.fn(async (_c: unknown) => {});
+  const ok = await t.mod.media.switchCamera({ id: "t1", kind: "video", applyConstraints } as never, { facing: "environment", deviceId: "2" });
+  expect(ok).toBe(true);
+  expect(applyConstraints).toHaveBeenCalledWith({ width: 1280, height: 720, frameRate: 30, facingMode: "environment", deviceId: "2" });
+  expect(t.getUserMedia).not.toHaveBeenCalled();
+});
+
+test("switchCamera by facing has no deviceId; a rejected switch is false", async () => {
+  const t = load();
+  const applyConstraints = jest.fn(async (_c: unknown) => {});
+  await t.mod.media.switchCamera({ id: "t1", kind: "video", applyConstraints } as never, { facing: "user" });
+  expect(applyConstraints.mock.calls[0][0]).not.toHaveProperty("deviceId");
+  const failing = { id: "t2", kind: "video", applyConstraints: async () => { throw new Error("Error switching camera"); } };
+  expect(await t.mod.media.switchCamera(failing as never, { facing: "user" })).toBe(false);
+  expect(await t.mod.media.switchCamera({ id: "t3", kind: "video" } as never, { facing: "user" })).toBe(false);
+});

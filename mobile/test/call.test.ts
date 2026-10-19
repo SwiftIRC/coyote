@@ -87,6 +87,17 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
         cams.push(t);
         return ctl.deferCam ? new Promise<FakeTrack>((r) => ctl.camWaits.push(() => r(t))) : Promise.resolve(t);
       },
+      // In place, like react-native-webrtc's applyConstraints: the same track, another camera.
+      switchCamera: (track, choice) => {
+        camChoices.push(choice);
+        const t = track as FakeTrack;
+        const ok = !(opts.camDenied || (choice.deviceId && ctl.missing.has(choice.deviceId)));
+        const done = () => {
+          if (ok) t.deviceId = choice.deviceId ?? (choice.facing === "user" ? "cam-front" : "cam-back");
+          return ok;
+        };
+        return ctl.deferCam ? new Promise<boolean>((r) => ctl.camWaits.push(() => r(done()))) : Promise.resolve(done());
+      },
       createStream: (t) => new FakeStream(t),
     },
     system: {
@@ -341,12 +352,16 @@ test("turning the camera on with no camera sender publishes it", async () => {
   expect(framesOf("media-state").at(-1)).toMatchObject({ camera: true });
 });
 
-test("flip swaps the camera track in place", async () => {
-  const { call, peers, cams } = await inCall();
+// Never a second camera while the first is open: phones can't run two (Android gets no
+// frames, iOS stalls for seconds). The live track switches camera in place instead.
+test("flip switches the live track's camera in place", async () => {
+  const { call, peers, cams, camChoices } = await inCall();
   await call.flipCamera();
-  expect(call.getState().facing).toBe("environment");
-  expect(peers[0].replaced.at(-1)).toEqual(["camera", cams[1]]);
-  expect(cams[0].stopped).toBe(true);
+  expect(call.getState()).toMatchObject({ facing: "environment", cameraId: "cam-back", camera: true });
+  expect(camChoices.at(-1)).toEqual({ facing: "environment" });
+  expect(cams).toHaveLength(1);
+  expect(cams[0].stopped).toBe(false);
+  expect(peers[0].replaced).toEqual([]);
 });
 
 test("remote camera and mic streams land in the roster; screenshares are ignored", async () => {
@@ -407,37 +422,39 @@ test("op force-mute and quality frames apply", async () => {
   expect(peers[0].quality).toEqual(["high", "low"]);
 });
 
-test("flip then camera off during acquisition: the new track is stopped, not assigned", async () => {
+test("flip then camera off while switching: the camera stays off", async () => {
   const { call, peers, cams, ctl } = await inCall();
   ctl.deferCam = true;
   const flip = call.flipCamera();
   await call.setCamera(false);
   ctl.camWaits[0]();
   await flip;
-  expect(cams[1].stopped).toBe(true);
-  expect(call.getState().camera).toBe(false);
+  expect(cams).toHaveLength(1);
+  expect(cams[0].stopped).toBe(true);
+  expect(call.getState()).toMatchObject({ camera: false, facing: "user" });
   expect(peers[0].replaced).toEqual([["camera", null]]);
 });
 
-test("flip then leave during acquisition: the new track is stopped", async () => {
+test("flip then leave while switching: nothing changes after", async () => {
   const { call, cams, ctl } = await inCall();
   ctl.deferCam = true;
   const flip = call.flipCamera();
   call.leave();
   ctl.camWaits[0]();
   await flip;
-  expect(cams[1].stopped).toBe(true);
+  expect(cams).toHaveLength(1);
+  expect(call.getState().facing).toBe("user");
 });
 
-test("flip then kick during acquisition: the new track is stopped", async () => {
+test("flip then kick while switching: nothing changes after", async () => {
   const { call, cams, ctl } = await inCall();
   ctl.deferCam = true;
   const flip = call.flipCamera();
   sock().receive({ type: "kicked", by: "Alice" });
   ctl.camWaits[0]();
   await flip;
-  expect(cams[1].stopped).toBe(true);
-  expect(call.getState().phase).toBe("ended");
+  expect(cams).toHaveLength(1);
+  expect(call.getState()).toMatchObject({ phase: "ended", facing: "user" });
 });
 
 test("background during a pending camera restore keeps it off and restores next foreground", async () => {
@@ -959,17 +976,20 @@ test("background: none by default — the track is detached, nothing configured"
   expect(effects).toEqual([`detach ${cams[0].id}`, "clear"]);
 });
 
-test("background: follows the camera through flip and off/on", async () => {
+test("background: stays on the track through a flip, follows the camera off/on", async () => {
   const { call, effects, cams } = await inCall({ background: "blur" });
+  await flush();
+  const before = effects.length;
   await call.flipCamera();
   await flush();
-  expect(effects.at(-1)).toBe(`attach ${cams[1].id}`);
+  expect(effects.slice(before).filter((e) => e.startsWith("detach"))).toEqual([]);
+  expect(effects.filter((e) => e.startsWith("attach")).at(-1)).toBe(`attach ${cams[0].id}`);
   await call.setCamera(false);
   await flush();
   expect(call.background.getSnapshot().applied).toBe("none");
   await call.setCamera(true);
   await flush();
-  expect(effects.at(-1)).toBe(`attach ${cams[2].id}`);
+  expect(effects.at(-1)).toBe(`attach ${cams[1].id}`);
 });
 
 test("background: a scene comes from the room's server", async () => {
@@ -1030,17 +1050,18 @@ test("selectCamera swaps the live camera to that device and the next turn-on reu
   await call.selectCamera("wide2", "environment");
   expect(camChoices.at(-1)).toEqual({ facing: "environment", deviceId: "wide2" });
   expect(call.getState()).toMatchObject({ facing: "environment", cameraId: "wide2" });
-  expect(peers[0].replaced.at(-1)).toEqual(["camera", cams[1]]);
-  expect(cams[0].stopped).toBe(true);
+  expect(cams).toHaveLength(1);
+  expect(peers[0].replaced).toEqual([]);
   await call.setCamera(false);
   await call.setCamera(true);
   expect(camChoices.at(-1)).toEqual({ facing: "environment", deviceId: "wide2" });
 });
 
 test("selectCamera on the current camera does nothing", async () => {
-  const { call, cams } = await inCall();
+  const { call, camChoices } = await inCall();
+  const n = camChoices.length;
   await call.selectCamera("cam-front", "user");
-  expect(cams).toHaveLength(1);
+  expect(camChoices).toHaveLength(n);
 });
 
 test("selectCamera with the camera off is used by the next turn-on", async () => {
@@ -1071,7 +1092,7 @@ test("a camera that fails to open keeps the old one and shows the notice", async
   expect(cams[0].stopped).toBe(false);
 });
 
-test("of two quick camera picks the newer wins; the stale track is stopped", async () => {
+test("of two quick camera picks the newer wins", async () => {
   const { call, ctl, cams } = await inCall();
   ctl.deferCam = true;
   const a = call.selectCamera("a", "environment");
@@ -1080,7 +1101,7 @@ test("of two quick camera picks the newer wins; the stale track is stopped", asy
   ctl.camWaits[1]();
   await a;
   await b;
-  expect(cams[1].stopped).toBe(true);
+  expect(cams).toHaveLength(1);
   expect(call.getState().cameraId).toBe("b");
 });
 
