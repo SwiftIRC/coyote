@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { BUILTIN_EFFECTS, type BgSnapshot } from "../../core/backgrounds";
 import { colors, radius } from "../theme";
-import { Sheet } from "./Sheet";
+import { Sheet, useSheetList } from "./Sheet";
 
 // Pick a background effect: None, Blur, Blur+, then the server's scenes. Applies
 // immediately; the sheet stays open so you can compare.
@@ -13,6 +13,7 @@ export function BackgroundSheet({ visible, onClose, snap, onSelect, onOpen }: {
     if (visible) onOpen();
   }, [visible, onOpen]);
 
+  const list = useSheetList();
   const tile = (id: string, label: string, image?: string) => {
     const on = snap.selected === id;
     return (
@@ -33,7 +34,7 @@ export function BackgroundSheet({ visible, onClose, snap, onSelect, onOpen }: {
 
   return (
     <Sheet visible={visible} onClose={onClose} heightFraction={0.55}>
-      <ScrollView contentContainerStyle={styles.grid}>
+      <ScrollView {...list} contentContainerStyle={styles.grid}>
         {BUILTIN_EFFECTS.map((b) => tile(b.id, b.label))}
         {snap.scenes.map((s) => tile(s.id, s.label, s.url))}
         {snap.scenesState === "loading" ? <ActivityIndicator style={styles.loading} color={colors.muted} /> : null}

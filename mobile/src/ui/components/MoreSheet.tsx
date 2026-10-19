@@ -5,7 +5,7 @@ import { MOD_RESULT_TEXT, type ModResult, type QualityTarget } from "../../core/
 import type { ShareStatus } from "../../core/screenShare";
 import { QUALITY_TIERS } from "../../shared/web";
 import { colors, radius } from "../theme";
-import { Sheet } from "./Sheet";
+import { Sheet, useSheetList } from "./Sheet";
 import { Toggle } from "./Toggle";
 
 type RenameResult = "sent" | "empty" | "unchanged" | "offline";
@@ -21,6 +21,7 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
   share: ShareStatus; canShare: boolean; onShare(): void; onStopShare(): void; onBackground(): void;
   mod: { lock(pw: string): ModResult; unlock(): ModResult; setQuality(t: QualityTarget, tier: string): ModResult };
 }) {
+  const list = useSheetList();
   const [draft, setDraft] = useState(name);
   const [msg, setMsg] = useState("");
   const [view, setView] = useState<"main" | "quality">("main");
@@ -50,7 +51,7 @@ export function MoreSheet({ visible, onClose, name, rename, isOp, onNewPoll, dat
 
   return (
     <Sheet visible={visible} onClose={onClose} heightFraction={0.55}>
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <ScrollView {...list} keyboardShouldPersistTaps="handled">
       {view === "quality" ? (
         <View style={styles.body}>
           <Pressable onPress={() => setView("main")} accessibilityRole="button" accessibilityLabel="Back" style={styles.row2}>
