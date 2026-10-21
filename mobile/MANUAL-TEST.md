@@ -391,3 +391,6 @@ browser in the call to watch the result.
      · Stop" sits just above the menu, and drops to the bottom edge when the menu hides.
      Leave the call: the clock (and on Android the navigation bar) are back on the home and
      join screens. Android: Home into PiP and back: still full screen.
+113. **Pinch on Android.** Open a camera full screen, then a screenshare: a slow two-finger
+     pinch zooms each one, and dragging pans while zoomed (this used to do nothing on
+     Android: the touch was handed away before the second finger counted).

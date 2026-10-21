@@ -84,6 +84,10 @@ export function ScreenViewer({ v, onClose, isOp, onStopShare }: {
         ty.setValue(g.y);
       }
     },
+    // On Android something behind the viewer asks for the touch as the first finger
+    // moves; handing it over (the default) ended every pinch before the second finger
+    // counted. The viewer covers the screen, so it keeps its touches.
+    onPanResponderTerminationRequest: () => false,
     onPanResponderRelease: () => {
       if (g.scale <= 1.01) reset();
     },
