@@ -1,6 +1,8 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AccessibilityInfo } from "react-native";
 import type { BgSnapshot } from "../core/backgrounds";
 import type { ChatSnapshot } from "../core/chat";
+import { AutoHide } from "../core/chrome";
 import type { ModSnapshot } from "../core/moderation";
 import type { PollView } from "../core/polls";
 import type { ShareSnapshot } from "../core/screenShare";
@@ -74,4 +76,33 @@ const EMPTY_BG: BgSnapshot = { selected: "none", applied: "none", busy: false, s
 export function useBackground(): BgSnapshot {
   const { call } = useCall();
   return useStore(call()?.background ?? null, EMPTY_BG);
+}
+
+// Whether the call's controls are showing, and `poke` for a touch (core/chrome.ts).
+export function useAutoHide(pinned: boolean): { visible: boolean; poke(): void } {
+  const [visible, setVisible] = useState(true);
+  const auto = useRef<AutoHide | null>(null);
+  useEffect(() => {
+    const a = new AutoHide(setVisible);
+    auto.current = a;
+    setVisible(true);
+    return () => {
+      a.dispose();
+      auto.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    auto.current?.setPinned(pinned);
+  }, [pinned]);
+  return { visible, poke: () => auto.current?.poke() };
+}
+
+export function useScreenReader(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isScreenReaderEnabled().then(setOn).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener("screenReaderChanged", setOn);
+    return () => sub.remove();
+  }, []);
+  return on;
 }

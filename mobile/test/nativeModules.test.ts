@@ -320,3 +320,30 @@ describe("picture-in-picture wiring", () => {
     expect(src).toContain("FLAG_IMMUTABLE");
   });
 });
+
+// Full screen during a call (core/chrome.ts drives the controls; these hide the system bars).
+test("Android CoyoteImmersive hides the system bars, swipe shows them briefly, and focus re-applies it", () => {
+  const dir = path.join(__dirname, "..", "android", "app", "src", "main", "java", "net", "swiftirc", "coyote");
+  const kt = (f: string) => fs.readFileSync(path.join(dir, f), "utf8");
+  expect(kt("Immersive.kt")).toContain("BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE");
+  expect(kt("Immersive.kt")).toContain("hide(WindowInsetsCompat.Type.systemBars())");
+  expect(kt("CoyoteImmersiveModule.kt")).toContain('getName() = "CoyoteImmersive"');
+  expect(kt("MainApplication.kt")).toContain("add(CoyoteImmersivePackage())");
+  expect(kt("MainActivity.kt")).toMatch(/override fun onWindowFocusChanged\([\s\S]*?Immersive\.onWindowFocusChanged\(this, hasFocus\)/);
+});
+
+test("iOS CoyoteImmersive lets the root view controller hide the home indicator, and is built", () => {
+  const ios = path.join(__dirname, "..", "ios");
+  const read = (f: string) => fs.readFileSync(path.join(ios, "Coyote", f), "utf8");
+  expect(read("CoyoteImmersive.m")).toContain("RCT_EXTERN_MODULE(CoyoteImmersive, NSObject)");
+  expect(read("CoyoteImmersive.m")).toContain("RCT_EXTERN_METHOD(setImmersive:(BOOL)on)");
+  expect(read("CoyoteImmersive.swift")).toContain("prefersHomeIndicatorAutoHidden");
+  expect(read("CoyoteImmersive.swift")).toContain("setNeedsUpdateOfHomeIndicatorAutoHidden");
+  expect(read("AppDelegate.swift")).toMatch(/override func createRootViewController\(\)[\s\S]*?CoyoteRootViewController\(\)/);
+  // RN's StatusBar.setHidden needs app-wide status bar appearance.
+  expect(read("Info.plist")).toMatch(/UIViewControllerBasedStatusBarAppearance<\/key>\s*<false\/>/);
+  const pbx = fs.readFileSync(path.join(ios, "Coyote.xcodeproj", "project.pbxproj"), "utf8");
+  for (const f of ["CoyoteImmersive.swift", "CoyoteImmersive.m"]) {
+    expect(pbx.split(`/* ${f} in Sources */`).length - 1).toBe(2);
+  }
+});

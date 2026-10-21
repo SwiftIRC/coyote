@@ -24,6 +24,7 @@ class MainApplication : Application(), ReactApplication {
           add(CoyoteBackgroundPackage())
           add(CoyoteAudioRoutePackage())
           add(CoyotePipPackage())
+          add(CoyoteImmersivePackage())
         },
     )
   }
