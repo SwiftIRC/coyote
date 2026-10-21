@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { NO_ROUTES, outputLabel, pendingOutcome, pickInput, pickOutput, selectedOutput, type Pending, type Routes } from "../../core/audioRoutes";
 import { cameraFacing, type Camera } from "../../core/cameras";
+import { chromePinned } from "../../core/chrome";
 import { gridColumns } from "../../core/grid";
 import { PIP_OFF, pipOthers, pipParams, pipTile, runPipAction } from "../../core/pip";
 import { gridTiles, viewedFor, type Viewing } from "../../core/tiles";
 import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
+import { setImmersive } from "../../native/immersive";
 import { setPip, watchPip, watchPipActions } from "../../native/pip";
 import { listCameras } from "../../native/webrtc";
 import { useCall } from "../CallContext";
-import { useBackground, useChat, useModeration, usePoll, useScreenShare, useVolumes } from "../hooks";
+import { useAutoHide, useBackground, useChat, useModeration, usePoll, useScreenReader, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
 import { DevicesSheet } from "../components/DevicesSheet";
 import { BackgroundSheet } from "../components/BackgroundSheet";
@@ -40,10 +42,11 @@ export function Call() {
   const { state, notices, notify, leave, call, outcome, takePendingLink, busy } = useCall();
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // The call area inside the system bars; measured once laid out, estimated before.
+  // The call draws edge to edge, under the hidden system bars and the controls; measured
+  // once laid out, estimated before. Showing or hiding the controls never resizes it.
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
-  const width = area?.width ?? window.width - insets.left - insets.right;
-  const height = area?.height ?? window.height - insets.top - insets.bottom;
+  const width = area?.width ?? window.width;
+  const height = area?.height ?? window.height;
   const [routes, setRoutes] = useState<Routes>(NO_ROUTES);
   const [pending, setPending] = useState<Pending | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -69,6 +72,29 @@ export function Call() {
   const [pipFocus, setPipFocus] = useState<Viewing | null>(null);
   const viewingRef = useRef(viewing);
   viewingRef.current = viewing;
+  // Full screen for the whole call screen.
+  useEffect(() => {
+    setImmersive(true);
+    return () => setImmersive(false);
+  }, []);
+  // The controls and top bar hide over the video and come back on a touch. A touch that
+  // brings them back does only that: it doesn't also open the tile under the finger.
+  const screenReader = useScreenReader();
+  const chrome = useAutoHide(chromePinned({
+    phase: state?.phase ?? "connecting",
+    people: state?.participants.length ?? 0,
+    sheetOpen: sheet !== null || volumeFor !== null,
+    screenReader,
+  }));
+  const touchShowed = useRef(false);
+  const onTouchStart = () => {
+    touchShowed.current = !chrome.visible;
+    chrome.poke();
+  };
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.timing(fade, { toValue: chrome.visible ? 1 : 0, duration: 200, useNativeDriver: true }).start();
+  }, [chrome.visible, fade]);
   const audioStarted = useRef(false);
   const phase = state?.phase;
   const hasState = !!state;
@@ -211,7 +237,7 @@ export function Call() {
   }
   const people = state.participants;
   const tiles = gridTiles(people, share.status === "sharing");
-  const gridH = height - CONTROLS_H;
+  const gridH = height;
   const cols = gridColumns(width, gridH, tiles.length);
   const rows = Math.max(1, Math.ceil(tiles.length / cols));
   const tileW = Math.floor(width / cols);
@@ -246,7 +272,7 @@ export function Call() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+    <View style={styles.root} onTouchStart={onTouchStart}>
       <View style={styles.area} onLayout={(e) => setArea(e.nativeEvent.layout)}>
         <View style={[styles.grid, { height: gridH }]}>
           {tiles.length === 0 ? (
@@ -255,39 +281,53 @@ export function Call() {
             tiles.map((t) => t.kind === "own-screen"
               ? <OwnShareTile key={t.key} width={tileW} height={tileH} />
               : t.kind === "screen"
-              ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => setViewing({ kind: "screen", id: t.p.id })} />
+              ? <ScreenTile key={t.key} p={t.p} width={tileW} height={tileH} onOpen={() => { if (!touchShowed.current) setViewing({ kind: "screen", id: t.p.id }); }} />
               : <Tile
                 key={t.key} p={t.p} width={tileW} height={tileH}
                 volume={volumes[t.p.id] ?? 1}
                 dataSaver={state.dataSaver}
-                onPress={() => setViewing({ kind: "camera", id: t.p.id })}
+                onPress={() => { if (!touchShowed.current) setViewing({ kind: "camera", id: t.p.id }); }}
                 onLongPress={() => setVolumeFor(t.p.id)}
               />)
           )}
         </View>
-        <TopBar slug={state.slug} locked={mod.locked} />
-        <SelfView stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
-        <Banner kind={state.banner} notices={notices} />
+        <Animated.View
+          style={[styles.top, { top: insets.top, left: insets.left, right: insets.right, opacity: fade }]}
+          pointerEvents="none"
+          accessibilityElementsHidden={!chrome.visible}
+          importantForAccessibility={chrome.visible ? "auto" : "no-hide-descendants"}
+        >
+          <TopBar slug={state.slug} locked={mod.locked} />
+        </Animated.View>
+        <SelfView inset={insets.top} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
+        <Banner inset={insets.top} kind={state.banner} notices={notices} />
         {share.status === "sharing" ? (
-          <SharingPill bottom={CONTROLS_H + 8} onStop={() => call()?.screenShare.stop("user")} />
+          <SharingPill bottom={insets.bottom + 8 + (chrome.visible ? CONTROLS_H : 0)} onStop={() => call()?.screenShare.stop("user")} />
         ) : null}
-        <Controls
-          mic={state.mic}
-          camera={state.camera}
-          routeA11y={`Audio and video devices. Output: ${current?.name ?? outputLabel(undefined)}`}
-          onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
-          onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
-          unread={chat.unread}
-          onChat={toggleChat}
-          onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
-          onRoute={() => {
-            const open = sheet !== "devices";
-            setSheet(open ? "devices" : null);
-            if (open) listCameras().then(setCameras).catch(() => setCameras([]));
-            call()?.chat.setOpen(false);
-          }}
-          onLeave={leave}
-        />
+        <Animated.View
+          style={[styles.controls, { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right, opacity: fade }]}
+          pointerEvents={chrome.visible ? "auto" : "none"}
+          accessibilityElementsHidden={!chrome.visible}
+          importantForAccessibility={chrome.visible ? "auto" : "no-hide-descendants"}
+        >
+          <Controls
+            mic={state.mic}
+            camera={state.camera}
+            routeA11y={`Audio and video devices. Output: ${current?.name ?? outputLabel(undefined)}`}
+            onMic={() => { call()?.setMic(!state.mic).catch(warn("mic")); }}
+            onCamera={() => { call()?.setCamera(!state.camera).catch(warn("camera")); }}
+            unread={chat.unread}
+            onChat={toggleChat}
+            onMore={() => { setSheet(sheet === "more" ? null : "more"); call()?.chat.setOpen(false); }}
+            onRoute={() => {
+              const open = sheet !== "devices";
+              setSheet(open ? "devices" : null);
+              if (open) listCameras().then(setCameras).catch(() => setCameras([]));
+              call()?.chat.setOpen(false);
+            }}
+            onLeave={leave}
+          />
+        </Animated.View>
         <ChatSheet
           visible={sheet === "chat"}
           onClose={() => { setSheet(null); call()?.chat.setOpen(false); }}
@@ -375,6 +415,8 @@ export function Call() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   area: { flex: 1 },
+  top: { position: "absolute", height: 40 },
+  controls: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(17,18,20,0.85)" },
   grid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },
   waiting: { color: colors.muted, textAlign: "center", width: "100%", marginTop: "50%" },
   setup: { alignItems: "center", justifyContent: "center", gap: 24 },

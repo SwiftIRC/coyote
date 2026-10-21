@@ -45,7 +45,7 @@ export function Controls(p: Props) {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", paddingVertical: 12, paddingBottom: 28, backgroundColor: colors.bg },
+  bar: { flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", paddingVertical: 12, paddingBottom: 28 },
   btn: { minWidth: 52, height: 52, borderRadius: 26, paddingHorizontal: 8, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   // "Devices" is the one word label besides Leave; cap it so 4x52 + 76 + Leave stays within 360 pt.
   fit: { maxWidth: 76 },

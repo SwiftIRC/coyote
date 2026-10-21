@@ -35,6 +35,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
+  // Lets the call hide the home indicator (CoyoteImmersive).
+  override func createRootViewController() -> UIViewController {
+    CoyoteRootViewController()
+  }
+
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     self.bundleURL()
   }

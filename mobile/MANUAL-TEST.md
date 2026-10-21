@@ -370,3 +370,24 @@ browser in the call to watch the result.
 108. **PiP shows who you focused on (Android).** While the browser shares its screen, open
      another person's camera full screen and press Home: the PiP window shows that
      person, not the share. Back in the app the grid shows, with the viewer closed.
+
+## Full-screen call (iOS and Android)
+
+109. **Bars and menu hide.** Join a call with a browser in it: about 4 s after the last
+     touch, the control bar and the room/timer bar fade out, and the video fills the whole
+     screen. Android: no clock bar and no navigation bar; a swipe in from the top or bottom
+     edge shows them briefly over the video. iOS: no status bar; the home indicator fades
+     when you stop touching. The tiles don't jump or resize when the menu comes and goes
+     (Android: video keeps filling each tile — see the parked resize bug).
+110. **Tap to bring it back.** With the menu hidden, tap a camera tile: the menu comes back
+     and the camera does NOT open. Tap it again: it opens full screen. Same for a
+     screenshare tile. Tap a gap between the menu's buttons: nothing opens. Long-press a
+     tile with the menu hidden: the volume sheet opens.
+111. **When it stays up.** Alone in the room, or reconnecting: the menu never hides. Open
+     Chat, Devices, More or a person's sheet and wait 10 s: the menu stays; close the sheet
+     and it hides 4 s later. With TalkBack / VoiceOver on, it never hides.
+112. **Around the edges.** Your self-view sits below the notch / camera hole and still drags
+     with the menu hidden; notices and "Reconnecting…" stay readable; "Sharing your screen
+     · Stop" sits just above the menu, and drops to the bottom edge when the menu hides.
+     Leave the call: the clock (and on Android the navigation bar) are back on the home and
+     join screens. Android: Home into PiP and back: still full screen.

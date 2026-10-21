@@ -22,6 +22,8 @@
 		C0A0D1122E00000000000001 /* CoyoteAudioRoute.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */; };
 		C0A0D1132E00000000000001 /* CoyoteRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */; };
 		C0A0D1142E00000000000001 /* CoyoteRoutePicker.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */; };
+		C0A0D1152E00000000000001 /* CoyoteImmersive.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1052E00000000000001 /* CoyoteImmersive.swift */; };
+		C0A0D1162E00000000000001 /* CoyoteImmersive.m in Sources */ = {isa = PBXBuildFile; fileRef = C0A0D1062E00000000000001 /* CoyoteImmersive.m */; };
 		C0B0AD112E00000000000001 /* CoyoteScreenShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */; };
 		C0B0AD122E00000000000001 /* CoyoteScreenShare.m in Sources */ = {isa = PBXBuildFile; fileRef = C0B0AD022E00000000000001 /* CoyoteScreenShare.m */; };
 		C0B0AD132E00000000000001 /* CoyoteBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -77,6 +79,8 @@
 		C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteAudioRoute.m; path = Coyote/CoyoteAudioRoute.m; sourceTree = "<group>"; };
 		C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteRoutePicker.swift; path = Coyote/CoyoteRoutePicker.swift; sourceTree = "<group>"; };
 		C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteRoutePicker.m; path = Coyote/CoyoteRoutePicker.m; sourceTree = "<group>"; };
+		C0A0D1052E00000000000001 /* CoyoteImmersive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteImmersive.swift; path = Coyote/CoyoteImmersive.swift; sourceTree = "<group>"; };
+		C0A0D1062E00000000000001 /* CoyoteImmersive.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteImmersive.m; path = Coyote/CoyoteImmersive.m; sourceTree = "<group>"; };
 		C0B0AD012E00000000000001 /* CoyoteScreenShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoyoteScreenShare.swift; path = Coyote/CoyoteScreenShare.swift; sourceTree = "<group>"; };
 		C0B0AD022E00000000000001 /* CoyoteScreenShare.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoyoteScreenShare.m; path = Coyote/CoyoteScreenShare.m; sourceTree = "<group>"; };
 		C0B0AD032E00000000000001 /* CoyoteBroadcast.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoyoteBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -124,6 +128,8 @@
 				C0A0D1022E00000000000001 /* CoyoteAudioRoute.m */,
 				C0A0D1032E00000000000001 /* CoyoteRoutePicker.swift */,
 				C0A0D1042E00000000000001 /* CoyoteRoutePicker.m */,
+				C0A0D1052E00000000000001 /* CoyoteImmersive.swift */,
+				C0A0D1062E00000000000001 /* CoyoteImmersive.m */,
 				C0B0AE012E00000000000001 /* CoyoteBackground.swift */,
 				C0B0AE022E00000000000001 /* CoyoteBackground.m */,
 				C0B0AE032E00000000000001 /* CoyoteBackgroundProcessor.m */,
@@ -389,6 +395,8 @@
 				C0A0D1122E00000000000001 /* CoyoteAudioRoute.m in Sources */,
 				C0A0D1132E00000000000001 /* CoyoteRoutePicker.swift in Sources */,
 				C0A0D1142E00000000000001 /* CoyoteRoutePicker.m in Sources */,
+				C0A0D1152E00000000000001 /* CoyoteImmersive.swift in Sources */,
+				C0A0D1162E00000000000001 /* CoyoteImmersive.m in Sources */,
 				C0B0AE112E00000000000001 /* CoyoteBackground.swift in Sources */,
 				C0B0AE122E00000000000001 /* CoyoteBackground.m in Sources */,
 				C0B0AE132E00000000000001 /* CoyoteBackgroundProcessor.m in Sources */,

@@ -41,4 +41,9 @@ class MainActivity : ReactActivity() {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
     Pip.onModeChanged(isInPictureInPictureMode)
   }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    Immersive.onWindowFocusChanged(this, hasFocus)
+  }
 }
