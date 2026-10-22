@@ -11,8 +11,8 @@ import { Slider } from "./Slider";
 const MAX_ZOOM = 5;
 const dist = (t: ReadonlyArray<{ pageX: number; pageY: number }>) => Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
 
-// Full-screen share or camera: pinch to zoom, drag to pan, ⟲ rotates 90° (the app
-// is portrait-locked). A share also gets a volume slider when it has audio, and
+// Full-screen share or camera: pinch to zoom, drag to pan, ⟲ rotates 90° (for a
+// landscape share with the phone held upright, or rotation locked). A share also gets a volume slider when it has audio, and
 // Stop share for ops.
 export function ScreenViewer({ v, onClose, isOp, onStopShare }: {
   v: { kind: "screen" | "camera"; p: Participant } | null; onClose(): void; isOp: boolean; onStopShare(id: string): ModResult;
@@ -98,7 +98,7 @@ export function ScreenViewer({ v, onClose, isOp, onStopShare }: {
   const w = rotated ? win.height : win.width;
   const h = rotated ? win.width : win.height;
   return (
-    <Modal visible animationType="fade" onRequestClose={onClose} supportedOrientations={["portrait"]} statusBarTranslucent>
+    <Modal visible animationType="fade" onRequestClose={onClose} supportedOrientations={["portrait", "landscape-left", "landscape-right"]} statusBarTranslucent>
       <View style={styles.root} {...pan.panHandlers}>
         <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { rotate: rotated ? "90deg" : "0deg" }, { scale }] }}>
           {stream?.toURL ? (

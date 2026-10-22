@@ -347,3 +347,13 @@ test("iOS CoyoteImmersive lets the root view controller hide the home indicator,
     expect(pbx.split(`/* ${f} in Sources */`).length - 1).toBe(2);
   }
 });
+
+// A portrait-locked iPhone draws every video sideways when the phone is turned
+// (the camera rotates its frames; the UI doesn't). Rotate like Android does.
+test("iPhone rotates to landscape, and so does the full-screen viewer", () => {
+  const plist = fs.readFileSync(path.join(__dirname, "..", "ios", "Coyote", "Info.plist"), "utf8");
+  const iphone = plist.match(/<key>UISupportedInterfaceOrientations<\/key>\s*<array>([\s\S]*?)<\/array>/)![1];
+  for (const o of ["Portrait", "LandscapeLeft", "LandscapeRight"]) expect(iphone).toContain(`UIInterfaceOrientation${o}<`);
+  const viewer = fs.readFileSync(path.join(__dirname, "..", "src", "ui", "components", "ScreenViewer.tsx"), "utf8");
+  expect(viewer).toContain('supportedOrientations={["portrait", "landscape-left", "landscape-right"]}');
+});

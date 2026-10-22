@@ -394,3 +394,8 @@ browser in the call to watch the result.
 113. **Pinch on Android.** Open a camera full screen, then a screenshare: a slow two-finger
      pinch zooms each one, and dragging pans while zoomed (this used to do nothing on
      Android: the touch was handed away before the second finger counted).
+114. **Rotation on iPhone.** In a call with a camera on each side, turn the iPhone to
+     landscape and back: the screen follows, and your self-view and everyone's camera stay
+     upright (they used to turn sideways because the iPhone app was locked to portrait).
+     Do it with the join screen, a sheet and the full-screen viewer open too: nothing is
+     cut off, and the menu, notch insets and self-view drag still work.
