@@ -7,7 +7,7 @@
 //  - an offer is deferred while one is in flight and flushed once stable;
 //  - on glare, a bare setRemoteDescription(offer) is the rollback (never an explicit
 //    {type:"rollback"}), then answer, then re-offer explicitly.
-import { handleRemoteOffer, qualityTier, encodingCaps } from "../shared/web";
+import { handleRemoteOffer, qualityTier, encodingCaps, senderMaxBitrate } from "../shared/web";
 import { preferVp8 } from "./codecs";
 import type {
   CodecLike, Frame, Kind, Logger, PeerConnectionLike, SenderLike, StreamLike, Timers, TrackEventLike, TrackLike,
@@ -171,10 +171,15 @@ export class Peer {
     if (!params.encodings || params.encodings.length === 0) return; // not negotiated yet
     const enc = params.encodings[0];
     const h = (kind === "camera" && this.cameraSourceHeight) || sender.track.getSettings?.().height || 0;
-    const caps: { scaleResolutionDownBy: number; maxFramerate?: number } = encodingCaps(qualityTier(this.quality[kind]), h);
+    const caps: { scaleResolutionDownBy: number; maxFramerate?: number; maxBitrate?: number } = encodingCaps(qualityTier(this.quality[kind]), h);
     enc.scaleResolutionDownBy = caps.scaleResolutionDownBy;
     if (caps.maxFramerate) enc.maxFramerate = caps.maxFramerate;
     else delete enc.maxFramerate;
+    // Without a ceiling a tier is invisible: the encoder climbs to its default bitrate
+    // at any size. A screenshare keeps its safety ceiling on every tier.
+    const maxBitrate: number | undefined = senderMaxBitrate(kind, caps);
+    if (maxBitrate) enc.maxBitrate = maxBitrate;
+    else delete enc.maxBitrate;
     sender.setParameters(params).catch((err) => this.deps.log.warn(`[quality] ${kind}: setParameters rejected`, err));
   }
 

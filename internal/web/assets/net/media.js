@@ -34,6 +34,8 @@
 import { BackgroundSegmenter } from "../lib/segmenter.js";
 import { resolveEffectId } from "../lib/backgrounds.js";
 import { micConstraints } from "../lib/audioConstraints.js";
+import { cameraConstraints } from "../lib/videoConstraints.js";
+import { qualityTier, captureTarget } from "../lib/quality.js";
 import { log } from "../lib/log.js";
 
 export class Media extends EventTarget {
@@ -52,6 +54,9 @@ export class Media extends EventTarget {
     // re-acquires the SAME camera rather than the browser's default (multi-camera
     // users would otherwise silently switch cameras on an in-call off→on).
     this._cameraId = null;
+    // The camera capture size/rate every acquisition asks for (captureTarget of the
+    // session's camera tier). Starts at Auto's 720p; setCaptureTarget follows the tier.
+    this._captureTarget = captureTarget(qualityTier("auto"));
 
     // Noise-suppression audio graph (opt-in; see setNoiseSuppression). When on,
     // the raw mic feeds a vendored AudioWorklet and the *processed* track is what
@@ -206,7 +211,7 @@ export class Media extends EventTarget {
       this._logMicProcessing("capture");
     }
     const camStream = await grab(
-      { video: cameraId ? { deviceId: { ideal: cameraId } } : true },
+      { video: cameraConstraints(cameraId, { target: this._captureTarget }) },
       "video",
       "video",
     );
@@ -246,7 +251,7 @@ export class Media extends EventTarget {
     const constraints = {};
     // Truthy, not != null: an empty deviceId (a device with no label/id because
     // permission was never granted) would become {exact:""} and fail the whole call.
-    if (cameraId) constraints.video = { deviceId: { exact: cameraId } };
+    if (cameraId) constraints.video = cameraConstraints(cameraId, { exact: true, target: this._captureTarget });
     if (micId) constraints.audio = micConstraints(micId, { exact: true });
     if (!constraints.video && !constraints.audio) return this.stream;
     // While NS is on the mute state lives on the PROCESSED track (micTrack), not the
@@ -388,7 +393,7 @@ export class Media extends EventTarget {
   // (holdVideo, I6) — the raw camera is never announced to them at all in that case.
   async enableCamera(deviceId = this._cameraId) {
     if (this.cameraTrack) return this.cameraTrack;
-    const video = deviceId ? { deviceId: { exact: deviceId } } : true;
+    const video = cameraConstraints(deviceId, { exact: true, target: this._captureTarget });
     const fresh = await this._getUserMedia({ video });
     const pendingEffect = this._bgEffect !== "none";
     this._adopt(fresh, { holdVideo: pendingEffect }); // swaps the new video track into `stream`
@@ -398,6 +403,27 @@ export class Media extends EventTarget {
       await this.setBackground(wanted);
     }
     return this.cameraTrack;
+  }
+
+  // Re-size the camera capture for a new session tier (see captureTarget). Stored so
+  // every later acquisition uses it, and applied in place to the live DEVICE track —
+  // the parked raw track while an effect runs, whose composite follows the source size.
+  // applyConstraints keeps the same device and needs no renegotiation. Resolves true
+  // when a live track was re-sized; a camera that cannot comply keeps its current
+  // size (logged, never thrown — the call must not break over a resolution).
+  async setCaptureTarget(target) {
+    this._captureTarget = target;
+    const track = this._segmenter ? this._rawCameraTrack : this.cameraTrack;
+    if (!track || typeof track.applyConstraints !== "function") return false;
+    const size = cameraConstraints(null, { target }); // no deviceId: keep the device
+    try {
+      await track.applyConstraints(size);
+    } catch (err) {
+      log.warn(`[video capture] could not apply ${target.width}x${target.height}@${target.frameRate}: ${(err && err.name) || err}`);
+      return false;
+    }
+    this._logVideoCapture("resize");
+    return true;
   }
 
   // Begin screen sharing. Resolves with the screen video track and emits
