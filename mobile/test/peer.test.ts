@@ -167,7 +167,34 @@ test("quality caps are applied once the sender has an encoding", async () => {
   sig.receive({ type: "answer", sdp: "a1" });
   await flush();
   const p = pc.transceivers[0].sender.setParams.at(-1);
-  expect(p.encodings[0]).toMatchObject({ scaleResolutionDownBy: 2, maxFramerate: 15 });
+  expect(p.encodings[0]).toMatchObject({ scaleResolutionDownBy: 2, maxFramerate: 15, maxBitrate: 300_000 });
+});
+
+// Without a ceiling the encoder climbs to its default bitrate at any size, and a
+// tier change is invisible (360p at 2.5 Mbps looks like 720p) and saves nothing.
+test("a tier's bitrate ceiling is applied, and Auto removes it", async () => {
+  const { sig, pc, peer } = make();
+  await peer.start([{ track: new FakeTrack("video", 720), kind: "camera" }]);
+  sig.receive({ type: "answer", sdp: "a1" });
+  await flush();
+  peer.setQuality("ultra", "auto");
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0].maxBitrate).toBe(4_000_000);
+  peer.setQuality("auto", "auto");
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0]).not.toHaveProperty("maxBitrate");
+});
+
+// A screenshare keeps a safety ceiling on every tier, Auto and Ultra included.
+test("a screenshare never exceeds its own bitrate ceiling", async () => {
+  const { sig, pc, peer } = make();
+  await peer.start([{ track: new FakeTrack("video", 1080), kind: "screen" }]);
+  sig.receive({ type: "answer", sdp: "a1" });
+  await flush();
+  peer.setQuality("auto", "ultra");
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0].maxBitrate).toBe(2_500_000);
+  peer.setQuality("auto", "auto");
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0].maxBitrate).toBe(2_500_000);
+  peer.setQuality("auto", "low");
+  expect(pc.transceivers[0].sender.setParams.at(-1).encodings[0].maxBitrate).toBe(300_000);
 });
 
 test("a camera source-height override replaces the track's height in the quality caps", async () => {

@@ -48,6 +48,22 @@ export function encodingCaps(tier, sourceHeight) {
   return caps;
 }
 
+// A screenshare's bitrate never goes above this (bits/sec), on any tier: plenty for
+// desktop/app content, while keeping a share from saturating the sharer's uplink or a
+// receiver's downlink — the SFU forwards it unchanged to every subscriber — and
+// starving the signaling WebSocket that shares the link (a spurious reconnect).
+export const SCREEN_MAX_BITRATE = 2_500_000;
+
+// The maxBitrate a sender of `kind` ("camera" | "screen") should carry for `caps`
+// (encodingCaps' result), or undefined for "no ceiling" — which the caller must
+// DELETE from the encoding, like maxFramerate. A screenshare takes the tier's ceiling
+// when it is lower, and SCREEN_MAX_BITRATE otherwise (Auto and Ultra included).
+export function senderMaxBitrate(kind, caps) {
+  const tierRate = caps && caps.maxBitrate;
+  if (kind === "screen") return Math.min(tierRate || SCREEN_MAX_BITRATE, SCREEN_MAX_BITRATE);
+  return tierRate || undefined;
+}
+
 // The camera capture a tier needs: {width, height, frameRate} to request from
 // getUserMedia. encodingCaps can only scale DOWN from the source, and a bare
 // `video: true` opens most cameras at 640x480 — which made every tier above Medium a

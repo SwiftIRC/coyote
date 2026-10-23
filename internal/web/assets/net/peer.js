@@ -27,7 +27,7 @@
 //   "media-failed" (no detail)                     the media transport failed and one
 //                                                  ICE restart did not recover it
 import { handleRemoteOffer } from "../lib/negotiation.js";
-import { qualityTier, encodingCaps } from "../lib/quality.js";
+import { qualityTier, encodingCaps, senderMaxBitrate } from "../lib/quality.js";
 import { log } from "../lib/log.js";
 
 // How long to let a single ICE restart try to reconnect before we give up and tell
@@ -35,10 +35,6 @@ import { log } from "../lib/log.js";
 // recovery, so this only needs to cover a fresh gather + connectivity checks.
 const ICE_RESTART_GRACE_MS = 6000;
 
-// Max send bitrate for a screenshare (bits/sec). Plenty for typical desktop/app
-// content, while keeping the stream from saturating the sharer's uplink or a receiver's
-// downlink and starving the signaling WebSocket (see _capBitrate).
-const SCREEN_MAX_BITRATE = 2_500_000;
 
 // TEMP DEBUG: diagnose "I can't see/hear someone". A remote track only attaches
 // when its media (ontrack, keyed by transceiver mid) pairs with the SFU's label
@@ -299,10 +295,7 @@ export class Peer extends EventTarget {
     // Absent means "no limit"; 0 would mean no frames, so auto DELETES the key.
     if (caps.maxFramerate) enc.maxFramerate = caps.maxFramerate;
     else delete enc.maxFramerate;
-    // The tier's ceiling, if any; a screenshare never exceeds its own safety ceiling,
-    // even on a tier (Ultra) that allows a camera more.
-    let maxBitrate = caps.maxBitrate;
-    if (kind === "screen") maxBitrate = Math.min(maxBitrate || SCREEN_MAX_BITRATE, SCREEN_MAX_BITRATE);
+    const maxBitrate = senderMaxBitrate(kind, caps); // a share keeps its safety ceiling
     if (maxBitrate) enc.maxBitrate = maxBitrate;
     else delete enc.maxBitrate;
     sender.setParameters(params).catch((err) => {

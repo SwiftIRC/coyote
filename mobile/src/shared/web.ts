@@ -6,7 +6,7 @@ export { encode, decode, parseInvite, parseToken } from "../../../internal/web/a
 export { backoffDelay } from "../../../internal/web/assets/lib/backoff.js";
 export { handleRemoteOffer } from "../../../internal/web/assets/lib/negotiation.js";
 export { serverErrorDisposition } from "../../../internal/web/assets/lib/serverError.js";
-export { QUALITY_TIERS, qualityTier, encodingCaps } from "../../../internal/web/assets/lib/quality.js";
+export { QUALITY_TIERS, qualityTier, encodingCaps, senderMaxBitrate } from "../../../internal/web/assets/lib/quality.js";
 export { stacksNarrow } from "../../../internal/web/assets/lib/gridLayout.js";
 // avatar.js also has DOM helpers, but only inside functions we never call.
 export { avatarFor, gravatarUrl, IRC_AVATAR_COLORS } from "../../../internal/web/assets/lib/avatar.js";
