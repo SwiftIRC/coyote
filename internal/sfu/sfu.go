@@ -551,8 +551,10 @@ func senderKey(snd *webrtc.RTPSender) (string, bool) {
 // Pion never decorates with any of them) — which is why audio kept working while a
 // second video broke. The MID extension in particular had to go: stripping only the
 // RID pair still left sdes:mid, so Chrome kept attempting MID-based demux and still
-// collided. Applied only to the server's offers — the one place the SFU emits these —
-// so a client answers without them and never arms the bad demux. Pion still demuxes
+// collided. Applied to the server's offers and to its answers to a client's offer
+// (a screenshare): an answer that echoed sdes:mid back armed MID demux on the
+// client, which then dropped every forwarded stream whose packets carried a MID
+// naming none of its m-lines (an iPhone lost two of three peers this way). Pion still demuxes
 // each client's uploads by the SSRCs their answer declares, the same way it already
 // does for audio.
 func stripDemuxExtensions(sdp string) string {
