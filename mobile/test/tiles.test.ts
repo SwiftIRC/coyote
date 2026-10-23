@@ -21,9 +21,11 @@ test("screenFor returns the sharer only while they still share", () => {
   expect(screenFor([], "a")).toBeNull();
 });
 
-test("your own share is the first tile, only while sharing", () => {
-  expect(gridTiles([person("a")], true).map((t) => t.key)).toEqual(["self:screen", "a"]);
-  expect(gridTiles([person("a")], true)[0].kind).toBe("own-screen");
+test("your own share is the last tile, only while sharing", () => {
+  const s = new FakeStream([]);
+  expect(gridTiles([person("a", { screen: s }), person("b")], true).map((t) => t.key))
+    .toEqual(["a", "a:screen", "b", "self:screen"]);
+  expect(gridTiles([person("a")], true)[1].kind).toBe("own-screen");
   expect(gridTiles([person("a")]).map((t) => t.key)).toEqual(["a"]);
   expect(gridTiles([], true).map((t) => t.key)).toEqual(["self:screen"]);
 });
