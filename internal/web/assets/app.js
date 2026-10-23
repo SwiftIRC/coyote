@@ -40,6 +40,7 @@ import { serverErrorDisposition } from "./lib/serverError.js";
 import { restoreCustomBackground } from "./lib/customBackground.js";
 import { log } from "./lib/log.js";
 import { qualityTier, captureTarget } from "./lib/quality.js";
+import { reconcileRoster } from "./lib/roster.js";
 
 // Mirror of the server's room-slug rule (internal/server: slugRe). A path that
 // doesn't match can never join, so we route it to home with a hint instead.
@@ -270,7 +271,14 @@ function onJoined(msg) {
     // old media PC can no longer negotiate with the server's new one.
     if (chat) chat.clear(); // the server replays chat on re-join; clear so it doesn't double up
     rebuildPeer();
-    for (const p of msg.peers || []) addRosterPeer(p);
+    // The roster REPLACES ours rather than adding to it (see reconcileRoster): every
+    // join mints fresh ids, so adopt our new one, drop anyone no longer listed — after
+    // a server restart nobody's old id gets a peer-left — and skip our own ghost.
+    const priorSelfId = grid.selfId;
+    grid.setSelfId(msg.selfId);
+    const roster = reconcileRoster(grid.peerIds(), msg.peers, grid.selfId, priorSelfId);
+    for (const id of roster.departed) grid.removePeer(id);
+    for (const p of roster.peers) addRosterPeer(p);
     if (chat && msg.poll) chat.onPoll(msg.poll); // clear() above dropped any prior card; restore the live poll
     // Reconcile our OWN role from the authoritative rejoin. The server restores op
     // across a reconnect (by account or session ref), so trust msg.role rather than
