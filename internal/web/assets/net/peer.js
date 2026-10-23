@@ -692,6 +692,10 @@ export class Peer extends EventTarget {
         );
       }
     }
+    // Outbound is kept apart so a client that only SENDS still gets the
+    // "no inbound media" line below rather than having it masked.
+    const outbound = await this._outboundLines();
+    const tail = outbound.length ? "\n  " + outbound.join("\n  ") : "";
     // Always print, even with nothing to report. Staying silent made "this client
     // is being forwarded nothing" — a serious state, and exactly what a participant
     // nobody can see or hear looks like from here — indistinguishable from "the
@@ -701,7 +705,7 @@ export class Peer extends EventTarget {
     // naming none of them.
     const saver = this._lowBandwidth ? " (data saver ON — no video is forwarded to this client)" : "";
     if (lines.length) {
-      log.info(`[track-debug stats]${saver}\n  ` + lines.join("\n  "));
+      log.info(`[track-debug stats]${saver}\n  ` + lines.join("\n  ") + tail);
       return;
     }
     log.info(
@@ -713,8 +717,63 @@ export class Peer extends EventTarget {
         // both sit at "new" until a remote description arrives, so pc=new/new looks
         // identical to never having negotiated at all), while "stable" with nothing
         // inbound means negotiation completed and the server simply forwards nothing.
-        `sig=${this.pc.signalingState}`,
+        `sig=${this.pc.signalingState}` +
+        tail,
     );
+  }
+
+  // One line per video WE send (camera, screen): the inbound lines above can only show
+  // that a picture arrives small and slow, never why — the sender alone knows. Reading
+  // the fields:
+  //   src= vs enc=: what the camera produces vs what the encoder is sending. enc below
+  //     src with scale=1 is the browser adapting on its own, and limit= says why:
+  //     "bandwidth" (the estimate is too low for more), "cpu" (the encoder cannot
+  //     keep up — often a background effect), "none" (it is not limiting).
+  //   scale=/maxfps=: the op tier's caps as actually set on the sender.
+  //   target=: the encoder's bitrate goal; avail=: the bandwidth estimate for the
+  //     whole uplink. A tiny avail with loss=~0 points at missing congestion
+  //     feedback rather than a congested link.
+  async _outboundLines() {
+    const lines = [];
+    for (const kind of ["camera", "screen"]) {
+      const sender = this._senders.get(kind);
+      if (!sender || !sender.track) continue;
+      let report = null;
+      try {
+        report = await sender.getStats();
+      } catch {
+        continue;
+      }
+      let out = null;
+      let remote = null;
+      let pair = null;
+      report.forEach((r) => {
+        if (r.type === "outbound-rtp" && r.kind === "video") out = r;
+        else if (r.type === "remote-inbound-rtp" && r.kind === "video") remote = r;
+        else if (r.type === "candidate-pair" && (r.nominated || r.selected) && r.state === "succeeded") pair = r;
+      });
+      const s = (sender.track.getSettings && sender.track.getSettings()) || {};
+      let enc = {};
+      try {
+        enc = (sender.getParameters().encodings || [])[0] || {};
+      } catch {
+        enc = {};
+      }
+      const kbps = (bps) => (Number.isFinite(bps) ? Math.round(bps / 1000) : "n/a");
+      if (!out) {
+        lines.push(`${kind}@self !! NO OUTBOUND RTP — src=${s.width ?? 0}x${s.height ?? 0}`);
+        continue;
+      }
+      lines.push(
+        `${kind}@self src=${s.width ?? 0}x${s.height ?? 0}@${fixed(s.frameRate, 0)} ` +
+          `enc=${out.frameWidth ?? 0}x${out.frameHeight ?? 0}@${out.framesPerSecond ?? 0} ` +
+          `limit=${out.qualityLimitationReason ?? "n/a"} scale=${enc.scaleResolutionDownBy ?? 1} maxfps=${enc.maxFramerate ?? "none"} ` +
+          `target=${kbps(out.targetBitrate)}kbps avail=${kbps(pair && pair.availableOutgoingBitrate)}kbps ` +
+          `rtt=${pair && Number.isFinite(pair.currentRoundTripTime) ? Math.round(pair.currentRoundTripTime * 1000) : "n/a"}ms ` +
+          `loss=${remote ? fixed(remote.fractionLost, 3) : "n/a"} sent=${out.bytesSent ?? 0} codec=${out.encoderImplementation ?? "n/a"}`,
+      );
+    }
+    return lines;
   }
 
   _onStreamGone(mid) {

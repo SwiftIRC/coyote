@@ -40,3 +40,15 @@ export function encodingCaps(tier, sourceHeight) {
   if (tier && tier.fps > 0) caps.maxFramerate = tier.fps;
   return caps;
 }
+
+// The camera capture a tier needs: {width, height, frameRate} to request from
+// getUserMedia. encodingCaps can only scale DOWN from the source, and a bare
+// `video: true` opens most cameras at 640x480 — which made every tier above Medium a
+// cap nobody could reach. So the capture is sized for the tier: 720p for Auto and
+// everything up to High, 1080p for Ultra, and the tier's framerate when it asks for
+// more than 30 (Fast). The camera may still deliver less; these are preferences.
+export function captureTarget(tier) {
+  const height = tier && tier.height > 720 ? 1080 : 720;
+  const frameRate = Math.max(30, (tier && tier.fps) || 0);
+  return { width: Math.round((height * 16) / 9), height, frameRate };
+}

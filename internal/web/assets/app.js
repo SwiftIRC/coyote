@@ -39,6 +39,7 @@ import { useCommunicationAudio } from "./lib/audioSession.js";
 import { serverErrorDisposition } from "./lib/serverError.js";
 import { restoreCustomBackground } from "./lib/customBackground.js";
 import { log } from "./lib/log.js";
+import { qualityTier, captureTarget } from "./lib/quality.js";
 
 // Mirror of the server's room-slug rule (internal/server: slugRe). A path that
 // doesn't match can never join, so we route it to home with a hint instead.
@@ -478,13 +479,26 @@ function renderInCall(msg) {
   // Op changed the session video caps: apply to our senders, reflect in the op menu.
   signaling.on("quality", (m) => {
     sessionQuality = { camera: (m && m.camera) || "auto", screen: (m && m.screen) || "auto" };
-    if (peer) peer.setQuality(sessionQuality.camera, sessionQuality.screen);
+    applySessionQuality();
     controls.setQualityState(sessionQuality.camera, sessionQuality.screen);
   });
 
   controls.setQualityState(sessionQuality.camera, sessionQuality.screen); // reflect the join-time caps
   wirePeerAndStart();
   controls.enableDefaultNoiseSuppression(); // denoise on by default; opt out via the control
+}
+
+// Apply the session video caps. The camera capture is re-sized for the camera tier
+// first — the tiers only scale DOWN, so a 640x480 capture made every tier above Medium
+// unreachable — and the senders are capped both now and again once the resize lands,
+// because the encode divisor is computed from the source height it just changed.
+function applySessionQuality() {
+  const { camera, screen } = sessionQuality;
+  if (peer) peer.setQuality(camera, screen);
+  if (!media) return;
+  media.setCaptureTarget(captureTarget(qualityTier(camera))).then((resized) => {
+    if (resized && peer) peer.setQuality(sessionQuality.camera, sessionQuality.screen);
+  });
 }
 
 // Attach the current `peer`'s events to the grid/UI and start it — offer whatever we're
@@ -501,7 +515,7 @@ function wirePeerAndStart() {
   peer.addEventListener("media-failed", showMediaFailed);
 
   peer.setLowBandwidth(lowBandwidth); // carried across a reconnect's fresh Peer
-  peer.setQuality(sessionQuality.camera, sessionQuality.screen); // cap the initial publishes
+  applySessionQuality(); // size the capture + cap the initial publishes
 
   // Re-assert this client's low-bandwidth choice on every (re)connect: the server
   // builds a FRESH SFU peer each join (which defaults to forwarding all video), so if
