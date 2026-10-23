@@ -7,14 +7,15 @@ export type GridTile =
 
 const sharing = (p: Participant) => !!(p.screen || p.screenAudio);
 
-// Your own share first (while sharing), then one tile per person, plus a screen
-// tile right after anyone who is sharing.
+// One tile per person, plus a screen tile right after anyone who is sharing, then
+// your own share last (while sharing): it only says you're sharing.
 export function gridTiles(people: Participant[], selfSharing = false): GridTile[] {
-  const out: GridTile[] = selfSharing ? [{ kind: "own-screen", key: "self:screen" }] : [];
+  const out: GridTile[] = [];
   for (const p of people) {
     out.push({ kind: "person", key: p.id, p });
     if (sharing(p)) out.push({ kind: "screen", key: `${p.id}:screen`, p });
   }
+  if (selfSharing) out.push({ kind: "own-screen", key: "self:screen" });
   return out;
 }
 

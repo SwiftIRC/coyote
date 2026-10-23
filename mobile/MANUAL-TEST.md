@@ -173,7 +173,7 @@ Run with the phone in a call with a browser (and a second phone if available).
 
 46. **iOS share.** ☰ → Share screen: the system "Screen Broadcast" sheet opens with
     Coyote selected. Start Broadcast; after the countdown the red pill "Sharing your
-    screen · Stop" shows and a "You're sharing your screen" tile appears first in the
+    screen · Stop" shows and a "You're sharing your screen" tile appears last in the
     grid. The browser shows the phone's screen tile within a few seconds. Switch to
     another app: the browser follows it; the phone's camera turns off while away and
     comes back on return. If the broadcast ends at once with "Start screen sharing
