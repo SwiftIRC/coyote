@@ -326,6 +326,29 @@ export class Grid {
     if (peer.role != null) this._setRole(tile, peer.role);
   }
 
+  // Every participant id we hold a base tile for, self included.
+  peerIds() {
+    return [...this.tiles.keys()];
+  }
+
+  // Adopt the id the server gave us on a re-join. Every join mints a fresh id, so
+  // after a reconnect the old one is stale: self-checks (kicked/muted/role "is this
+  // me?") would miss, and a peer-joined carrying our new id would build a remote tile
+  // of ourselves. Re-keys our own tile, screen tile and analyser in place.
+  setSelfId(id) {
+    const old = this.selfId;
+    if (!id || id === old) return;
+    this.selfId = id;
+    for (const map of [this.tiles, this.screens, this.audio]) {
+      if (!map.has(old)) continue;
+      map.set(id, map.get(old));
+      map.delete(old);
+    }
+    const tile = this.tiles.get(id);
+    if (tile) tile.el.setAttribute("data-id", id);
+    if (this.activeId === old) this.activeId = id;
+  }
+
   // A participant left the room: drop their base tile, any screen tile, and their
   // audio analyser/playback so nothing leaks.
   removePeer(id) {
