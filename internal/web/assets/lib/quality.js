@@ -1,13 +1,19 @@
 // Session video-quality tiers, set by an op and applied by every client to its own
-// camera / screenshare senders (scaleResolutionDownBy + maxFramerate). height 0 / fps 0
-// means "no cap" (Auto). The id is what travels on the wire; the numbers stay client-side.
+// camera / screenshare senders (scaleResolutionDownBy + maxFramerate + maxBitrate).
+// height 0 / fps 0 / bitrate 0 means "no cap" (Auto). The id is what travels on the
+// wire; the numbers stay client-side.
+//
+// The bitrate is what makes a tier look like its label. Without it the encoder climbs
+// to the browser default (2.5 Mbps in Chrome) at any size, and 360p at 2.5 Mbps upscales
+// into a tile almost lossless — Low looked like Auto and saved nothing. Ultra's ceiling
+// is above that default so 1080p is not starved by it.
 export const QUALITY_TIERS = [
-  { id: "auto", label: "Auto", height: 0, fps: 0 },
-  { id: "ultra", label: "Ultra — 1080p·30", height: 1080, fps: 30 },
-  { id: "fast", label: "Fast — 720p·60", height: 720, fps: 60 },
-  { id: "high", label: "High — 720p·30", height: 720, fps: 30 },
-  { id: "medium", label: "Medium — 480p·24", height: 480, fps: 24 },
-  { id: "low", label: "Low — 360p·15", height: 360, fps: 15 },
+  { id: "auto", label: "Auto", height: 0, fps: 0, bitrate: 0 },
+  { id: "ultra", label: "Ultra — 1080p·30", height: 1080, fps: 30, bitrate: 4_000_000 },
+  { id: "fast", label: "Fast — 720p·60", height: 720, fps: 60, bitrate: 2_500_000 },
+  { id: "high", label: "High — 720p·30", height: 720, fps: 30, bitrate: 1_500_000 },
+  { id: "medium", label: "Medium — 480p·24", height: 480, fps: 24, bitrate: 600_000 },
+  { id: "low", label: "Low — 360p·15", height: 360, fps: 15, bitrate: 300_000 },
 ];
 
 // Look up a tier by id; an unknown/empty id (including the server's default "") is Auto.
@@ -16,9 +22,9 @@ export function qualityTier(id) {
 }
 
 // The RTCRtpEncodingParameters a tier implies for a source of `sourceHeight`
-// pixels: {scaleResolutionDownBy, maxFramerate}. maxFramerate is undefined when the
-// tier imposes no limit, because the caller must DELETE the key rather than set 0 —
-// a maxFramerate of 0 is a request for no frames at all.
+// pixels: {scaleResolutionDownBy, maxFramerate, maxBitrate}. maxFramerate and
+// maxBitrate are undefined when the tier imposes no limit, because the caller must
+// DELETE the key rather than set 0 — a maxFramerate of 0 is a request for no frames.
 //
 // scaleResolutionDownBy is a divisor applied to the source, not a target height, so
 // it can only be computed from what the camera is actually producing. Two rules
@@ -38,6 +44,7 @@ export function encodingCaps(tier, sourceHeight) {
     caps.scaleResolutionDownBy = Math.max(1, h / tier.height);
   }
   if (tier && tier.fps > 0) caps.maxFramerate = tier.fps;
+  if (tier && tier.bitrate > 0) caps.maxBitrate = tier.bitrate;
   return caps;
 }
 

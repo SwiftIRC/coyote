@@ -265,8 +265,8 @@ export class Peer extends EventTarget {
   }
 
   // Constrain one video sender to its tier: scale the encode down to the tier's height
-  // (never up; capture is untouched) and cap the framerate. Screenshares also keep a
-  // bitrate ceiling — the SFU forwards a publisher's stream to every subscriber
+  // (never up; capture is untouched) and cap the framerate and bitrate. Screenshares
+  // also keep a bitrate ceiling on every tier — the SFU forwards a publisher's stream to every subscriber
   // unchanged, so an uncapped share can flood the sharer's uplink and a receiver's
   // downlink, starving the signaling WebSocket that shares the link (a spurious
   // reconnect). All in ONE setParameters so the caps don't race each other's transaction.
@@ -299,7 +299,12 @@ export class Peer extends EventTarget {
     // Absent means "no limit"; 0 would mean no frames, so auto DELETES the key.
     if (caps.maxFramerate) enc.maxFramerate = caps.maxFramerate;
     else delete enc.maxFramerate;
-    if (kind === "screen") enc.maxBitrate = SCREEN_MAX_BITRATE;
+    // The tier's ceiling, if any; a screenshare never exceeds its own safety ceiling,
+    // even on a tier (Ultra) that allows a camera more.
+    let maxBitrate = caps.maxBitrate;
+    if (kind === "screen") maxBitrate = Math.min(maxBitrate || SCREEN_MAX_BITRATE, SCREEN_MAX_BITRATE);
+    if (maxBitrate) enc.maxBitrate = maxBitrate;
+    else delete enc.maxBitrate;
     sender.setParameters(params).catch((err) => {
       // Never silent. A rejection here is the whole cap failing to apply, and it
       // was the reason "the quality control does nothing" had no console trace.
@@ -729,7 +734,7 @@ export class Peer extends EventTarget {
   //     src with scale=1 is the browser adapting on its own, and limit= says why:
   //     "bandwidth" (the estimate is too low for more), "cpu" (the encoder cannot
   //     keep up — often a background effect), "none" (it is not limiting).
-  //   scale=/maxfps=: the op tier's caps as actually set on the sender.
+  //   scale=/maxfps=/maxbr=: the op tier's caps as actually set on the sender.
   //   target=: the encoder's bitrate goal; avail=: the bandwidth estimate for the
   //     whole uplink. A tiny avail with loss=~0 points at missing congestion
   //     feedback rather than a congested link.
@@ -768,6 +773,7 @@ export class Peer extends EventTarget {
         `${kind}@self src=${s.width ?? 0}x${s.height ?? 0}@${fixed(s.frameRate, 0)} ` +
           `enc=${out.frameWidth ?? 0}x${out.frameHeight ?? 0}@${out.framesPerSecond ?? 0} ` +
           `limit=${out.qualityLimitationReason ?? "n/a"} scale=${enc.scaleResolutionDownBy ?? 1} maxfps=${enc.maxFramerate ?? "none"} ` +
+          `maxbr=${enc.maxBitrate ? kbps(enc.maxBitrate) + "kbps" : "none"} ` +
           `target=${kbps(out.targetBitrate)}kbps avail=${kbps(pair && pair.availableOutgoingBitrate)}kbps ` +
           `rtt=${pair && Number.isFinite(pair.currentRoundTripTime) ? Math.round(pair.currentRoundTripTime * 1000) : "n/a"}ms ` +
           `loss=${remote ? fixed(remote.fractionLost, 3) : "n/a"} sent=${out.bytesSent ?? 0} codec=${out.encoderImplementation ?? "n/a"}`,
