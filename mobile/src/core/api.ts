@@ -3,7 +3,7 @@ import type { RoomLink } from "./link";
 export type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
 
 // GET /api/rooms/{slug} -> {count, locked}; null when unreachable.
-export async function peekRoom(f: Fetcher, link: RoomLink): Promise<{ count: number; locked: boolean } | null> {
+export async function peekRoom(f: Fetcher, link: Pick<RoomLink, "origin" | "slug">): Promise<{ count: number; locked: boolean } | null> {
   try {
     const res = await f(`${link.origin}/api/rooms/${link.slug}`);
     if (!res.ok) return null;
