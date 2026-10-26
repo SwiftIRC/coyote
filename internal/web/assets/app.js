@@ -41,6 +41,7 @@ import { restoreCustomBackground } from "./lib/customBackground.js";
 import { log } from "./lib/log.js";
 import { qualityTier, captureTarget } from "./lib/quality.js";
 import { reconcileRoster } from "./lib/roster.js";
+import { forgetRoom, loadRecent, rememberRoom } from "./lib/recent.js";
 
 // Mirror of the server's room-slug rule (internal/server: slugRe). A path that
 // doesn't match can never join, so we route it to home with a hint instead.
@@ -122,6 +123,9 @@ function boot() {
 
 // --- home ---
 
+const PEEK_MS = 10000; // how often the Recent list re-checks who's in each room
+let homePollTimer = null;
+
 function renderHome(message) {
   document.body.classList.remove("in-call");
   const input = el("input", { class: "name", type: "text", placeholder: "room name", autocomplete: "off", maxlength: "32" });
@@ -138,6 +142,7 @@ function renderHome(message) {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") go();
   });
+  const recent = renderRecent();
   root.replaceChildren(
     el(
       "div",
@@ -153,9 +158,64 @@ function renderHome(message) {
       el("p", { class: "lede", text: "Enter a room name to start or join a call." }),
       el("div", { class: "row" }, input, el("button", { class: "join", type: "button", onClick: go }, "Go")),
       error,
+      recent,
     ),
   );
   input.focus();
+}
+
+// The home card's Recent list: rooms this browser has joined, each with how many are
+// in it now (polled from GET /api/rooms/<slug>, as the lobby does). Empty rooms show
+// no count, and a failed poll keeps the last one rather than flickering it away.
+function renderRecent() {
+  clearInterval(homePollTimer);
+  const section = el("section", { class: "recent", "aria-label": "Recent rooms" });
+  const rows = new Map(); // slug -> count element
+  const draw = () => {
+    const list = loadRecent();
+    rows.clear();
+    section.replaceChildren(
+      ...(list.length ? [el("h2", { text: "Recent" })] : []),
+      ...list.map(({ slug: s }) => {
+        const count = el("span", { class: "count" });
+        rows.set(s, count);
+        return el(
+          "div",
+          { class: "recent-row" },
+          el("a", { class: "room", href: `/${s}` }, el("span", { class: "slug", text: `#${s}` }), count),
+          el("button", {
+            class: "forget",
+            type: "button",
+            title: "Remove from recent rooms",
+            "aria-label": `Remove #${s} from recent rooms`,
+            text: "×",
+            onClick: () => {
+              forgetRoom(s);
+              draw();
+            },
+          }),
+        );
+      }),
+    );
+  };
+  const poll = () => {
+    for (const [s, count] of rows) {
+      fetch(`/api/rooms/${encodeURIComponent(s)}`, { headers: { Accept: "application/json" } })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((j) => {
+          if (!j) return;
+          const n = Number(j.count) || 0;
+          count.textContent = n > 0 ? `${n} in call${j.locked ? " · 🔒" : ""}` : "";
+        })
+        .catch(() => {});
+    }
+  };
+  draw();
+  if (rows.size) {
+    poll();
+    homePollTimer = setInterval(poll, PEEK_MS);
+  }
+  return section;
 }
 
 // --- pre-join ---
@@ -293,6 +353,7 @@ function onJoined(msg) {
     prejoin.destroy();
     prejoin = null;
   }
+  rememberRoom(slug);
   renderInCall(msg);
 }
 

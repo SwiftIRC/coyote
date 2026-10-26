@@ -1419,3 +1419,49 @@ body.ui-idle .controls {
     max-width: calc(100vw - 1rem);
   }
 }
+
+/* Home card's Recent list: rooms this browser joined, with live occupancy. */
+.recent h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.recent-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.recent-row .room {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  color: var(--fg);
+  text-decoration: none;
+  min-width: 0;
+}
+.recent-row .room:hover .slug {
+  text-decoration: underline;
+}
+.recent-row .slug {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-row .count {
+  color: var(--accent);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.recent-row .forget {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.4rem 0.6rem;
+}
