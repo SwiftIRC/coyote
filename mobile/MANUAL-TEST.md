@@ -399,3 +399,20 @@ browser in the call to watch the result.
      upright (they used to turn sideways because the iPhone app was locked to portrait).
      Do it with the join screen, a sheet and the full-screen viewer open too: nothing is
      cut off, and the menu, notch insets and self-view drag still work.
+
+## Debug mode (iOS and Android)
+
+115. **Turning it on.** On Home, tap the "Server vc.swiftirc.net" line seven times quickly:
+     "Debug mode on" appears, and Home shows "Debug mode on · Share debug report". Six taps,
+     or seven slow ones, do nothing. Quit and reopen the app: it's still on. Seven more
+     taps turn it off and the line goes away.
+116. **In a call.** With debug mode on, join a call with two other people: a green panel
+     under the room name updates every second (call phase, mic/camera, the connection's
+     state, one `in …` line per camera and microphone with packet counts rising, then recent
+     events). "debug ▾" collapses it to the two buttons; tiles under the panel still open
+     when tapped. With debug mode off, there's no panel.
+117. **Sharing a report.** Tap "share" in a call, and "Share debug report" on Home: the
+     share sheet opens with text starting `=== app` (version, build, OS, device). The
+     in-call one also has `=== call`, `=== participants` (ids, no names),
+     `=== offers and answers` and `=== raw stats`, and both end with `=== log`. Send one
+     to yourself (Mail, Messages, Drive) and check it arrives whole.

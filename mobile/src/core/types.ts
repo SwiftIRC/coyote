@@ -96,5 +96,6 @@ export interface PeerConnectionLike {
   setRemoteDescription(d: SessionDescription): Promise<void>;
   addIceCandidate(c: unknown): Promise<void>;
   restartIce?(): void;
+  getStats?(): Promise<{ values(): Iterable<Record<string, any>> }>; // debug mode only
   close(): void;
 }

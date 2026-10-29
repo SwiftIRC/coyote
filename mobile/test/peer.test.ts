@@ -216,3 +216,25 @@ test("close detaches every signaling handler and closes the connection", async (
   expect(sig.handlerCount()).toBe(0);
   expect(pc.closed).toBe(true);
 });
+
+// Debug mode: the overlay's lines and the report's offer/answer history.
+test("debugStats and debugDump trace the connection and keep the offers and answers", async () => {
+  const { sig, pc, peer } = make();
+  await peer.start([{ track: new FakeTrack("audio"), kind: "mic" }]);
+  sig.receive({ type: "answer", sdp: "server-answer" });
+  await flush();
+  pc.setConnection("connected");
+  (pc as any).getStats = async () => new Map([["a", { type: "outbound-rtp", kind: "audio", packetsSent: 3 }]]);
+  const lines = await peer.debugStats();
+  expect(lines[0]).toBe("sig stable conn connected ice connected in 0");
+  expect(lines).toContain("out audio pk 3");
+  expect(lines.some((l) => l.endsWith(" local offer"))).toBe(true);
+  expect(lines.some((l) => l.endsWith(" conn connected"))).toBe(true);
+  const [[title, sdps], [statsTitle, raw]] = await peer.debugDump();
+  expect(title).toBe("offers and answers");
+  expect(sdps).toHaveLength(2);
+  expect(sdps[0]).toContain("local offer (now have-local-offer)\noffer-1");
+  expect(sdps[1]).toContain("remote answer (now stable)\nserver-answer");
+  expect(statsTitle).toBe("raw stats");
+  expect(raw).toContain('"packetsSent":3');
+});
