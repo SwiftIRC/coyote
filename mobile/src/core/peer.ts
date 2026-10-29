@@ -9,6 +9,7 @@
 //    {type:"rollback"}), then answer, then re-offer explicitly.
 import { handleRemoteOffer, qualityTier, encodingCaps, senderMaxBitrate } from "../shared/web";
 import { preferVp8 } from "./codecs";
+import { formatArg, statsLines, Trail, type Section } from "./debug";
 import type {
   CodecLike, Frame, Kind, Logger, PeerConnectionLike, SenderLike, StreamLike, Timers, TrackEventLike, TrackLike,
 } from "./types";
@@ -55,6 +56,10 @@ export class Peer {
   private mediaFailedEmitted = false;
   private iceGraceTimer: unknown = null;
   private sigHandlers: Array<[string, (m: Frame) => void]>;
+  // For debug mode: recent connection events, and the offers and answers applied.
+  // Always kept (both capped) so a report covers what happened before it was opened.
+  private trace = new Trail(20);
+  private sdpLog = new Trail(12);
 
   constructor(private sig: SignalingPort, private deps: PeerDeps, private events: PeerEvents) {
     this.pc = deps.createPeerConnection();
@@ -65,8 +70,14 @@ export class Peer {
       this.makeOffer().catch((err) => this.emitError(err, "negotiation"));
     });
     this.pc.addEventListener("track", (ev) => this.onTrack(ev));
-    this.pc.addEventListener("connectionstatechange", () => this.onConnectionStateChange());
-    this.pc.addEventListener("iceconnectionstatechange", () => this.onConnectionStateChange());
+    this.pc.addEventListener("connectionstatechange", () => {
+      this.trace.add(`conn ${this.pc.connectionState}`);
+      this.onConnectionStateChange();
+    });
+    this.pc.addEventListener("iceconnectionstatechange", () => {
+      this.trace.add(`ice ${this.pc.iceConnectionState}`);
+      this.onConnectionStateChange();
+    });
     this.sigHandlers = [
       ["offer", (m) => {
         this.onRemoteOffer(m).catch((err) => this.emitError(err, "offer"));
@@ -93,6 +104,7 @@ export class Peer {
   }
 
   async publish(track: TrackLike, kind: Kind): Promise<void> {
+    this.trace.add(`publish ${kind}`);
     const existing = this.senders.get(kind);
     if (existing) {
       await existing.replaceTrack(track);
@@ -111,6 +123,7 @@ export class Peer {
   }
 
   unpublish(kind: Kind): void {
+    this.trace.add(`unpublish ${kind}`);
     const sender = this.senders.get(kind);
     if (!sender) return;
     this.senders.delete(kind);
@@ -131,6 +144,24 @@ export class Peer {
   setCameraSourceHeight(h: number | null): void {
     this.cameraSourceHeight = h;
     this.applyQuality("camera");
+  }
+
+  // Debug overlay: states, a line per stream, then recent events.
+  async debugStats(): Promise<string[]> {
+    const pc = this.pc;
+    const head = `sig ${pc.signalingState} conn ${pc.connectionState} ice ${pc.iceConnectionState} in ${this.incoming.size}`;
+    const label = (mid: string) => {
+      const who = this.trackInfo.get(mid);
+      return who && `${who.participantId.slice(0, 4)}:${who.kind}`;
+    };
+    const stats = pc.getStats ? statsLines((await pc.getStats()).values(), label) : [];
+    return [head, ...stats, ...this.trace.lines()];
+  }
+
+  // Debug report: the offer/answer history and the raw stats.
+  async debugDump(): Promise<Section[]> {
+    const stats = this.pc.getStats ? [...(await this.pc.getStats()).values()] : [];
+    return [["offers and answers", this.sdpLog.lines()], ["raw stats", JSON.stringify(stats)]];
   }
 
   close(): void {
@@ -198,6 +229,7 @@ export class Peer {
       this.makingOffer = true;
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
+      this.logSdp("local offer");
       this.sig.send("offer", { sdp: this.pc.localDescription!.sdp, kinds: Object.fromEntries(this.kindByStreamId) });
     } finally {
       this.makingOffer = false;
@@ -213,9 +245,11 @@ export class Peer {
   private async onRemoteOffer(msg: Frame) {
     const { action } = handleRemoteOffer({ makingOffer: this.makingOffer, signalingState: this.pc.signalingState });
     await this.pc.setRemoteDescription({ type: "offer", sdp: msg.sdp }); // implicit rollback on glare
+    this.logSdp("remote offer", msg.sdp);
     await this.drainCandidates();
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
+    this.logSdp("local answer");
     this.sig.send("answer", { sdp: this.pc.localDescription!.sdp });
     this.reapplyQuality();
     if (action === "rollback-then-answer") this.negotiationPending = true;
@@ -224,6 +258,7 @@ export class Peer {
 
   private async onRemoteAnswer(msg: Frame) {
     await this.pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
+    this.logSdp("remote answer", msg.sdp);
     await this.drainCandidates();
     this.reapplyQuality();
     this.flushPendingOffer();
@@ -259,6 +294,7 @@ export class Peer {
     const next = new Map<string, { participantId: string; kind: string }>();
     for (const t of msg.tracks || []) next.set(t.mid, { participantId: t.participantId, kind: t.kind });
     this.deps.log.info("[peer] tracks", JSON.stringify(msg.tracks || []), "held mids", JSON.stringify([...this.incoming.keys()]));
+    this.trace.add(`tracks ${next.size} (held ${this.incoming.size})`);
     if (next.size === 0) return;
     for (const mid of [...this.incoming.keys()]) if (!next.has(mid)) this.onStreamGone(mid);
     this.trackInfo = next;
@@ -291,6 +327,7 @@ export class Peer {
     if (!rec) return;
     this.incoming.delete(mid);
     const info = rec.info || this.trackInfo.get(mid);
+    this.trace.add(`gone mid ${mid} ${info?.kind ?? "?"}`);
     this.trackInfo.delete(mid);
     this.events.peerGone({ participantId: info?.participantId, kind: info?.kind });
   }
@@ -341,7 +378,13 @@ export class Peer {
     this.clearGrace();
   }
 
+  private logSdp(what: string, sdp = this.pc.localDescription?.sdp) {
+    this.trace.add(what);
+    this.sdpLog.add(`${what} (now ${this.pc.signalingState})\n${sdp ?? "(none)"}`);
+  }
+
   private emitError(error: unknown, phase: string) {
+    this.trace.add(`error ${phase}: ${formatArg((error as { message?: unknown })?.message ?? error)}`);
     this.events.error({ error, phase });
   }
 }

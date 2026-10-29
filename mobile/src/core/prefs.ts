@@ -8,9 +8,10 @@ export interface Prefs {
   dataSaver: boolean;
   hideSelf: boolean;
   background: string; // background effect id ("none", "blur", "blur-strong" or a scene id)
+  debug: boolean; // hidden debug mode (core/debug.ts)
 }
 
-export const DEFAULT_PREFS: Prefs = { name: "", email: "", mic: true, camera: true, dataSaver: false, hideSelf: false, background: "none" };
+export const DEFAULT_PREFS: Prefs = { name: "", email: "", mic: true, camera: true, dataSaver: false, hideSelf: false, background: "none", debug: false };
 
 export function mergePrefs(stored: unknown, patch: Partial<Prefs>): Prefs {
   const src = (stored && typeof stored === "object" ? stored : {}) as Record<string, unknown>;

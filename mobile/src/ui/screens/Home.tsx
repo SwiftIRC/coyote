@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, type NavigationProp, useNavigation, type RouteProp, useRoute } from "@react-navigation/native";
 import { peekRoom, serverVersion } from "../../core/api";
+import { countTap } from "../../core/debug";
 import { DEFAULT_HOST, parseRoomInput } from "../../core/link";
 import { recentInput, type RecentRoom } from "../../core/recent";
-import { forgetRoom, loadRecent } from "../../native/storage";
+import { shareDebugReport } from "../../native/debug";
+import { forgetRoom, loadPrefs, loadRecent, savePrefs } from "../../native/storage";
 import type { RootStack } from "../navigation";
 import { colors, radius } from "../theme";
 
@@ -22,10 +24,25 @@ export function Home() {
   const [recent, setRecent] = useState<RecentRoom[]>([]);
   const [version, setVersion] = useState("");
   const [occupancy, setOccupancy] = useState<Record<string, Occupancy>>({});
+  const [debug, setDebug] = useState(false);
+  const taps = useRef({ n: 0, at: 0 });
 
   useFocusEffect(useCallback(() => {
     loadRecent().then(setRecent);
+    loadPrefs().then((p) => setDebug(p.debug)).catch(() => {});
   }, []));
+
+  // Hidden: seven quick taps on the server line turn debug mode on or off.
+  const tapServer = () => {
+    const t = countTap(taps.current, Date.now());
+    taps.current = t;
+    if (!t.fire) return;
+    const next = !debug;
+    setDebug(next);
+    savePrefs({ debug: next }).catch((e) => console.warn("save debug pref failed", e));
+    Alert.alert(next ? "Debug mode on" : "Debug mode off", next ? "Calls show connection details, and you can share a debug report from here or from a call." : undefined);
+  };
+  const shareReport = () => { shareDebugReport().catch((e) => Alert.alert("Couldn't share the debug report", String(e))); };
   // Who's in each recent room, polled while this screen is focused. A room that
   // can't be reached keeps its last known count rather than flickering away.
   useFocusEffect(useCallback(() => {
@@ -110,7 +127,14 @@ export function Home() {
           );
         }}
       />
-      <Text style={styles.about}>Server {DEFAULT_HOST}{version ? ` · ${version}` : ""}</Text>
+      {debug ? (
+        <Pressable onPress={shareReport} accessibilityRole="button" style={styles.debug}>
+          <Text style={styles.debugText}>Debug mode on · Share debug report</Text>
+        </Pressable>
+      ) : null}
+      <Pressable onPress={tapServer} accessible={false}>
+        <Text style={styles.about}>Server {DEFAULT_HOST}{version ? ` · ${version}` : ""}</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -132,5 +156,7 @@ const styles = StyleSheet.create({
   forget: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   forgetText: { color: colors.muted, fontSize: 22 },
   muted: { color: colors.muted },
+  debug: { alignSelf: "center", paddingVertical: 8 },
+  debugText: { color: colors.accent, fontSize: 13 },
   about: { color: colors.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
 });

@@ -42,6 +42,8 @@ Bump both in one commit before each release:
 - iOS: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `ios/Coyote.xcodeproj/project.pbxproj`
   — four places each (Coyote and CoyoteBroadcast, Debug and Release); they must match.
 - Android: `versionName` and `versionCode` in `android/app/build.gradle`.
+- JS: `APP_VERSION` and `APP_BUILD` in `src/version.ts` (shown in debug reports;
+  `test/version.test.ts` fails if they don't match the two above).
 
 ## iOS → TestFlight
 

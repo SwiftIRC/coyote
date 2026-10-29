@@ -18,6 +18,7 @@ import { Banner } from "../components/Banner";
 import { DevicesSheet } from "../components/DevicesSheet";
 import { BackgroundSheet } from "../components/BackgroundSheet";
 import { ChatSheet } from "../components/ChatSheet";
+import { DebugOverlay } from "../components/DebugOverlay";
 import { PollForm } from "../components/PollForm";
 import { loadPrefs, savePrefs } from "../../native/storage";
 import { MoreSheet } from "../components/MoreSheet";
@@ -66,7 +67,13 @@ export function Call() {
     call()?.chat.setOpen(open);
   };
   const [hideSelf, setHideSelf] = useState(false);
-  useEffect(() => { loadPrefs().then((p) => setHideSelf(p.hideSelf)).catch(() => {}); }, []);
+  const [debug, setDebug] = useState(false);
+  useEffect(() => {
+    loadPrefs().then((p) => {
+      setHideSelf(p.hideSelf);
+      setDebug(p.debug);
+    }).catch(() => {});
+  }, []);
   const [viewing, setViewing] = useState<Viewing | null>(null);
   // What was open full screen when PiP started, for the PiP window to show.
   const [pipFocus, setPipFocus] = useState<Viewing | null>(null);
@@ -301,6 +308,7 @@ export function Call() {
         </Animated.View>
         <SelfView inset={insets.top} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner inset={insets.top} kind={state.banner} notices={notices} />
+        {debug ? <DebugOverlay top={insets.top + 44} left={insets.left + 4} /> : null}
         {share.status === "sharing" ? (
           <SharingPill bottom={insets.bottom + 8 + (chrome.visible ? CONTROLS_H : 0)} onStop={() => call()?.screenShare.stop("user")} />
         ) : null}

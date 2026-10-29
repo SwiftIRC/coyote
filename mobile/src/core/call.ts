@@ -5,6 +5,7 @@
 // in internal/web/assets/app.js, plus the mobile lifecycle rules from the spec.
 import { Backgrounds, effectOutputHeight, parseScenes, type EffectPort } from "./backgrounds";
 import { ChatLog } from "./chat";
+import type { Section } from "./debug";
 import { Chimes, type ChimeName } from "./chimes";
 import { inCallErrorText, joinErrorText, LOCKED_WHILE_AWAY_TEXT } from "./errors";
 import { Moderation } from "./moderation";
@@ -25,7 +26,8 @@ export interface CameraChoice {
   facing: Facing;
   deviceId?: string;
 }
-export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "setCameraSourceHeight" | "close">;
+export type PeerLike = Pick<Peer, "start" | "publish" | "replaceTrack" | "unpublish" | "setQuality" | "setCameraSourceHeight" | "close">
+  & Partial<Pick<Peer, "debugStats" | "debugDump">>;
 export type SignalingLike = Pick<Signaling, "onOpen" | "onClose" | "on" | "off" | "connect" | "send" | "stop" | "reconnectNow" | "isOpen">;
 
 export interface MediaPort {
@@ -441,6 +443,31 @@ export class Call {
         }
       }
     }
+  }
+
+  // Debug overlay lines: the call's own state, then the media connection's.
+  async debugStats(): Promise<string[]> {
+    const s = this.state;
+    const bg = this.background.getSnapshot();
+    const head = [
+      `${s.phase}${s.banner ? ` (${s.banner})` : ""} #${s.slug} ${s.role || "-"} sig ${this.sig?.isOpen ? "open" : "closed"} peers ${s.participants.length}`,
+      `mic ${s.mic} cam ${s.camera} ${s.facing} saver ${s.dataSaver} share ${this.screenShare.getSnapshot().status} bg ${bg.applied}`,
+    ];
+    return [...head, ...(this.peer?.debugStats ? await this.peer.debugStats() : ["no media connection"])];
+  }
+
+  // Debug report sections: a short summary, and the bulky detail (offers, answers and
+  // raw stats) that goes last. Participants are listed by id and media state, not name.
+  async debugReport(): Promise<{ summary: Section[]; detail: Section[] }> {
+    const people = this.roster.list().map((p) =>
+      `${p.id} ${p.role || "-"} mic ${p.mic} cam ${p.camera} video ${!!p.video} screen ${!!p.screen}`);
+    return {
+      summary: [
+        ["call", [`host ${this.req?.link.host ?? "-"}`, ...(await this.debugStats())]],
+        ["participants", people.length ? people : ["(none)"]],
+      ],
+      detail: this.peer?.debugDump ? await this.peer.debugDump() : [],
+    };
   }
 
   onNetworkChange(connected: boolean): void {
