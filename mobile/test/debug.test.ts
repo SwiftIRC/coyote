@@ -84,3 +84,15 @@ test("formatReport cuts a long report and says so", () => {
   const text = formatReport([["a", "x".repeat(50)], ["b", "y".repeat(50)]], 20);
   expect(text).toBe(`=== a\n${"x".repeat(14)}\n\n=== cut: the report was 114 characters`);
 });
+
+test("captureConsole prints but doesn't keep lines it's told to skip", () => {
+  const printed: string[] = [];
+  const log = (...a: unknown[]) => printed.push(a.join(" "));
+  const c = { log, info: log, warn: log, error: log };
+  const trail = new Trail(10, () => 0);
+  captureConsole(c, trail, /^rn-webrtc:pc:DEBUG \d+ getStats\b/);
+  c.log("rn-webrtc:pc:DEBUG 0 getStats +1s");
+  c.log("rn-webrtc:pc:DEBUG 0 setRemoteDescription +5ms");
+  expect(printed).toHaveLength(2);
+  expect(trail.lines()).toEqual(["00:00:00.000 rn-webrtc:pc:DEBUG 0 setRemoteDescription +5ms"]);
+});

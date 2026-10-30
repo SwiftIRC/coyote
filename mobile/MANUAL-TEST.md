@@ -416,3 +416,6 @@ browser in the call to watch the result.
      in-call one also has `=== call`, `=== participants` (ids, no names),
      `=== offers and answers` and `=== raw stats`, and both end with `=== log`. Send one
      to yourself (Mail, Messages, Drive) and check it arrives whole.
+118. **After the call.** Leave a call, then share from Home: the report still has the
+     call's sections (phase `ended`, the connection's last states and stream counts, and
+     its offers and answers). The log has no `rn-webrtc … getStats` lines.

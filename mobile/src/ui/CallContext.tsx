@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import type { RoomLink } from "../core/link";
 import type { Call, CallOutcome, CallState, JoinRequest } from "../core/call";
 import { createCall } from "../native/callFactory";
+import { rememberEndedCall } from "../native/debug";
 import { setupSystemCalls } from "../native/systemCall";
 import { savePrefs } from "../native/storage";
 
@@ -75,6 +76,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (active.current === made) setState(s);
       },
       end: (o) => {
+        rememberEndedCall(made.call);
         made.dispose();
         if (active.current !== made) return;
         active.current = null;

@@ -49,14 +49,16 @@ export function formatArg(a: unknown): string {
 type ConsoleLike = Record<"log" | "info" | "warn" | "error", (...a: unknown[]) => void>;
 
 // Copies every console line into `trail` as well as printing it, so a report holds
-// what the app logged before debug mode was even turned on. Returns an undo.
-export function captureConsole(c: ConsoleLike, trail: Trail): () => void {
+// what the app logged before debug mode was even turned on. Lines `skip` matches
+// are printed but not kept. Returns an undo.
+export function captureConsole(c: ConsoleLike, trail: Trail, skip?: RegExp): () => void {
   const levels = ["log", "info", "warn", "error"] as const;
   const original = levels.map((l) => c[l]);
   levels.forEach((level, i) => {
     const print = original[i];
     c[level] = (...a: unknown[]) => {
-      trail.add(`${level === "log" || level === "info" ? "" : `${level.toUpperCase()} `}${a.map(formatArg).join(" ")}`);
+      const line = a.map(formatArg).join(" ");
+      if (!skip?.test(line)) trail.add(`${level === "log" || level === "info" ? "" : `${level.toUpperCase()} `}${line}`);
       print.apply(c, a);
     };
   });

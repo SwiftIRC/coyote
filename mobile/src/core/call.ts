@@ -113,6 +113,8 @@ export const NAME_MAX = 24;
 export class Call {
   private sig: SignalingLike | null = null;
   private peer: PeerLike | null = null;
+  // The newest peer, kept after the call ends so debug mode can still report on it.
+  private lastPeer: PeerLike | null = null;
   private roster = new Roster();
   readonly clock = new RoomClock();
   readonly chat: ChatLog;
@@ -453,7 +455,7 @@ export class Call {
       `${s.phase}${s.banner ? ` (${s.banner})` : ""} #${s.slug} ${s.role || "-"} sig ${this.sig?.isOpen ? "open" : "closed"} peers ${s.participants.length}`,
       `mic ${s.mic} cam ${s.camera} ${s.facing} saver ${s.dataSaver} share ${this.screenShare.getSnapshot().status} bg ${bg.applied}`,
     ];
-    return [...head, ...(this.peer?.debugStats ? await this.peer.debugStats() : ["no media connection"])];
+    return [...head, ...(this.lastPeer?.debugStats ? await this.lastPeer.debugStats() : ["no media connection"])];
   }
 
   // Debug report sections: a short summary, and the bulky detail (offers, answers and
@@ -466,7 +468,7 @@ export class Call {
         ["call", [`host ${this.req?.link.host ?? "-"}`, ...(await this.debugStats())]],
         ["participants", people.length ? people : ["(none)"]],
       ],
-      detail: this.peer?.debugDump ? await this.peer.debugDump() : [],
+      detail: this.lastPeer?.debugDump ? await this.lastPeer.debugDump() : [],
     };
   }
 
@@ -595,6 +597,7 @@ export class Call {
       },
     });
     this.peer = peer;
+    this.lastPeer = peer;
     peer.setQuality(this.quality.camera, this.quality.screen);
     peer.setCameraSourceHeight(this.cameraHeightCap);
     const local: Array<{ track: TrackLike; kind: Kind }> = [];

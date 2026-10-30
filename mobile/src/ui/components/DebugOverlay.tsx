@@ -14,8 +14,9 @@ export function DebugOverlay({ top, left }: { top: number; left: number }) {
   const [lines, setLines] = useState<string[]>([]);
   const [open, setOpen] = useState(true);
 
+  // Polls while collapsed too: each poll refreshes the stats a report from Home
+  // will carry once the call has ended.
   useEffect(() => {
-    if (!open) return;
     let live = true;
     const tick = () => {
       call()?.debugStats()
@@ -28,11 +29,11 @@ export function DebugOverlay({ top, left }: { top: number; left: number }) {
       live = false;
       clearInterval(id);
     };
-  }, [call, open]);
+  }, [call]);
 
   const share = () => {
     const c = call();
-    (c ? c.debugReport() : Promise.resolve(undefined))
+    (c ? c.debugReport() : Promise.resolve(null))
       .then((report) => shareDebugReport(report))
       .catch((e) => Alert.alert("Couldn't share the debug report", String(e)));
   };
