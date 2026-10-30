@@ -238,3 +238,21 @@ test("debugStats and debugDump trace the connection and keep the offers and answ
   expect(statsTitle).toBe("raw stats");
   expect(raw).toContain('"packetsSent":3');
 });
+
+// A report from Home is written after the call ended: the closed peer still has its
+// history and the last stats it saw.
+test("a closed peer still reports its history and last stats", async () => {
+  const { pc, peer } = make();
+  await peer.start([{ track: new FakeTrack("audio"), kind: "mic" }]);
+  await flush();
+  (pc as any).getStats = async () => new Map([["a", { type: "outbound-rtp", kind: "audio", packetsSent: 9 }]]);
+  await peer.debugStats(); // the overlay's poll
+  peer.close();
+  (pc as any).getStats = async () => { throw new Error("closed"); };
+  const lines = await peer.debugStats();
+  expect(lines).toContain("out audio pk 9");
+  expect(lines[lines.length - 1].endsWith(" closed")).toBe(true);
+  const [[, sdps], [, raw]] = await peer.debugDump();
+  expect(sdps.length).toBeGreaterThan(0);
+  expect(raw).toContain('"packetsSent":9');
+});

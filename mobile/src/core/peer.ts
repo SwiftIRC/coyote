@@ -60,6 +60,10 @@ export class Peer {
   // Always kept (both capped) so a report covers what happened before it was opened.
   private trace = new Trail(20);
   private sdpLog = new Trail(12);
+  // The last getStats() report, so a report written after close (from Home, once
+  // the call has ended) still has the numbers from just before it ended.
+  private lastStats: Array<Record<string, any>> = [];
+  private closed = false;
 
   constructor(private sig: SignalingPort, private deps: PeerDeps, private events: PeerEvents) {
     this.pc = deps.createPeerConnection();
@@ -154,17 +158,27 @@ export class Peer {
       const who = this.trackInfo.get(mid);
       return who && `${who.participantId.slice(0, 4)}:${who.kind}`;
     };
-    const stats = pc.getStats ? statsLines((await pc.getStats()).values(), label) : [];
-    return [head, ...stats, ...this.trace.lines()];
+    return [head, ...statsLines(await this.stats(), label), ...this.trace.lines()];
   }
 
   // Debug report: the offer/answer history and the raw stats.
   async debugDump(): Promise<Section[]> {
-    const stats = this.pc.getStats ? [...(await this.pc.getStats()).values()] : [];
-    return [["offers and answers", this.sdpLog.lines()], ["raw stats", JSON.stringify(stats)]];
+    return [["offers and answers", this.sdpLog.lines()], ["raw stats", JSON.stringify(await this.stats())]];
+  }
+
+  private async stats(): Promise<Array<Record<string, any>>> {
+    if (this.closed || !this.pc.getStats) return this.lastStats;
+    try {
+      this.lastStats = [...(await this.pc.getStats()).values()];
+    } catch {
+      // keep the previous report
+    }
+    return this.lastStats;
   }
 
   close(): void {
+    this.closed = true;
+    this.trace.add("closed");
     for (const [t, fn] of this.sigHandlers) this.sig.off(t, fn);
     this.sigHandlers = [];
     this.closeExtras();
