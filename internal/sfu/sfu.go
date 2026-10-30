@@ -554,7 +554,10 @@ func senderKey(snd *webrtc.RTPSender) (string, bool) {
 // collided. Applied to the server's offers and to its answers to a client's offer
 // (a screenshare): an answer that echoed sdes:mid back armed MID demux on the
 // client, which then dropped every forwarded stream whose packets carried a MID
-// naming none of its m-lines (an iPhone lost two of three peers this way). Pion still demuxes
+// naming none of its m-lines (an iPhone lost two of three peers this way). The
+// SDP alone can't keep MID demux off, though: a client's own offer declares sdes:mid
+// again, so the forwarded packets carry no extensions either (stripHeaderExtensions).
+// Pion still demuxes
 // each client's uploads by the SSRCs their answer declares, the same way it already
 // does for audio.
 func stripDemuxExtensions(sdp string) string {

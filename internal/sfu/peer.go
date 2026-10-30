@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
 	"github.com/SwiftIRC/coyote/internal/signal"
@@ -248,16 +249,36 @@ func (p *Peer) wireOnTrack() {
 		defer p.sfu.removeLocalTrack(p.slug, p.id+":"+kind)
 
 		buf := make([]byte, 1500)
+		var pkt rtp.Packet
 		for {
 			n, _, err := remote.Read(buf)
 			if err != nil {
 				return
 			}
-			if _, err := local.Write(buf[:n]); err != nil {
+			if err := pkt.Unmarshal(buf[:n]); err != nil {
+				continue
+			}
+			stripHeaderExtensions(&pkt.Header)
+			if err := local.WriteRTP(&pkt); err != nil {
 				return
 			}
 		}
 	})
+}
+
+// stripHeaderExtensions drops a published packet's RTP header extensions before it
+// is forwarded. Their ids were negotiated on the publisher's connection and mean
+// something else, or nothing, on a subscriber's; the MID extension in particular
+// names one of the publisher's m-lines. A client whose own offer declares sdes:mid
+// (a phone re-offering to start a screenshare) read those MIDs and filed every
+// forwarded stream under an unrelated m-line of its own, and stopped seeing and
+// hearing everyone. The transport-cc sequence numbers describe the publisher's
+// connection too; the server stamps none of its own (pion's default interceptors
+// only generate feedback for what it receives), so nothing a subscriber needs is lost.
+func stripHeaderExtensions(h *rtp.Header) {
+	h.Extension = false
+	h.ExtensionProfile = 0
+	h.Extensions = nil
 }
 
 // --- signaling helpers (kept here so sfu.go stays Pion-focused) ---
