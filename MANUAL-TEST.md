@@ -112,7 +112,7 @@ becomes op, or open `/<room>#t=<token>` from a `!vc` invite whose token carries
 
 - [ ] **Grid lays out N tiles** — join from several browsers. Each participant
       (self + every remote) gets one tile with a name and, for an op/voice user, an
-      `op` / `+` badge. Your own tile is labelled "(you)" and mirrored. Tiles reflow
+      `op` / `+` badge. Your own tile is labelled "(you)" and mirrored (unless it is a phone's rear camera). Tiles reflow
       as the count changes; a leaving peer's tile disappears.
 - [ ] **Screen-share is its own tile** — start a screen-share (Share screen). A new
       tile appears for the shared surface **without** displacing the sharer's camera

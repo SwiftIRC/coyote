@@ -236,7 +236,7 @@ export function Call() {
       <PipView
         tile={t}
         others={pipOthers(t, state.participants)}
-        self={{ name: state.name, stream: state.camera && !hideSelf ? state.localStream : null }}
+        self={{ name: state.name, stream: state.camera && !hideSelf ? state.localStream : null, mirror: state.facing === "user" }}
         volumes={volumes}
         dataSaver={state.dataSaver}
       />
@@ -306,7 +306,7 @@ export function Call() {
         >
           <TopBar slug={state.slug} locked={mod.locked} />
         </Animated.View>
-        <SelfView inset={insets.top} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
+        <SelfView inset={insets.top} mirror={state.facing === "user"} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner inset={insets.top} kind={state.banner} notices={notices} />
         {debug ? <DebugOverlay top={insets.top + 44} left={insets.left + 4} /> : null}
         {share.status === "sharing" ? (
