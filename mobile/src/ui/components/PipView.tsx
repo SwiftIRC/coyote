@@ -15,7 +15,7 @@ const noop = () => {};
 export function PipView({ tile, others, self, volumes, dataSaver }: {
   tile: PipTile;
   others: number;
-  self: { name: string; stream: StreamLike | null };
+  self: { name: string; stream: StreamLike | null; mirror: boolean };
   volumes: Record<string, number>;
   dataSaver: boolean;
 }) {
@@ -27,7 +27,7 @@ export function PipView({ tile, others, self, volumes, dataSaver }: {
       ) : tile.kind === "person" ? (
         <Tile p={tile.p} width={width} height={height} volume={volumes[tile.p.id] ?? 1} dataSaver={dataSaver} onLongPress={noop} />
       ) : self.stream?.toURL ? (
-        <RTCView streamURL={self.stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror />
+        <RTCView streamURL={self.stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror={self.mirror} />
       ) : (
         <View style={styles.self}>
           <Avatar name={self.name} gravatar="" size={Math.min(width, height) * 0.4} />

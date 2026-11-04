@@ -696,6 +696,8 @@ export class Grid {
     this._setIndicator(tile.micPill, !!(mic && mic.enabled));
     this._setIndicator(tile.avPill, camOn);
     tile.camOff.hidden = camOn; // show the placeholder when your own camera is off
+    // Selfie-mirror the front camera only; a rear camera is shown as it sees the world.
+    tile.cameraVideo.classList.toggle("mirror", !(this.media && this.media.cameraFacesAway));
   }
 
   _addSelfTile(role) {
@@ -733,7 +735,8 @@ export class Grid {
   }
 
   _buildTile(id, name, role, { self, gravatar } = {}) {
-    // Only the local (self) camera is mirrored — a selfie view, as call apps do.
+    // Only the local (self) camera is mirrored — a selfie view, as call apps do —
+    // and only while it faces the user (refreshSelf drops it for a rear camera).
     // Screen-share tiles are built separately (_addScreenTile) and never mirrored.
     const cameraVideo = el("video", { class: self ? "cam mirror" : "cam", autoplay: true, playsinline: true });
     // Camera-off placeholder over the video: a released camera (or a remote peer

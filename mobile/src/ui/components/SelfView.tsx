@@ -5,9 +5,10 @@ import { isDrag } from "../../core/drag";
 import type { StreamLike } from "../../core/types";
 import { colors } from "../theme";
 
-// Mirrored, draggable picture-in-picture self view. Hidden when the camera is off.
+// Draggable picture-in-picture self view. Hidden when the camera is off.
 // `inset` is the top safe-area inset: the call draws edge to edge.
-export function SelfView({ stream, onFlip, inset }: { stream: StreamLike | null; onFlip(): void; inset: number }) {
+// `mirror`: a selfie flip for the front camera only; a rear camera is shown unflipped.
+export function SelfView({ stream, onFlip, inset, mirror }: { stream: StreamLike | null; onFlip(): void; inset: number; mirror: boolean }) {
   const pos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const pan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) => isDrag(g),
@@ -18,7 +19,7 @@ export function SelfView({ stream, onFlip, inset }: { stream: StreamLike | null;
   if (!stream?.toURL) return null;
   return (
     <Animated.View style={[styles.pip, { top: inset + 56, transform: pos.getTranslateTransform() }]} {...pan.panHandlers}>
-      <RTCView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror zOrder={1} />
+      <RTCView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror={mirror} zOrder={1} />
       <Pressable onPress={onFlip} style={styles.flip} accessibilityRole="button" accessibilityLabel="Switch camera" hitSlop={8}>
         <Text style={styles.flipText}>⟳</Text>
       </Pressable>

@@ -37,6 +37,7 @@ import { micConstraints } from "../lib/audioConstraints.js";
 import { cameraConstraints } from "../lib/videoConstraints.js";
 import { qualityTier, captureTarget } from "../lib/quality.js";
 import { log } from "../lib/log.js";
+import { facesAway } from "../lib/facing.js";
 
 export class Media extends EventTarget {
   constructor() {
@@ -163,6 +164,13 @@ export class Media extends EventTarget {
 
   get cameraTrack() {
     return (this.stream && this.stream.getVideoTracks()[0]) || null;
+  }
+
+  // True when the capturing camera is a rear one, whose self-view must not be
+  // mirrored. Reads the RAW device track while a background effect is on: the
+  // published track is then a synthetic canvas track with no facingMode.
+  get cameraFacesAway() {
+    return facesAway(this._rawCameraTrack || this.cameraTrack);
   }
 
   get screenTrack() {

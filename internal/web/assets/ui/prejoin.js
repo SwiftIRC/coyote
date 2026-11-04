@@ -179,7 +179,8 @@ export class Prejoin {
   }
 
   _build() {
-    // `mirror` gives the local preview a selfie (horizontally flipped) view.
+    // `mirror` gives the local preview a selfie (horizontally flipped) view; dropped
+    // by _syncMediaState while a rear camera is selected.
     this.video = el("video", { class: "preview mirror", autoplay: true, muted: true, playsinline: true });
     this.video.muted = true; // attribute + property: some browsers honour only the property
 
@@ -481,6 +482,7 @@ export class Prejoin {
     const mic = this.media.micTrack;
     this._setCameraToggle(!!cam, this.media.cameraAvailable);
     this._setMicToggle(mic ? mic.enabled : false, !!mic);
+    this.video.classList.toggle("mirror", !this.media.cameraFacesAway); // never mirror a rear camera
   }
 
   _toggleMic() {
