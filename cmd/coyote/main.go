@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SwiftIRC/coyote/internal/config"
+	"github.com/SwiftIRC/coyote/internal/relay"
 	"github.com/SwiftIRC/coyote/internal/room"
 	"github.com/SwiftIRC/coyote/internal/server"
 	"github.com/SwiftIRC/coyote/internal/sfu"
@@ -33,6 +35,17 @@ func main() {
 	}
 	mediaSFU := sfu.NewSFU(engine, log)
 	hub := server.NewHub(cfg, reg, log, time.Now, mediaSFU)
+	if cfg.TURNAddr != "" {
+		// config.Load already guarantees PublicIP parses when TURNAddr is set.
+		turnRelay, err := relay.Start(relay.Config{Addr: cfg.TURNAddr, SFUIP: net.ParseIP(cfg.PublicIP), URLs: cfg.TURNURLs}, log)
+		if err != nil {
+			slog.Error("turn relay", "err", err)
+			os.Exit(2)
+		}
+		defer turnRelay.Close()
+		hub.SetICEServers(turnRelay.ICEServers)
+		log.Info("turn relay listening", "addr", turnRelay.Addr().String(), "urls", cfg.TURNURLs)
+	}
 	srv := &http.Server{Addr: cfg.Addr, Handler: hub.Routes()}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

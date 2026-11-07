@@ -154,6 +154,18 @@ type Joined struct {
 	RoomAgeSec int64         `json:"roomAge,omitempty"` // seconds the room has existed, as of this join
 	Poll       *PollSnapshot `json:"poll,omitempty"`    // the room's active poll, or absent
 	Locked     bool          `json:"locked"`            // room is password-locked; never omitempty so "false" is distinguishable from an older server
+	// ICE servers (the embedded TURN relay) for this participant's media connection,
+	// with credentials minted for this join. Absent when the server runs no relay; the
+	// client then connects to the SFU directly, as it always has.
+	ICEServers []ICEServer `json:"iceServers,omitempty"`
+}
+
+// ICEServer is one RTCIceServer entry, in the browser's own shape so the client can
+// hand it to RTCPeerConnection unchanged.
+type ICEServer struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username,omitempty"`
+	Credential string   `json:"credential,omitempty"`
 }
 
 // Quality is the session's outbound-video caps: each field is a tier id the client

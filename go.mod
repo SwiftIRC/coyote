@@ -7,6 +7,7 @@ require (
 	github.com/pion/interceptor v0.1.45
 	github.com/pion/rtcp v1.2.17
 	github.com/pion/rtp v1.10.4
+	github.com/pion/turn/v5 v5.0.12
 	github.com/pion/webrtc/v4 v4.2.17
 )
 
@@ -23,7 +24,6 @@ require (
 	github.com/pion/srtp/v3 v3.0.12 // indirect
 	github.com/pion/stun/v3 v3.1.6 // indirect
 	github.com/pion/transport/v4 v4.0.2 // indirect
-	github.com/pion/turn/v5 v5.0.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.59.0 // indirect

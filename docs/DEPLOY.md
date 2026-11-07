@@ -1,8 +1,10 @@
 # Deploying coyote
 
 coyote is a single static Go binary. It serves the web client, the signaling
-WebSocket, and the SFU media plane from one process. There is **no database and no
-TURN server** — the SFU has a public IP, so peers reach it directly over UDP.
+WebSocket, and the SFU media plane from one process. There is **no database**, and
+no separate TURN server: the SFU has a public IP, so peers reach it directly over UDP.
+For the clients that can't use UDP, an optional TURN relay is built into the same
+binary (see [TURN relay](#turn-relay)).
 
 Two independent network planes, which matters for every step below:
 
@@ -37,6 +39,8 @@ over defaults.
 | `-android-package` | `WVC_ANDROID_PACKAGE` | _(empty)_ | Android applicationId for `/.well-known/assetlinks.json`. |
 | `-android-cert-sha256` | `WVC_ANDROID_CERT_SHA256` | _(empty)_ | Comma-separated signing-cert SHA-256 fingerprints for assetlinks (both Android settings needed). |
 | `-tls-cert` / `-tls-key` | `WVC_TLS_CERT` / `WVC_TLS_KEY` | _(empty)_ | Optional built-in TLS instead of a proxy. Set both or neither. |
+| `-turn-addr` | `WVC_TURN_ADDR` | _(empty)_ | Plain-TCP listen address for the embedded [TURN relay](#turn-relay), with TLS terminated in front of it. Needs `-public-ip`. Set together with `-turn-urls`, or leave both empty for no relay. |
+| `-turn-urls` | `WVC_TURN_URLS` | _(empty)_ | Comma-separated TURN URLs given to clients, e.g. `turns:turn.example.com:443?transport=tcp`. |
 | `-log-level` | `WVC_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. An unparseable value refuses to start rather than falling back. |
 
 ### When to raise the log level
@@ -82,6 +86,37 @@ neither seeing nor heard.
 Routes served: `GET /` (app shell + assets), `GET /ws/{room}` (signaling),
 `GET /api/rooms/{room}` (occupancy JSON), `POST /api/provision` (Anope), and
 `GET /healthz`.
+
+### TURN relay
+
+Some clients can't reach the UDP range at all. A browser restricted to proxied
+traffic (Chrome's WebRTC IP-handling policy `disable_non_proxied_udp`, which VPN and
+privacy extensions set and which can also be a managed policy) gathers **no ICE
+candidates** unless a TURN-over-TCP server is configured. It joins the room, since
+signaling rides the HTTPS WebSocket, and then gets no media in either direction until
+the server drops it ~30s later. Its console logs `[peer] ice gathering complete with
+NO candidates`. UDP-hostile networks fail the same way.
+
+The embedded relay gives those clients a path over TCP 443:
+
+- **It relays only to the SFU** (`-public-ip`), so it can't be used as an open proxy.
+- **Credentials are minted per join** (TURN REST style, valid 24h) and sent in the
+  `joined` frame. The signing secret is random per process, so there's nothing to
+  configure. A restart drops every call anyway, and the rejoin carries fresh
+  credentials.
+- **Plain TCP only.** Put TLS in front of it on 443, under its own hostname, and
+  advertise that as `turns:<host>:443?transport=tcp`. Clients that can use UDP never
+  touch the relay.
+- **Each allocation logs `turn relay allocation created peer=<id>` at info.** Only
+  relayed clients allocate, so this line answers "was this participant relayed?"
+
+Relayed media goes client → relay → SFU on the same host, so the relay adds no
+extra network hop.
+
+With Caddy, TLS-terminating a raw TCP stream needs the `layer4` plugin. With nginx,
+use a `stream` block with `ssl_preread` to send the TURN hostname's SNI to the relay
+(terminating TLS there) and everything else to the HTTPS server. The Kubernetes
+manifests do this with a Traefik `IngressRouteTCP`.
 
 ### Firewall
 
@@ -315,7 +350,12 @@ kubectl apply -f deploy/k8s/
 ```
 
 Edit the host and `certResolver` in `deploy/k8s/ingressroute.yaml` to match your
-Traefik setup first. `deploy/secret.example.yaml` is a template showing the Secret's
+Traefik setup first. Do the same for the TURN host in
+`deploy/k8s/ingressroutetcp.yaml` and `WVC_TURN_URLS` in `deployment.yaml` (they must
+match), and add a DNS record for the TURN host pointing at the node. Traefik routes it
+by SNI on the same `websecure` entrypoint, terminates TLS, and forwards plain TCP to
+the relay on `:3478`. To run without a relay, drop both `WVC_TURN_*` variables and
+skip `ingressroutetcp.yaml`. `deploy/secret.example.yaml` is a template showing the Secret's
 shape; it lives outside `deploy/k8s/` so a re-apply cannot overwrite your real
 secret with its placeholder.
 
@@ -406,6 +446,10 @@ empirically instead (see the firewall check in the smoke check below).
   step in the smoke check below, which must fail from outside.
 - **50000–50199/udp** open to the node. Unchanged from the systemd deployment: this
   carries media and does not pass through Traefik.
+- **3478/tcp** (the TURN relay) needs no external rule. Traefik reaches it on the node
+  IP. If it is reachable from outside it is harmless, since every allocation needs
+  minted credentials and it relays only to the SFU, but blocking it keeps 443 as the
+  only way in.
 
 ### Traefik notes
 
@@ -450,6 +494,16 @@ mounted as a volume.
    real source addresses through ServiceLB) — it's a "verify for your cluster" step,
    not a guaranteed break, but nothing else in the manifests, docs, or the checks
    above would surface it if it does happen.
+7. **Verify the TURN relay** (if configured). The logs carry a `turn relay listening`
+   line. Then, in a call, open DevTools → Network → the `/ws/` socket → the `joined`
+   frame, and copy its `iceServers` entry (URL, username, credential) into the
+   [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
+   page. "Gather candidates" must list a `relay` candidate. If it doesn't, check the
+   DNS record, the `IngressRouteTCP` host/cert, and that the TURN host matches
+   `WVC_TURN_URLS`. For the real proof, join with a browser that blocks non-proxied
+   UDP and keep the call up for several minutes, which rules out an idle or read
+   timeout on Traefik's TCP route cutting the relay. The server logs
+   `turn relay allocation created` for that participant.
 
 ## SwiftIRC / Anope integration: `!vc` → token link → join
 

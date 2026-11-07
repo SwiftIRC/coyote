@@ -57,10 +57,16 @@ function fixed(value, places) {
 }
 
 export class Peer extends EventTarget {
-  constructor(signaling) {
+  // iceServers come from the server's joined frame: the embedded TURN relay, with
+  // credentials minted for this join. Normally unused — the SFU has a public IP and
+  // clients reach its UDP ports directly — but a browser restricted to proxied
+  // traffic (a VPN/privacy extension or policy) gathers NO candidates at all without
+  // a TURN-over-TCP server, and a UDP-hostile network finds no working pair; the
+  // relay on TCP 443 is their only route. Absent (older server, no relay): [].
+  constructor(signaling, { iceServers = [] } = {}) {
     super();
     this.signaling = signaling;
-    this.pc = new RTCPeerConnection(); // no ICE servers: public-IP SFU
+    this.pc = new RTCPeerConnection({ iceServers });
 
     // Perfect-negotiation state. makingOffer is true only while THIS peer is
     // creating+applying its own offer, so an inbound offer that arrives in that
@@ -109,8 +115,30 @@ export class Peer extends EventTarget {
 
     // Trickle each local candidate to the SFU as it is gathered. A null candidate
     // is the end-of-gathering sentinel and carries nothing to send.
+    //
+    // Gathered candidates are also tallied by type and summarised once gathering
+    // completes. "No candidates at all" is otherwise invisible from the console — the
+    // call simply never connects and the socket is dropped ~30s later — and it was the
+    // signature of a browser blocking non-proxied UDP. host/srflx = direct paths,
+    // relay = the TURN fallback.
+    this._candidateTypes = {};
     this.pc.onicecandidate = (event) => {
-      if (event.candidate) this.signaling.send("candidate", { candidate: event.candidate });
+      if (event.candidate) {
+        const type = event.candidate.type || "unknown";
+        this._candidateTypes[type] = (this._candidateTypes[type] || 0) + 1;
+        this.signaling.send("candidate", { candidate: event.candidate });
+        return;
+      }
+      const counts = Object.entries(this._candidateTypes).map(([t, n]) => `${t}=${n}`).join(" ");
+      const relays = iceServers.length ? "turn configured" : "no turn";
+      if (counts) log.info(`[peer] ice gathering complete — ${counts} (${relays})`);
+      else log.warn(`[peer] ice gathering complete with NO candidates (${relays}) — this browser is not allowed to reach the media server (VPN/privacy extension or WebRTC IP-handling policy?)`);
+      this._candidateTypes = {};
+    };
+    // A TURN server that could not be used (bad credentials, unreachable, TLS failure)
+    // reports here; without it a broken relay looks identical to "no relay".
+    this.pc.onicecandidateerror = (event) => {
+      if (event.url) log.warn(`[peer] ice candidate error — ${event.url} ${event.errorCode} ${event.errorText || ""}`.trim());
     };
 
     // Client-initiated renegotiation (screenshare add/remove). Adding or removing a

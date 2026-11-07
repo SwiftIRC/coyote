@@ -78,6 +78,15 @@ spec:
                 secretKeyRef:
                   name: coyote
                   key: secret
+            # Embedded TURN relay: the media fallback for clients that cannot reach
+            # the UDP range directly. Plain TCP on the node IP; Traefik's
+            # IngressRouteTCP (ingressroutetcp.yaml) terminates TLS for the TURN host
+            # on 443 and forwards here. The URL host must match that route's
+            # HostSNI and have a DNS record. Remove both to run without a relay.
+            - name: WVC_TURN_ADDR
+              value: "$(WVC_PUBLIC_IP):3478"
+            - name: WVC_TURN_URLS
+              value: "turns:turn.swiftirc.net:443?transport=tcp"   # change to your TURN host
             # Mobile app links — uncomment once the apps are published.
             # - name: WVC_APPLE_APP_ID
             #   value: "<TEAMID>.net.swiftirc.coyote"
@@ -93,6 +102,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+              protocol: TCP
+            - name: turn
+              containerPort: 3478
               protocol: TCP
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }

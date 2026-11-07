@@ -15,3 +15,9 @@ spec:
       port: 8080
       targetPort: 8080
       protocol: TCP
+    # The TURN relay's plain-TCP listener, reached only via the IngressRouteTCP
+    # (Traefik terminates TLS in front of it).
+    - name: turn
+      port: 3478
+      targetPort: 3478
+      protocol: TCP

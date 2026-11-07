@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -25,6 +26,14 @@ type Config struct {
 	AppleAppID        string   // "<TEAMID>.<bundle id>"
 	AndroidPackage    string   // applicationId
 	AndroidCertSHA256 []string // signing-cert SHA-256 fingerprints, "AA:BB:..." form
+	// Embedded TURN relay — the fallback media path for a client that cannot reach the
+	// SFU's UDP ports directly (a browser restricted to proxied traffic by a VPN or
+	// privacy extension or a policy, a UDP-hostile network). TURNAddr is the plain-TCP
+	// listen address; TLS is expected to be terminated in front of it (Traefik on
+	// :443). TURNURLs are the URLs clients are told to use, e.g.
+	// "turns:turn.example.com:443?transport=tcp". Both empty = no relay.
+	TURNAddr string
+	TURNURLs []string
 	// Minimum level the process logs at. The media plane reports per-peer signaling
 	// failures — an offer or answer that would not apply, a candidate rejected — at
 	// debug, because they are per-frame chatter on a healthy server and a flood on a
@@ -79,13 +88,22 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	fs.StringVar(&cfg.AndroidPackage, "android-package", str("WVC_ANDROID_PACKAGE", ""), "Android applicationId for App Links (empty = no assetlinks)")
 	androidCerts := fs.String("android-cert-sha256", str("WVC_ANDROID_CERT_SHA256", ""), "comma-separated Android signing-cert SHA-256 fingerprints")
 	logLevel := fs.String("log-level", str("WVC_LOG_LEVEL", "info"), "log verbosity: debug, info, warn, error")
+	fs.StringVar(&cfg.TURNAddr, "turn-addr", str("WVC_TURN_ADDR", ""), "embedded TURN relay TCP listen address (empty = no relay)")
+	turnURLs := fs.String("turn-urls", str("WVC_TURN_URLS", ""), "comma-separated TURN URLs advertised to clients, e.g. turns:turn.example.com:443?transport=tcp")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
-	for _, c := range strings.Split(*androidCerts, ",") {
-		if c = strings.TrimSpace(c); c != "" {
-			cfg.AndroidCertSHA256 = append(cfg.AndroidCertSHA256, c)
-		}
+	cfg.AndroidCertSHA256 = splitList(*androidCerts)
+	cfg.TURNURLs = splitList(*turnURLs)
+	// Half a TURN config is always a mistake, and each half fails quietly: a listener
+	// nobody is told about is never used, and advertised URLs with no listener make
+	// every client's relay attempt time out. Both read as "TURN doesn't help".
+	if (cfg.TURNAddr == "") != (len(cfg.TURNURLs) == 0) {
+		return Config{}, fmt.Errorf("turn-addr and turn-urls must be set together")
+	}
+	// The relay only ever relays to the SFU, which it finds by the public IP.
+	if cfg.TURNAddr != "" && net.ParseIP(cfg.PublicIP) == nil {
+		return Config{}, fmt.Errorf("turn-addr needs public-ip set to the SFU's IP address (got %q)", cfg.PublicIP)
 	}
 	// slog.Level.UnmarshalText accepts the names case-insensitively (and offsets like
 	// "debug+2"), so it is both the idiomatic parse and a slightly richer one.
@@ -104,4 +122,15 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("tls-cert and tls-key must be set together")
 	}
 	return cfg, nil
+}
+
+// splitList splits a comma-separated setting, trimming entries and dropping empties.
+func splitList(s string) []string {
+	var out []string
+	for _, v := range strings.Split(s, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }

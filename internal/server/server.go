@@ -43,6 +43,9 @@ type Hub struct {
 	sfu *sfu.SFU
 	// invites maps short link ids -> token claims, so !vc links stay short (see invite.go).
 	invites *inviteStore
+	// iceServers mints a joiner's ICE server entries (the embedded TURN relay); nil
+	// when the server runs no relay. Set once at startup, before serving.
+	iceServers func(participantID string) []signal.ICEServer
 	// conns tracks each connection's writePump goroutine so their lifetime
 	// is joinable (graceful drain, and a happens-before edge for tests that
 	// mutate the ws.go tunables).
@@ -54,6 +57,13 @@ func NewHub(cfg config.Config, reg *room.Registry, log *slog.Logger, now func() 
 		now = time.Now
 	}
 	return &Hub{cfg: cfg, reg: reg, log: log, now: now, sfu: mediaSFU, invites: newInviteStore(now)}
+}
+
+// SetICEServers installs the minter for each joiner's ICE server entries (the
+// embedded TURN relay). Call before serving; a hub without one sends none, and
+// clients connect to the SFU directly.
+func (h *Hub) SetICEServers(fn func(participantID string) []signal.ICEServer) {
+	h.iceServers = fn
 }
 
 // shutdownGrace is how long Shutdown waits after broadcasting ServerRestarting
@@ -243,6 +253,9 @@ func (h *Hub) serve(c *wsClient, slug, ip string) {
 	}
 	p.Name = displayName(join.Name, claims) // client-sent name wins (rename-safe); falls back to token nick
 	p.Gravatar = sanitizeGravatar(join.Gravatar)
+	if h.iceServers != nil {
+		p.ICEServers = h.iceServers(p.ID) // delivered in this joiner's Joined frame only
+	}
 	// Carry the joiner's reported mic/camera into the room before Join, so its
 	// roster + PeerJoined broadcast reflect the real state (a pre-join mute shows
 	// crossed-out immediately). A client that omits the fields defaults to ON.

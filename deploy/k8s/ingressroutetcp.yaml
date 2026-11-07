@@ -1,0 +1,22 @@
+# The embedded TURN relay's public front: TURN over TLS on 443, which is the one port
+# the clients that need a relay can still reach (a browser restricted to proxied
+# traffic by a VPN/privacy extension or policy, a UDP-hostile network). Traefik
+# terminates TLS for the TURN hostname — routed by SNI, ahead of the HTTP routers on
+# the same entrypoint — and hands the plain TCP stream to coyote's WVC_TURN_ADDR.
+#
+# Needs a DNS record for the TURN host pointing at this node, and the host must match
+# WVC_TURN_URLS in deployment.yaml.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: coyote-turn
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: HostSNI(`turn.swiftirc.net`)   # change to your TURN host
+      services:
+        - name: coyote
+          port: 3478
+  tls:
+    certResolver: letsencrypt                # change to your Traefik cert resolver

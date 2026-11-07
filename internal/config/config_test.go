@@ -124,3 +124,45 @@ func TestAppLinkSettingsDefaultEmpty(t *testing.T) {
 		t.Errorf("app-link settings should default empty: %+v", cfg)
 	}
 }
+
+func TestTURNSettings(t *testing.T) {
+	env := map[string]string{
+		"WVC_PUBLIC_IP": "203.0.113.7",
+		"WVC_TURN_ADDR": "203.0.113.7:3478",
+		"WVC_TURN_URLS": " turns:turn.example.com:443?transport=tcp , turn:turn.example.com:3478?transport=tcp,",
+	}
+	cfg, err := Load(nil, func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TURNAddr != "203.0.113.7:3478" {
+		t.Errorf("TURNAddr = %q", cfg.TURNAddr)
+	}
+	want := []string{"turns:turn.example.com:443?transport=tcp", "turn:turn.example.com:3478?transport=tcp"}
+	if len(cfg.TURNURLs) != 2 || cfg.TURNURLs[0] != want[0] || cfg.TURNURLs[1] != want[1] {
+		t.Errorf("TURNURLs = %q, want %q", cfg.TURNURLs, want)
+	}
+}
+
+func TestTURNDefaultsOff(t *testing.T) {
+	cfg, err := Load(nil, func(string) string { return "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TURNAddr != "" || cfg.TURNURLs != nil {
+		t.Errorf("TURN should default off, got addr=%q urls=%q", cfg.TURNAddr, cfg.TURNURLs)
+	}
+}
+
+func TestTURNHalfConfigRejected(t *testing.T) {
+	for name, env := range map[string]map[string]string{
+		"addr only":          {"WVC_PUBLIC_IP": "203.0.113.7", "WVC_TURN_ADDR": ":3478"},
+		"urls only":          {"WVC_PUBLIC_IP": "203.0.113.7", "WVC_TURN_URLS": "turns:turn.example.com:443?transport=tcp"},
+		"no public ip":       {"WVC_TURN_ADDR": ":3478", "WVC_TURN_URLS": "turns:turn.example.com:443?transport=tcp"},
+		"hostname public ip": {"WVC_PUBLIC_IP": "vc.example.com", "WVC_TURN_ADDR": ":3478", "WVC_TURN_URLS": "turns:turn.example.com:443?transport=tcp"},
+	} {
+		if _, err := Load(nil, func(k string) string { return env[k] }); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}

@@ -60,6 +60,7 @@ let pendingJoin = null; // {name, password, token, invite, session, gravatar} re
 let media = null;
 let signaling = null;
 let peer = null;
+let iceServers = []; // from the latest joined frame: TURN relay entries minted for this join (see Peer)
 let prejoin = null;
 let grid = null;
 let controls = null;
@@ -320,6 +321,9 @@ function onServerError(msg) {
 // reconnecting notice, replace the replayed chat history, and reconcile the roster.
 function onJoined(msg) {
   showReconnecting(false);
+  // Every join (initial and each reconnect) mints fresh relay credentials; take them
+  // before any Peer below is built from them.
+  iceServers = Array.isArray(msg.iceServers) ? msg.iceServers : [];
   if (msg.quality) sessionQuality = { camera: msg.quality.camera || "auto", screen: msg.quality.screen || "auto" };
   // Reset presence to this authoritative roster (also cancels any deferred drop chime).
   // Runs for the initial join AND our own reconnect — the fresh roster is the source of
@@ -410,7 +414,7 @@ function renderInCall(msg) {
   // Media plane. Peer registers its own offer/answer/candidate/tracks handlers in
   // its constructor; that must happen before start() sends the first offer, and
   // synchronously here so it precedes any inbound SFU frame on this socket.
-  peer = new Peer(signaling);
+  peer = new Peer(signaling, { iceServers });
 
   // Controls first: the grid asks it for each remote tile's op-action group.
   controls = new Controls({ media, peer, signaling, role: msg.role, onLeave: leave, lowBandwidth, onLowBandwidth: setLowBandwidth });
@@ -631,7 +635,7 @@ function wirePeerAndStart() {
 // (grid/controls/chat) is kept — only the media plane is rebuilt.
 function rebuildPeer() {
   if (peer) peer.close();
-  peer = new Peer(signaling);
+  peer = new Peer(signaling, { iceServers });
   if (controls) controls.peer = peer; // controls publishes screenshares through peer
   if (grid) grid.resetRemoteMedia(); // clear old streams; the fresh peer re-delivers them
   wirePeerAndStart();

@@ -59,6 +59,10 @@ type Participant struct {
 	// reconnect the live session is the newer holder of a shared Ref, its ghost the
 	// older one.
 	joinSeq uint64
+	// ICEServers are this join's TURN relay entries (credentials minted for this
+	// participant), set before Join and delivered only to them in their Joined frame.
+	// Nil when the server runs no relay. Immutable once Join runs.
+	ICEServers []signal.ICEServer
 }
 
 // SetInitialMedia records the joiner's self-reported mic/camera state from its
@@ -264,7 +268,7 @@ func (r *Room) Join(p *Participant, password string) error {
 	r.emptySince = time.Time{}
 	r.mu.Unlock()
 
-	p.Conn.Send(signal.Joined{SelfID: p.ID, Role: string(p.Role), Peers: roster, Quality: quality, RoomAgeSec: int64(r.cfg.Now().Sub(r.startedAt).Seconds()), Poll: pollSnap, Locked: locked})
+	p.Conn.Send(signal.Joined{SelfID: p.ID, Role: string(p.Role), Peers: roster, Quality: quality, RoomAgeSec: int64(r.cfg.Now().Sub(r.startedAt).Seconds()), Poll: pollSnap, Locked: locked, ICEServers: p.ICEServers})
 	for _, ce := range replay {
 		p.Conn.Send(ce)
 	}
