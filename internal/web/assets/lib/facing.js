@@ -9,3 +9,21 @@ export function facesAway(track) {
   const s = track.getSettings() || {};
   return s.facingMode === "environment";
 }
+
+// Which physical camera a track comes from, so a manual mirror flip can stay with
+// the camera it was set for and fall away when you switch to a different one.
+export function cameraKey(track) {
+  if (!track) return null;
+  const s = (typeof track.getSettings === "function" && track.getSettings()) || {};
+  return s.deviceId || track.label || "";
+}
+
+// Whether YOUR OWN view of this camera is mirrored. Purely local: it never changes
+// what anyone else sees. The default is a selfie flip for a front camera and none
+// for a rear one; `flippedFor` (a cameraKey, or null) inverts that for the one
+// camera the person flipped by hand.
+export function selfMirrored(track, flippedFor) {
+  const byDefault = !facesAway(track);
+  const flipped = flippedFor != null && track != null && flippedFor === cameraKey(track);
+  return flipped ? !byDefault : byDefault;
+}
