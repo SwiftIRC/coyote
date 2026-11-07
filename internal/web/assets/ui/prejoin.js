@@ -16,6 +16,7 @@ import { resolveEffectId } from "../lib/backgrounds.js";
 import { deviceErrorText } from "../lib/mediaErrors.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
 import { log } from "../lib/log.js";
+import { svgIcon, FLIP_PATHS } from "../lib/icons.js";
 
 const POLL_INTERVAL_MS = 3000;
 const TEST_SOUND = "/sounds_bloop.mp3"; // short, neutral blip for the speaker test
@@ -180,7 +181,8 @@ export class Prejoin {
 
   _build() {
     // `mirror` gives the local preview a selfie (horizontally flipped) view; dropped
-    // by _syncMediaState while a rear camera is selected.
+    // by _syncMediaState while a rear camera is selected, and flippable by hand with
+    // mirrorBtn (view-only; carried into the call by the shared Media).
     this.video = el("video", { class: "preview mirror", autoplay: true, muted: true, playsinline: true });
     this.video.muted = true; // attribute + property: some browsers honour only the property
 
@@ -191,6 +193,21 @@ export class Prejoin {
     // as the name field changes.
     this.cameraOffAvatar = el("span", { class: "cam-off-avatar", "aria-hidden": "true" });
     this.cameraOffOverlay = el("div", { class: "cam-off", hidden: true }, this.cameraOffAvatar);
+    this.mirrorBtn = el(
+      "button",
+      {
+        type: "button",
+        class: "mirror-btn",
+        hidden: true,
+        title: "Mirror my view (only you see this)",
+        "aria-label": "Mirror my view",
+        onClick: () => {
+          this.media.toggleSelfMirror();
+          this._syncMediaState();
+        },
+      },
+      svgIcon(FLIP_PATHS),
+    );
 
     // Pre-join mic/camera toggles: let a participant join already muted and/or with
     // the camera off. Each flips the SHARED Media instance's track.enabled, which
@@ -296,7 +313,7 @@ export class Prejoin {
       { class: "prejoin" },
       el("h1", { text: `Join #${this.slug}` }),
       el("div", { class: "count-row" }, this.countLabel),
-      el("div", { class: "preview-wrap" }, this.video, this.cameraOffOverlay),
+      el("div", { class: "preview-wrap" }, this.video, this.cameraOffOverlay, this.mirrorBtn),
       el("div", { class: "media-toggles" }, this.micToggle, this.cameraToggle),
       el("div", { class: "devices" },
         el("label", { class: "field" }, el("span", { text: "Camera" }), this.cameraSelect),
@@ -482,7 +499,10 @@ export class Prejoin {
     const mic = this.media.micTrack;
     this._setCameraToggle(!!cam, this.media.cameraAvailable);
     this._setMicToggle(mic ? mic.enabled : false, !!mic);
-    this.video.classList.toggle("mirror", !this.media.cameraFacesAway); // never mirror a rear camera
+    const mirrored = this.media.selfMirrored; // front camera mirrored, rear not, unless flipped by hand
+    this.video.classList.toggle("mirror", mirrored);
+    this.mirrorBtn.hidden = !cam; // nothing to flip with the camera off
+    this.mirrorBtn.setAttribute("aria-pressed", String(mirrored));
   }
 
   _toggleMic() {

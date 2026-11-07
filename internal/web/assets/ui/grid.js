@@ -36,7 +36,7 @@
 
 import { playSound } from "../lib/sounds.js";
 import { applyAvatar } from "../lib/avatar.js";
-import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS } from "../lib/icons.js";
+import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS, FLIP_PATHS } from "../lib/icons.js";
 import { log } from "../lib/log.js";
 import { stacksNarrow } from "../lib/gridLayout.js";
 
@@ -696,8 +696,13 @@ export class Grid {
     this._setIndicator(tile.micPill, !!(mic && mic.enabled));
     this._setIndicator(tile.avPill, camOn);
     tile.camOff.hidden = camOn; // show the placeholder when your own camera is off
-    // Selfie-mirror the front camera only; a rear camera is shown as it sees the world.
-    tile.cameraVideo.classList.toggle("mirror", !(this.media && this.media.cameraFacesAway));
+    // Selfie-mirror the front camera only, unless flipped by hand (media.selfMirrored).
+    const mirrored = !this.media || this.media.selfMirrored;
+    tile.cameraVideo.classList.toggle("mirror", mirrored);
+    if (tile.mirrorBtn) {
+      tile.mirrorBtn.hidden = !camOn; // nothing to flip with the camera off
+      tile.mirrorBtn.setAttribute("aria-pressed", String(mirrored));
+    }
   }
 
   _addSelfTile(role) {
@@ -736,7 +741,8 @@ export class Grid {
 
   _buildTile(id, name, role, { self, gravatar } = {}) {
     // Only the local (self) camera is mirrored — a selfie view, as call apps do —
-    // and only while it faces the user (refreshSelf drops it for a rear camera).
+    // and only while it faces the user (refreshSelf drops it for a rear camera, and
+    // the self tile's mirror button flips it either way).
     // Screen-share tiles are built separately (_addScreenTile) and never mirrored.
     const cameraVideo = el("video", { class: self ? "cam mirror" : "cam", autoplay: true, playsinline: true });
     // Camera-off placeholder over the video: a released camera (or a remote peer
@@ -792,11 +798,31 @@ export class Grid {
     const tileEl = el("div", { class: self ? "tile self" : "tile", "data-id": id }, cameraVideo, camOff, nameTag, pills);
     if (volumeEl) tileEl.append(volumeEl);
     if (volLabel) tileEl.append(volLabel);
+    // Self tile only: flip YOUR view of your camera (top-right, where remotes have
+    // their volume slider). Local — nothing is sent; see Media.toggleSelfMirror.
+    let mirrorBtn = null;
+    if (self) {
+      mirrorBtn = el(
+        "button",
+        {
+          type: "button",
+          class: "mirror-btn",
+          title: "Mirror my view (only you see this)",
+          "aria-label": "Mirror my view",
+          onClick: () => {
+            if (this.media) this.media.toggleSelfMirror();
+            this.refreshSelf();
+          },
+        },
+        svgIcon(FLIP_PATHS),
+      );
+      tileEl.append(mirrorBtn);
+    }
     // Click the video to blow this tile up to fill the window; click again to restore.
     cameraVideo.title = "Click to focus";
     cameraVideo.addEventListener("click", () => this._toggleFocus(tileEl));
 
-    const tile = { el: tileEl, cameraVideo, camOff, camOffAvatar, gravatar: gravatar || "", nameEl, badgeEl, micPill, avPill, volumeEl, volLabel, volume: 1, name, hasCamera: false, cameraOn: true, lastCameraTime: 0, camOffAt: 0, self };
+    const tile = { el: tileEl, cameraVideo, camOff, camOffAvatar, gravatar: gravatar || "", nameEl, badgeEl, micPill, avPill, volumeEl, volLabel, mirrorBtn, volume: 1, name, hasCamera: false, cameraOn: true, lastCameraTime: 0, camOffAt: 0, self };
     // Self-heal for a stale camera-off state — see _onCameraProgress. Registered once,
     // at build time, so it cannot stack listeners across re-attachments.
     if (!self) cameraVideo.addEventListener("timeupdate", () => this._onCameraProgress(id));

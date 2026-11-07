@@ -6,6 +6,7 @@ import { NO_ROUTES, outputLabel, pendingOutcome, pickInput, pickOutput, selected
 import { cameraFacing, type Camera } from "../../core/cameras";
 import { chromePinned } from "../../core/chrome";
 import { gridColumns } from "../../core/grid";
+import { selfMirrored, toggleFlip } from "../../core/mirror";
 import { PIP_OFF, pipOthers, pipParams, pipTile, runPipAction } from "../../core/pip";
 import { gridTiles, viewedFor, type Viewing } from "../../core/tiles";
 import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
@@ -52,6 +53,9 @@ export function Call() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [cameraBusy, setCameraBusy] = useState<string | null>(null);
+  // The camera whose self-view was flipped by hand (core/mirror.ts); local only.
+  const [mirrorFlip, setMirrorFlip] = useState<string | null>(null);
+  const mirror = state ? selfMirrored(state.facing, state.cameraId, mirrorFlip) : true;
   const chat = useChat();
   const pollNow = usePoll();
   const volumes = useVolumes();
@@ -236,7 +240,7 @@ export function Call() {
       <PipView
         tile={t}
         others={pipOthers(t, state.participants)}
-        self={{ name: state.name, stream: state.camera && !hideSelf ? state.localStream : null, mirror: state.facing === "user" }}
+        self={{ name: state.name, stream: state.camera && !hideSelf ? state.localStream : null, mirror }}
         volumes={volumes}
         dataSaver={state.dataSaver}
       />
@@ -306,7 +310,7 @@ export function Call() {
         >
           <TopBar slug={state.slug} locked={mod.locked} />
         </Animated.View>
-        <SelfView inset={insets.top} mirror={state.facing === "user"} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
+        <SelfView inset={insets.top} mirror={mirror} onMirror={() => setMirrorFlip((f) => toggleFlip(state.facing, state.cameraId, f))} stream={state.camera && !hideSelf ? state.localStream : null} onFlip={() => { call()?.flipCamera().catch(warn("flip camera")); }} />
         <Banner inset={insets.top} kind={state.banner} notices={notices} />
         {debug ? <DebugOverlay top={insets.top + 44} left={insets.left + 4} /> : null}
         {share.status === "sharing" ? (

@@ -643,6 +643,35 @@ video.mirror {
   opacity: 1;
 }
 
+/* Self-view mirror toggle: top-right of your own tile (where a remote tile has its
+   volume slider) and of the lobby preview. View-only; aria-pressed = mirrored. */
+.mirror-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  z-index: 2;
+}
+.mirror-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+.mirror-btn[aria-pressed="false"] {
+  opacity: 0.75;
+}
+.mirror-btn .icon-svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+}
+
 /* Op controls move to the top-LEFT so they don't collide with the volume slider. */
 .op-actions {
   position: absolute;

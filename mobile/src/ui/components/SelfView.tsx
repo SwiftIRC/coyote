@@ -7,8 +7,15 @@ import { colors } from "../theme";
 
 // Draggable picture-in-picture self view. Hidden when the camera is off.
 // `inset` is the top safe-area inset: the call draws edge to edge.
-// `mirror`: a selfie flip for the front camera only; a rear camera is shown unflipped.
-export function SelfView({ stream, onFlip, inset, mirror }: { stream: StreamLike | null; onFlip(): void; inset: number; mirror: boolean }) {
+// `mirror`: whether this view is flipped (core/mirror.ts); `onMirror` toggles it.
+// The mirror button is view-only — what the call sees is never flipped.
+export function SelfView({ stream, onFlip, inset, mirror, onMirror }: {
+  stream: StreamLike | null;
+  onFlip(): void;
+  inset: number;
+  mirror: boolean;
+  onMirror(): void;
+}) {
   const pos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const pan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) => isDrag(g),
@@ -20,7 +27,10 @@ export function SelfView({ stream, onFlip, inset, mirror }: { stream: StreamLike
   return (
     <Animated.View style={[styles.pip, { top: inset + 56, transform: pos.getTranslateTransform() }]} {...pan.panHandlers}>
       <RTCView streamURL={stream.toURL()} style={StyleSheet.absoluteFill} objectFit="cover" mirror={mirror} zOrder={1} />
-      <Pressable onPress={onFlip} style={styles.flip} accessibilityRole="button" accessibilityLabel="Switch camera" hitSlop={8}>
+      <Pressable onPress={onMirror} style={[styles.btn, styles.mirror]} accessibilityRole="switch" accessibilityState={{ checked: mirror }} accessibilityLabel="Mirror my view" hitSlop={8}>
+        <Text style={styles.flipText}>⇋</Text>
+      </Pressable>
+      <Pressable onPress={onFlip} style={[styles.btn, styles.flip]} accessibilityRole="button" accessibilityLabel="Switch camera" hitSlop={8}>
         <Text style={styles.flipText}>⟳</Text>
       </Pressable>
     </Animated.View>
@@ -29,6 +39,8 @@ export function SelfView({ stream, onFlip, inset, mirror }: { stream: StreamLike
 
 const styles = StyleSheet.create({
   pip: { position: "absolute", right: 12, width: 96, height: 128, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  flip: { position: "absolute", right: 4, bottom: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
+  btn: { position: "absolute", bottom: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
+  flip: { right: 4 },
+  mirror: { left: 4 },
   flipText: { color: colors.text, fontSize: 16 },
 });

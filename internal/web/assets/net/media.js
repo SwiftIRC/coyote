@@ -37,7 +37,7 @@ import { micConstraints } from "../lib/audioConstraints.js";
 import { cameraConstraints } from "../lib/videoConstraints.js";
 import { qualityTier, captureTarget } from "../lib/quality.js";
 import { log } from "../lib/log.js";
-import { facesAway } from "../lib/facing.js";
+import { cameraKey, selfMirrored } from "../lib/facing.js";
 
 export class Media extends EventTarget {
   constructor() {
@@ -77,6 +77,7 @@ export class Media extends EventTarget {
     this._bgEffect = "none";
     this._segmenter = null;
     this._rawCameraTrack = null; // the device track, parked while an effect is on
+    this._mirrorFlipFor = null; // cameraKey of the camera whose self-view was flipped by hand
     // setBackground, useDevices, and disableCamera can all interleave across the
     // multi-second MediaPipe load inside a build, and nothing about a Promise
     // stops that. _bgGeneration is the guard: setBackground bumps it before any
@@ -166,11 +167,28 @@ export class Media extends EventTarget {
     return (this.stream && this.stream.getVideoTracks()[0]) || null;
   }
 
-  // True when the capturing camera is a rear one, whose self-view must not be
-  // mirrored. Reads the RAW device track while a background effect is on: the
-  // published track is then a synthetic canvas track with no facingMode.
-  get cameraFacesAway() {
-    return facesAway(this._rawCameraTrack || this.cameraTrack);
+  // Whether the local self-view (lobby preview + self tile) is mirrored: a selfie
+  // flip for a front camera, none for a rear one, inverted by toggleSelfMirror for
+  // the camera it was pressed on. View-only — the published video is never flipped.
+  // Reads the RAW device track while a background effect is on: the published track
+  // is then a synthetic canvas track with no facingMode or deviceId.
+  get selfMirrored() {
+    return selfMirrored(this._selfCameraDevice(), this._mirrorFlipFor);
+  }
+
+  // Flip the self-view for the current camera. Lives here, not in the views, so a
+  // flip made in the lobby carries into the call; switching to another camera
+  // returns to that camera's default. Not saved across page loads.
+  toggleSelfMirror() {
+    const t = this._selfCameraDevice();
+    if (!t) return this.selfMirrored;
+    const k = cameraKey(t);
+    this._mirrorFlipFor = this._mirrorFlipFor === k ? null : k;
+    return this.selfMirrored;
+  }
+
+  _selfCameraDevice() {
+    return this._rawCameraTrack || this.cameraTrack;
   }
 
   get screenTrack() {
