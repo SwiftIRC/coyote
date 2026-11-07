@@ -323,14 +323,14 @@ export class Controls {
     this.cameraWrap = el("div", { class: "split-ctl" }, this.cameraBtn, this.cameraArrow, this.cameraMenu);
     // "Share" opens a small menu (Screen / Audio) when idle; while sharing it becomes
     // "Stop share" and a click stops it. One share at a time (one screenStream).
-    this.shareBtn = el("button", { type: "button", class: "ctl share", onClick: () => this._onShareClick() });
+    this.shareBtn = el("button", { type: "button", class: "ctl present", onClick: () => this._onShareClick() });
     this.shareMenu = el(
       "div",
-      { class: "share-menu", hidden: true },
-      el("button", { type: "button", class: "share-item", onClick: () => this._share("screen") }, "Screen"),
-      el("button", { type: "button", class: "share-item", onClick: () => this._share("audio") }, "Audio"),
+      { class: "ctl-menu", hidden: true },
+      el("button", { type: "button", class: "ctl-menu-item", onClick: () => this._share("screen") }, "Screen"),
+      el("button", { type: "button", class: "ctl-menu-item", onClick: () => this._share("audio") }, "Audio"),
     );
-    this.shareWrap = el("div", { class: "share-wrap" }, this.shareBtn, this.shareMenu);
+    this.shareWrap = el("div", { class: "menu-wrap" }, this.shareBtn, this.shareMenu);
     // Noise suppression: opt-in (default OFF — it adds CPU/latency, so the user
     // enables it), and disabled while the large worklet loads on first enable.
     this.nsBtn = el("button", { type: "button", class: "ctl ns", title: "Microphone noise suppression", onClick: () => this._onNsToggle() });
@@ -341,7 +341,7 @@ export class Controls {
       "div",
       { class: "seg cols-seg" },
       ...COLS_OPTIONS.map((opt) =>
-        el("button", { type: "button", class: "share-item cols-item", "data-cols": String(opt.value ?? "auto"), onClick: () => this._pickCols(opt.value) }, opt.label),
+        el("button", { type: "button", class: "ctl-menu-item cols-item", "data-cols": String(opt.value ?? "auto"), onClick: () => this._pickCols(opt.value) }, opt.label),
       ),
     );
 
@@ -387,10 +387,10 @@ export class Controls {
       );
       this.soundItems = new Map(); // sound id -> its board button
       for (const s of this.board) {
-        this.soundItems.set(s.id, el("button", { type: "button", class: "share-item board-item", onClick: () => this._onBoardClick(s.id) }, s.label));
+        this.soundItems.set(s.id, el("button", { type: "button", class: "ctl-menu-item board-item", onClick: () => this._onBoardClick(s.id) }, s.label));
       }
-      this.soundMenu = el("div", { class: "share-menu soundboard-menu", hidden: true }, ...this.soundItems.values());
-      this.soundWrap = el("div", { class: "share-wrap" }, this.soundBtn, this.soundMenu);
+      this.soundMenu = el("div", { class: "ctl-menu soundboard-menu", hidden: true }, ...this.soundItems.values());
+      this.soundWrap = el("div", { class: "menu-wrap" }, this.soundBtn, this.soundMenu);
     }
 
     // Full screen: hands the whole page to the browser, which on a phone also reclaims
@@ -438,7 +438,7 @@ export class Controls {
     });
     this.settingsMenu = el(
       "div",
-      { class: "share-menu settings-menu", hidden: true },
+      { class: "ctl-menu settings-menu", hidden: true },
       this._settingsRow("Name", this.renameInput),
       this._settingsRow("Hide self", this.hideSelfBtn),
       this._settingsRow("Noise suppression", this.nsBtn),
@@ -446,7 +446,7 @@ export class Controls {
       this._settingsRow("Data saver", this.lowBwBtn),
       this._settingsRow("Columns", this.colsSeg),
     );
-    this.settingsWrap = el("div", { class: "share-wrap" }, this.settingsBtn, this.settingsMenu);
+    this.settingsWrap = el("div", { class: "menu-wrap" }, this.settingsBtn, this.settingsMenu);
     this._markColsActive();
 
     const leaveBtn = el("button", { type: "button", class: "ctl leave", onClick: () => this.onLeave() }, "Leave");
@@ -1226,7 +1226,7 @@ export class Controls {
       { class: "op-actions" },
       el(
         "button",
-        { type: "button", class: "op stopshare", title: "Stop screenshare", onClick: () => this._send("mute-peer", { id, kind: "screen" }) },
+        { type: "button", class: "op stop-present", title: "Stop screenshare", onClick: () => this._send("mute-peer", { id, kind: "screen" }) },
         "stop share",
       ),
     );

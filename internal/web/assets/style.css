@@ -838,12 +838,15 @@ body.ui-idle .controls {
   font-weight: 600;
 }
 
-/* Share button + its Screen/Audio popover (pops UP from the bottom control bar). */
-.share-wrap {
+/* Popover controls (screen share, soundboard, the ☰ menu) and their popover, which
+   pops UP from the bottom control bar. Never name a control class with "share": ad
+   blockers' social-widget filter lists hide elements like .share-wrap, and that is
+   exactly how these three buttons once vanished for a single user. */
+.menu-wrap {
   position: relative;
   display: inline-flex;
 }
-.share-menu {
+.ctl-menu {
   position: absolute;
   bottom: calc(100% + 0.3rem);
   left: 0;
@@ -856,7 +859,7 @@ body.ui-idle .controls {
   border-radius: 8px;
   z-index: 10;
 }
-.share-item {
+.ctl-menu-item {
   padding: 0.4rem 0.9rem;
   text-align: left;
   white-space: nowrap;
@@ -866,11 +869,11 @@ body.ui-idle .controls {
   color: var(--fg);
   cursor: pointer;
 }
-.share-item:hover {
+.ctl-menu-item:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 /* Selected option (e.g. the current camera-columns choice). */
-.share-item.active {
+.ctl-menu-item.active {
   background: rgba(255, 255, 255, 0.16);
   font-weight: 600;
 }
@@ -880,7 +883,7 @@ body.ui-idle .controls {
 }
 
 /* Soundboard popover: a wrapping row of emoji buttons rather than a text list. After
-   .share-menu, whose column layout it overrides at the same specificity. */
+   .ctl-menu, whose column layout it overrides at the same specificity. */
 .soundboard-menu {
   flex-direction: row;
   flex-wrap: wrap;
@@ -1246,11 +1249,11 @@ body.ui-idle .controls {
 }
 
 /* In-call ☰ settings menu: a vertical list of labelled rows inside the shared
-   .share-menu popover. Each row is "label … control" (a toggle button, a segmented
+   .ctl-menu popover. Each row is "label … control" (a toggle button, a segmented
    group, or the quality selects). */
 .settings-menu {
   min-width: 240px;
-  /* The ☰ button sits near the right end of the control bar; the base .share-menu rule
+  /* The ☰ button sits near the right end of the control bar; the base .ctl-menu rule
      anchors left:0 and grows rightward, so this wider (240px) menu ran off the right edge
      of the screen. Anchor to the button's RIGHT edge instead (grow leftward), and cap the
      width so it can't overflow on a narrow viewport either. */
@@ -1417,7 +1420,7 @@ body.ui-idle .controls {
 }
 
 /* --- narrow viewports: centre the control-bar popovers ---------------------------
-   Every popover above anchors to its own button (.share-menu/.device-menu grow right
+   Every popover above anchors to its own button (.ctl-menu/.device-menu grow right
    from left:0; .settings-menu grows left from right:0, on the assumption that ☰ sits
    near the right end of the bar). That assumption only holds while the bar is one row.
    .controls is flex-wrap:wrap + justify-content:center, so on a phone it wraps and the
@@ -1433,12 +1436,12 @@ body.ui-idle .controls {
    This block must stay after the .settings-menu rules above: it matches at the same
    specificity, so only source order lets it win. */
 @media (max-width: 30rem) {
-  .controls .share-wrap,
+  .controls .menu-wrap,
   .controls .split-ctl {
     position: static;
   }
 
-  .controls .share-menu,
+  .controls .ctl-menu,
   .controls .device-menu,
   .controls .settings-menu {
     left: 50%;
