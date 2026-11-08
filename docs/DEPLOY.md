@@ -39,7 +39,7 @@ over defaults.
 | `-android-package` | `WVC_ANDROID_PACKAGE` | _(empty)_ | Android applicationId for `/.well-known/assetlinks.json`. |
 | `-android-cert-sha256` | `WVC_ANDROID_CERT_SHA256` | _(empty)_ | Comma-separated signing-cert SHA-256 fingerprints for assetlinks (both Android settings needed). |
 | `-tls-cert` / `-tls-key` | `WVC_TLS_CERT` / `WVC_TLS_KEY` | _(empty)_ | Optional built-in TLS instead of a proxy. Set both or neither. |
-| `-turn-addr` | `WVC_TURN_ADDR` | _(empty)_ | Plain-TCP listen address for the embedded [TURN relay](#turn-relay), with TLS terminated in front of it. Needs `-public-ip`. Set together with `-turn-urls`, or leave both empty for no relay. |
+| `-turn-addr` | `WVC_TURN_ADDR` | _(empty)_ | Plain-TCP listen address for the embedded [TURN relay](#turn-relay), exposed directly or behind a TLS-terminating proxy. Needs `-public-ip`. Set together with `-turn-urls`, or leave both empty for no relay. |
 | `-turn-urls` | `WVC_TURN_URLS` | _(empty)_ | Comma-separated TURN URLs given to clients, e.g. `turns:turn.example.com:443?transport=tcp`. |
 | `-log-level` | `WVC_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. An unparseable value refuses to start rather than falling back. |
 
@@ -104,19 +104,19 @@ The embedded relay gives those clients a path over TCP 443:
   `joined` frame. The signing secret is random per process, so there's nothing to
   configure. A restart drops every call anyway, and the rejoin carries fresh
   credentials.
-- **Plain TCP only.** Put TLS in front of it on 443, under its own hostname, and
-  advertise that as `turns:<host>:443?transport=tcp`. Clients that can use UDP never
-  touch the relay.
+- **Plain TCP only.** Either expose it as `turn:<host>:3478?transport=tcp`, or put
+  TLS in front of it on 443 under its own hostname and advertise
+  `turns:<host>:443?transport=tcp` for networks that only allow 443 out. Clients that
+  can use UDP never touch the relay.
 - **Each allocation logs `turn relay allocation created peer=<id>` at info.** Only
   relayed clients allocate, so this line answers "was this participant relayed?"
 
 Relayed media goes client → relay → SFU on the same host, so the relay adds no
 extra network hop.
 
-With Caddy, TLS-terminating a raw TCP stream needs the `layer4` plugin. With nginx,
-use a `stream` block with `ssl_preread` to send the TURN hostname's SNI to the relay
-(terminating TLS there) and everything else to the HTTPS server. The Kubernetes
-manifests do this with a Traefik `IngressRouteTCP`.
+With Caddy, TLS-terminating a raw TCP stream needs the `layer4` plugin. For nginx, see
+[TURN relay through nginx](#turn-relay-through-nginx). The Kubernetes manifests use a
+Traefik `IngressRouteTCP`.
 
 ### Firewall
 
@@ -124,6 +124,8 @@ manifests do this with a Traefik `IngressRouteTCP`.
 - **`-udp-min`–`-udp-max`/udp** open directly to the box (default 50000–50199).
   These carry media and must **not** go through the reverse proxy.
 - `-public-ip` must equal the address clients reach over that UDP range.
+- **3478/tcp**, if you advertise a plain `turn:…:3478` relay URL. Open it in both the
+  cloud security list and the host firewall.
 
 ## Build & run
 
@@ -191,6 +193,99 @@ server {
 
 Media UDP does not pass through nginx — clients reach `-public-ip` on the UDP
 range directly.
+
+#### TURN relay through nginx
+
+TURN is not HTTP, so the relay has to be proxied from a top-level `stream {}` block,
+a sibling of `http {}`, never a `server {}` inside `http {}`. The `stream` module ships
+with most distro builds; on Debian/Ubuntu it is loaded by
+`/etc/nginx/modules-enabled/50-mod-stream.conf` (package `libnginx-mod-stream`).
+
+**Plain TURN on 3478 (simplest).** This is enough for the common case, a browser
+restricted to proxied traffic by a VPN or privacy extension: it only needs *some* TCP
+path. The media inside the relay is already DTLS/SRTP-encrypted, so the plain `turn:`
+scheme exposes nothing.
+
+```nginx
+# /etc/nginx/nginx.conf — top level, next to http {}
+stream {
+    server {
+        listen 3478;
+        proxy_pass 10.0.0.5:3478;   # coyote's -turn-addr (the SFU host)
+        proxy_timeout 1h;           # stream default is 10m; a relayed call is one long connection
+    }
+}
+```
+
+Run coyote with `-turn-addr 10.0.0.5:3478` (or `0.0.0.0:3478`) and
+`-turn-urls 'turn:vc.swiftirc.net:3478?transport=tcp'`, and open 3478/tcp to the nginx
+box. If nginx and coyote share the host, nginx can't take 3478 itself: give coyote
+`-turn-addr 127.0.0.1:3479` and `proxy_pass 127.0.0.1:3479`. Or skip nginx for TURN
+entirely and let coyote listen on the public 3478.
+
+**TURN over TLS on 443 (for networks that only let 443 out).** `stream` must then own
+port 443 and split by SNI. The TURN hostname goes to a TLS-terminating listener in
+front of the relay. Everything else passes through untouched to the existing HTTPS
+`server {}` blocks, which move to a local port:
+
+```nginx
+stream {
+    map $ssl_preread_server_name $tls_backend {
+        turn.swiftirc.net  127.0.0.1:5349;   # TURN: terminate TLS below
+        default            127.0.0.1:8443;   # everything else: the http {} servers
+    }
+    server {
+        listen 443;
+        ssl_preread on;
+        proxy_pass $tls_backend;
+        proxy_protocol on;                   # carry the real client IP to the http {} side
+    }
+    server {
+        listen 127.0.0.1:5349 ssl proxy_protocol;
+        ssl_certificate     /etc/letsencrypt/live/turn.swiftirc.net/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/turn.swiftirc.net/privkey.pem;
+        proxy_pass 10.0.0.5:3478;
+        proxy_timeout 1h;
+    }
+}
+http {
+    # every former "listen 443 ssl;" becomes:
+    #   listen 127.0.0.1:8443 ssl proxy_protocol;
+    #   set_real_ip_from 127.0.0.1;
+    #   real_ip_header proxy_protocol;
+    ...
+}
+```
+
+Advertise `turns:turn.swiftirc.net:443?transport=tcp`, and give the TURN hostname its
+own certificate, e.g. `certbot certonly --nginx -d turn.swiftirc.net`. Without the
+`proxy_protocol`/`real_ip` lines, every HTTP client appears as 127.0.0.1 and
+`X-Forwarded-For` (which `-trust-proxy` reads) carries the wrong address. Both URLs
+can be advertised together, comma-separated in `-turn-urls`, and the browser tries
+each.
+
+**Verify** from any machine outside. A STUN binding request should get a binding
+response back:
+
+```
+python3 - vc.swiftirc.net 3478 <<'EOF'
+import os, socket, struct, sys
+s = socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=6)
+tid = os.urandom(12)
+s.sendall(struct.pack("!HHI", 1, 0, 0x2112A442) + tid)
+d = s.recv(2048)
+print("OK: relay answered" if d[:2] == b"\x01\x01" and d[8:20] == tid else f"WRONG: {d[:60]!r}")
+EOF
+```
+
+What the failures look like (each one seen in practice):
+
+| Symptom | Meaning |
+| --- | --- |
+| Connection times out | A firewall drops 3478: the cloud security list (Oracle allows only 22 by default) or the host's iptables `REJECT`. Both layers need opening. |
+| `HTTP/1.1 400 Bad Request — Server: nginx` | The port reaches nginx's `http {}` side. The block is in the wrong context. |
+| Accepted, then closed with no data | `stream` is fine but can't reach the upstream. Check `/var/log/nginx/error.log` for `connect() failed ... while connecting to upstream`, the `proxy_pass` address, coyote's `turn relay listening` log line, and the coyote host's firewall toward the nginx box. |
+| Browser logs `ice candidate error — turn:… 701` | The same reachability failure, seen from the client. |
 
 ### Built-in TLS (no proxy)
 
