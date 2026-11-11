@@ -233,7 +233,13 @@ func (s *SFU) signalPeerConnections(slug string) {
 		signalBackoff     = 20 * time.Millisecond
 	)
 
+	// Why the last attempt could not offer, per peer: "id state: err". Named in the
+	// "did not converge" warning so a wedge says WHICH participant is stuck and in what
+	// signaling state (have-local-offer = our offer was never answered), instead of
+	// only the room.
+	var stuck map[string]string
 	for attempt := 0; attempt < maxSignalAttempts; attempt++ {
+		stuck = map[string]string{}
 		s.mu.Lock()
 		r := s.rooms[slug]
 		if r == nil {
@@ -303,6 +309,7 @@ func (s *SFU) signalPeerConnections(slug string) {
 			p.makingOffer = true
 			offer, err := p.pc.CreateOffer(nil)
 			if err != nil {
+				stuck[p.id] = p.pc.SignalingState().String() + ": " + err.Error()
 				// A renegotiation is mid-flight (signaling state not stable); hand the
 				// claim back so p stays pending, and retry the whole pass shortly.
 				p.makingOffer = false
@@ -312,6 +319,7 @@ func (s *SFU) signalPeerConnections(slug string) {
 				continue
 			}
 			if err := p.pc.SetLocalDescription(offer); err != nil {
+				stuck[p.id] = p.pc.SignalingState().String() + ": " + err.Error()
 				p.makingOffer = false
 				p.mu.Unlock()
 				s.remarkReneg(slug, p.id)
@@ -354,7 +362,7 @@ func (s *SFU) signalPeerConnections(slug string) {
 	// its earlier offer has had time to be answered. A reschedule that lands
 	// after the room is torn down is a safe no-op: signalPeerConnections looks
 	// the room up under s.mu and returns early when it is gone.
-	s.log.Warn("renegotiation did not converge; rescheduling", "slug", slug)
+	s.log.Warn("renegotiation did not converge; rescheduling", "slug", slug, "stuck", stuck)
 	go func() {
 		time.Sleep(renegRetryDelay)
 		s.signalPeerConnections(slug)
