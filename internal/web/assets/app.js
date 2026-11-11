@@ -517,7 +517,13 @@ function renderInCall(msg) {
   // Authoritative per-peer mic/camera state: drives the remote mute indicators.
   signaling.on("peer-media-state", (m) => {
     // The receiving half of controls.sendMediaState's [media-state] line.
-    log.info(`[media-state] received ${m.id} mic=${m.mic} camera=${m.camera}`);
+    // Says whether a tile exists for that id: a state applied to an id we hold no tile
+    // for is parked, so a stale tile (old id) would keep showing the wrong state.
+    const known = grid && grid.peerIds().includes(m.id);
+    log.info(
+      `[media-state] received ${m.id} mic=${m.mic} camera=${m.camera}` +
+        (known ? "" : ` (no tile for this id; tiles=${grid ? grid.peerIds().join(",") : "none"})`),
+    );
     grid.setPeerMedia(m.id, { mic: m.mic, camera: m.camera });
   });
   signaling.on("peer-renamed", (m) => {
