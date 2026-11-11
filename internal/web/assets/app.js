@@ -515,7 +515,11 @@ function renderInCall(msg) {
     presence.left(m && m.ref); // defers the drop chime so a quick reconnect stays silent
   });
   // Authoritative per-peer mic/camera state: drives the remote mute indicators.
-  signaling.on("peer-media-state", (m) => grid.setPeerMedia(m.id, { mic: m.mic, camera: m.camera }));
+  signaling.on("peer-media-state", (m) => {
+    // The receiving half of controls.sendMediaState's [media-state] line.
+    log.info(`[media-state] received ${m.id} mic=${m.mic} camera=${m.camera}`);
+    grid.setPeerMedia(m.id, { mic: m.mic, camera: m.camera });
+  });
   signaling.on("peer-renamed", (m) => {
     if (!grid || !m) return;
     grid.setPeerName(m.id, m.name);

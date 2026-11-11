@@ -554,6 +554,11 @@ export class Controls {
     const mic = !!(this.media && this.media.micTrack && this.media.micTrack.enabled);
     const camera = !!(this.media && this.media.cameraTrack && this.media.cameraTrack.enabled);
     this._send("media-state", { mic, camera });
+    // One line per broadcast: paired with the receiver's [media-state] line, a pasted
+    // console pair shows which side lost a camera-off (sent but never received, or
+    // never sent at all). Also says whether the socket was open or the frame queued.
+    const open = !!(this.signaling && this.signaling.ws && this.signaling.ws.readyState === WebSocket.OPEN);
+    log.info(`[media-state] sent mic=${mic} camera=${camera}${open ? "" : " (socket not open: queued)"}`);
     if (remember) saveMediaPrefs({ mic, camera }); // remember for the next call's lobby
   }
 
