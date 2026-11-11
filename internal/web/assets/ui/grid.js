@@ -39,6 +39,7 @@ import { applyAvatar } from "../lib/avatar.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS, FLIP_PATHS } from "../lib/icons.js";
 import { log } from "../lib/log.js";
 import { stacksNarrow } from "../lib/gridLayout.js";
+import { presentedFrames, framesAdvanced } from "../lib/videoFrames.js";
 
 // Tiny DOM helper: el("div", {class:"x", onClick:fn}, child, "text"...). The
 // "text" key sets textContent, so caller-supplied strings can never inject markup.
@@ -65,18 +66,16 @@ const LEVEL_INTERVAL_MS = 150;
 // triggering it on its own.
 const ACTIVE_THRESHOLD = 0.015;
 
-// How long after a peer is REPORTED camera-off the self-heal ignores playback
-// progress on their tile (see _onCameraProgress).
+// How long after a peer is REPORTED camera-off the self-heal keeps re-baselining
+// their tile's frame count instead of judging it (see _onCameraProgress).
 //
-// Turning a camera off stops the sender, but the receiving <video> goes on playing
-// the frames already decoded and queued for a few hundred milliseconds afterwards.
-// Each of those fires timeupdate with an advancing position, which is indistinguishable
-// from a live camera if you look only at the position — so the heal fired on the tail
-// of a legitimate camera-off and uncovered the tile, leaving the last frame frozen on
-// screen instead of the avatar.
+// Turning a camera off stops the sender, but the receiving <video> goes on presenting
+// the frames already in flight for a few hundred milliseconds afterwards. Counted
+// against the baseline taken when the camera-off arrived, those would read as a live
+// camera, and the heal would uncover the tile onto a frozen last frame.
 //
 // The window need only outlast that tail. It costs nothing when a broadcast really was
-// missed: a live camera keeps firing timeupdate indefinitely, so the heal simply lands
+// missed: a live camera keeps presenting frames indefinitely, so the heal simply lands
 // on the first event after the window instead of the first event at all.
 const CAMERA_OFF_SETTLE_MS = 2000;
 
@@ -390,7 +389,7 @@ export class Grid {
       tile.cameraVideo.srcObject = stream;
       tile.cameraVideo.play().catch(() => {}); // nudge playback in case autoplay stalled (black tile)
       tile.hasCamera = true;
-      tile.lastCameraTime = 0; // a new stream restarts currentTime — see _onCameraProgress
+      tile.lastCameraFrames = null; // a new stream: re-baseline on the next event — see _onCameraProgress
       // Deliberately NOT clearing camOff here. Track arrival cannot prove the camera
       // is live: this app mutes a camera by disabling the track, not by unpublishing
       // it, so a peer who joins with their camera off still publishes a (disabled)
@@ -431,7 +430,7 @@ export class Grid {
       if (tile) {
         tile.cameraVideo.srcObject = null;
         tile.hasCamera = false;
-        tile.lastCameraTime = 0; // see _onCameraProgress
+        tile.lastCameraFrames = null; // see _onCameraProgress
       }
     } else if (kind === "mic") {
       this._detachAudio(participantId);
@@ -485,12 +484,11 @@ export class Grid {
       // Stamp a camera-off so the self-heal can tell a legitimate one from a stale
       // state: the tile keeps playing its decoded backlog for a moment after the
       // sender stops, and that progress must not be read as "they are still on".
-      // Re-baseline the position at the same time, so what the heal measures after
-      // the window is progress made SINCE the camera went off, not since the stream
-      // was attached.
+      // Re-baseline the frame count at the same time, so what the heal measures is
+      // frames shown SINCE the camera went off, not since the stream was attached.
       if (!camera) {
         tile.camOffAt = performance.now();
-        tile.lastCameraTime = tile.cameraVideo.currentTime;
+        tile.lastCameraFrames = presentedFrames(tile.cameraVideo);
       }
       tile.cameraOn = camera;
       this._applyCameraCover(tile);
@@ -516,9 +514,11 @@ export class Grid {
     tile.camOff.hidden = tile.cameraOn && !this._lowBandwidth;
   }
 
-  // Self-heal for a stale camera-off state, driven by the remote <video>'s own
-  // "timeupdate": an element only advances its playback position while frames are
-  // actually arriving, so a position that MOVED is proof the camera is live.
+  // Self-heal for a stale camera-off state, triggered by the remote <video>'s
+  // "timeupdate" and judged by its count of PRESENTED frames: frames only advance
+  // while video is actually arriving, so a count that MOVED is proof the camera is
+  // live. (The playback position is not: Chromium keeps advancing it, and firing
+  // timeupdate, with no frames arriving at all.)
   //
   // That is what makes this safe where track arrival is not. This app turns a camera
   // off by stopping the track and replacing the sender's track with null (see
@@ -548,12 +548,20 @@ export class Grid {
     // afterwards the tile is still playing out its decoded backlog — progress there
     // says nothing about whether the camera is live. Ignoring it is what keeps a
     // legitimate camera-off showing the avatar instead of a frozen last frame.
-    if (performance.now() - (tile.camOffAt || 0) < CAMERA_OFF_SETTLE_MS) return;
-    const at = tile.cameraVideo.currentTime;
-    // The position must have moved, and moved off zero: an element that is wired up
-    // but receiving nothing can still emit a timeupdate while sitting at 0.
-    if (!(at > 0) || at === tile.lastCameraTime) return;
-    tile.lastCameraTime = at;
+    //
+    // Measured in frames PRESENTED, never currentTime: Chromium keeps advancing a
+    // MediaStream element's clock and firing timeupdate after the sender stops, with
+    // no new frame arriving, so a position that moved proved nothing and this heal
+    // uncovered every camera-off two seconds later, leaving a frozen last frame.
+    // Within the window the baseline keeps moving, so the backlog frames played out
+    // after the camera-off are absorbed rather than counted as progress afterwards.
+    const frames = presentedFrames(tile.cameraVideo);
+    if (tile.lastCameraFrames == null || performance.now() - (tile.camOffAt || 0) < CAMERA_OFF_SETTLE_MS) {
+      tile.lastCameraFrames = frames;
+      return;
+    }
+    if (!framesAdvanced(tile.lastCameraFrames, frames)) return;
+    tile.lastCameraFrames = frames;
     log.warn(
       `[grid] ${id} is publishing video while the room still says their camera is off — uncovering.` +
         " A media-state broadcast was missed.",
@@ -822,7 +830,7 @@ export class Grid {
     cameraVideo.title = "Click to focus";
     cameraVideo.addEventListener("click", () => this._toggleFocus(tileEl));
 
-    const tile = { el: tileEl, cameraVideo, camOff, camOffAvatar, gravatar: gravatar || "", nameEl, badgeEl, micPill, avPill, volumeEl, volLabel, mirrorBtn, volume: 1, name, hasCamera: false, cameraOn: true, lastCameraTime: 0, camOffAt: 0, self };
+    const tile = { el: tileEl, cameraVideo, camOff, camOffAvatar, gravatar: gravatar || "", nameEl, badgeEl, micPill, avPill, volumeEl, volLabel, mirrorBtn, volume: 1, name, hasCamera: false, cameraOn: true, lastCameraFrames: null, camOffAt: 0, self };
     // Self-heal for a stale camera-off state — see _onCameraProgress. Registered once,
     // at build time, so it cannot stack listeners across re-attachments.
     if (!self) cameraVideo.addEventListener("timeupdate", () => this._onCameraProgress(id));
