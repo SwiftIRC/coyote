@@ -178,7 +178,7 @@ export class Controls {
     this._pttUnmuted = false; // we temporarily unmuted for this hold
     this._onKeyDown = (e) => {
       this._pttKeyDown(e);
-      this._shortcutKeyDown(e); // V = video, A = audio
+      this._shortcutKeyDown(e); // V = video, M = mic
     };
     this._onKeyUp = (e) => this._pttKeyUp(e);
     this._onWinBlur = () => this._pttRelease(); // releasing focus while held must re-mute
@@ -490,7 +490,7 @@ export class Controls {
     this.muteBtn.blur(); // drop focus so a following Space is push-to-talk, not a re-toggle
   }
 
-  // --- single-key shortcuts (V = video, A = audio) ---
+  // --- single-key shortcuts (V = video, M = mic) ---
 
   _shortcutKeyDown(e) {
     if (e.defaultPrevented) return;
@@ -1284,7 +1284,7 @@ export class Controls {
     if (this.micArrow) this.micArrow.classList.toggle("active", !enabled);
     const label = enabled ? "Mute microphone" : "Unmute microphone";
     // Advertise push-to-talk on the muted-state tooltip so it's discoverable.
-    this.muteBtn.title = enabled ? `${label} (A)` : `${label} (A, or hold Space to talk)`;
+    this.muteBtn.title = enabled ? `${label} (M)` : `${label} (M, or hold Space to talk)`;
     this.muteBtn.setAttribute("aria-label", label);
   }
 
