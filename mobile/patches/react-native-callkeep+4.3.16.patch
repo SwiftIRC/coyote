@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
-index 025480a..6e8137c 100644
+index 025480a..009eec0 100644
 --- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
 +++ b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/RNCallKeepModule.java
 @@ -434,7 +434,8 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule implements Life
@@ -22,8 +22,30 @@ index 025480a..6e8137c 100644
      public void startCall(String uuid, String number, String callerName) {
          this.startCall(uuid, number, callerName, false, null);
      }
+@@ -796,16 +798,12 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule implements Life
+             return;
+         }
+ 
+-        CallAudioState newAudioState = null;
+-        //if the requester wants to mute, do that. otherwise unmute
+-        if (shouldMute) {
+-            newAudioState = new CallAudioState(true, conn.getCallAudioState().getRoute(),
+-                    conn.getCallAudioState().getSupportedRouteMask());
+-        } else {
+-            newAudioState = new CallAudioState(false, conn.getCallAudioState().getRoute(),
+-                    conn.getCallAudioState().getSupportedRouteMask());
++        // Coyote: record the app's mute state on the connection. Feeding a synthetic
++        // CallAudioState through onCallAudioStateChanged (upstream) made it look like
++        // a Telecom report; see VoiceConnection.systemMuted.
++        if (conn instanceof VoiceConnection) {
++            ((VoiceConnection) conn).setAppMuted(shouldMute);
+         }
+-        conn.onCallAudioStateChanged(newAudioState);
+     }
+     /**
+      * toggle audio route for speaker via connection service function
 diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
-index 1ea76fb..1c9bf27 100644
+index 1ea76fb..d9be2b3 100644
 --- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
 +++ b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnection.java
 @@ -26,6 +26,7 @@ import android.os.Handler;
@@ -45,7 +67,20 @@ index 1ea76fb..1c9bf27 100644
  
  import static io.wazo.callkeep.Constants.ACTION_ANSWER_CALL;
  import static io.wazo.callkeep.Constants.ACTION_AUDIO_SESSION;
-@@ -61,6 +65,35 @@ public class VoiceConnection extends Connection {
+@@ -55,12 +59,48 @@ import static io.wazo.callkeep.Constants.ACTION_DID_CHANGE_AUDIO_ROUTE;
+ @TargetApi(Build.VERSION_CODES.M)
+ public class VoiceConnection extends Connection {
+     private boolean isMuted = false;
++    // Coyote: the mute state Telecom itself last reported, kept apart from isMuted
++    // (the app's own state). Telecom never learns about an app mute (setMutedCall
++    // only updates isMuted), so on every route change (e.g. a car's Bluetooth
++    // disconnecting) it reports muted=false. Comparing that against the app's state
++    // read as "the system unmuted the call" and switched the mic back on. Only a
++    // change in Telecom's OWN mute state (a headset or car mute button) may reach the app.
++    private Boolean systemMuted = null;
+     private boolean answered = false;
+     private boolean rejected = false;
+     private HashMap<String, String> handle;
      private Context context;
      private static final String TAG = "RNCallKeep";
  
@@ -81,14 +116,34 @@ index 1ea76fb..1c9bf27 100644
      VoiceConnection(Context context, HashMap<String, String> handle) {
          super();
          this.handle = handle;
-@@ -92,6 +125,7 @@ public class VoiceConnection extends Connection {
+@@ -92,15 +132,25 @@ public class VoiceConnection extends Connection {
  
          handle.put("output", CallAudioState.audioRouteToString(state.getRoute()));
          sendCallRequestToActivity(ACTION_DID_CHANGE_AUDIO_ROUTE, handle);
 +        notifyAudioRoute();
  
-         if (state.isMuted() == this.isMuted) {
+-        if (state.isMuted() == this.isMuted) {
++        boolean muted = state.isMuted();
++        boolean systemChanged = systemMuted != null && muted != systemMuted;
++        systemMuted = muted; // the first report is only a baseline
++        if (!systemChanged || muted == this.isMuted) {
              return;
+         }
+ 
+-        this.isMuted = state.isMuted();
++        this.isMuted = muted;
+         sendCallRequestToActivity(isMuted ? ACTION_MUTE_CALL : ACTION_UNMUTE_CALL, handle);
+     }
+ 
++    // Coyote: the app muted/unmuted itself. Record it without telling Telecom, which
++    // a self-managed call has no way to do; see systemMuted.
++    public void setAppMuted(boolean muted) {
++        this.isMuted = muted;
++    }
++
+     @Override
+     public void onAnswer(int videoState) {
+         super.onAnswer(videoState);
 diff --git a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java b/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java
 index 5d58692..77a02a6 100644
 --- a/node_modules/react-native-callkeep/android/src/main/java/io/wazo/callkeep/VoiceConnectionService.java

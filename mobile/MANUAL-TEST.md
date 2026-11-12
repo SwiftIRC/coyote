@@ -30,6 +30,8 @@ Each change that touches iOS-only native code or configuration names the items t
    hanging up, the mic returns to its previous state.
 8. **Bluetooth headset** connect and disconnect mid-call: audio follows. On Android the
    headset appears under Devices → Output and can be picked there (iOS: Apple's picker).
+   **Muted**, connect and disconnect the headset (or turn a car off) and switch
+   output between speaker and earpiece: you stay muted every time.
 9. **Airplane mode for 10 seconds**, then off: the app rejoins and media resumes.
    "Reconnecting…" or "Media connection lost — rejoining…" may show meanwhile; both
    are fine as long as they clear.
