@@ -28,6 +28,7 @@ import { QUALITY_TIERS } from "../lib/quality.js";
 import { svgIcon, MIC_PATHS, MIC_OFF_PATHS, CAM_PATHS, CAM_OFF_PATHS, EYE_PATHS, EYE_OFF_PATHS, SPEAKER_PATHS, SPEAKER_OFF_PATHS } from "../lib/icons.js";
 import { confirmDialog } from "../lib/confirm.js";
 import { primeAudio, unlockSounds } from "../lib/sounds.js";
+import { shortcutFor } from "../lib/shortcuts.js";
 import { soundboardFromPage, boardButtonState, boardToggleTitle } from "../lib/soundboard.js";
 import { fullscreenSupported, isFullscreen, toggleFullscreen } from "../lib/fullscreen.js";
 import { fillDeviceSelect, trackDeviceId } from "../lib/deviceSelect.js";
@@ -175,7 +176,10 @@ export class Controls {
     // (non-passive) key listeners so they can preventDefault the page scroll.
     this._pttHeld = false; // Space currently held for PTT
     this._pttUnmuted = false; // we temporarily unmuted for this hold
-    this._onKeyDown = (e) => this._pttKeyDown(e);
+    this._onKeyDown = (e) => {
+      this._pttKeyDown(e);
+      this._shortcutKeyDown(e); // V = video, A = audio
+    };
     this._onKeyUp = (e) => this._pttKeyUp(e);
     this._onWinBlur = () => this._pttRelease(); // releasing focus while held must re-mute
     window.addEventListener("keydown", this._onKeyDown);
@@ -484,6 +488,25 @@ export class Controls {
     if (this.grid) this.grid.refreshSelf();
     this.sendMediaState(); // tell the room so remote mute indicators update
     this.muteBtn.blur(); // drop focus so a following Space is push-to-talk, not a re-toggle
+  }
+
+  // --- single-key shortcuts (V = video, A = audio) ---
+
+  _shortcutKeyDown(e) {
+    if (e.defaultPrevented) return;
+    const which = shortcutFor(e);
+    if (!which) return;
+    if (which === "audio") {
+      // Mid push-to-talk the mic belongs to the Space hold; a toggle would be undone on release.
+      if (this._pttHeld || !this.muteBtn || this.muteBtn.disabled) return;
+      e.preventDefault();
+      this._toggleMic();
+    } else {
+      // A disabled camera button means no camera, or a re-acquire already in flight.
+      if (!this.cameraBtn || this.cameraBtn.disabled) return;
+      e.preventDefault();
+      this._toggleCamera();
+    }
   }
 
   // --- push-to-talk (hold Space) ---
@@ -1261,7 +1284,7 @@ export class Controls {
     if (this.micArrow) this.micArrow.classList.toggle("active", !enabled);
     const label = enabled ? "Mute microphone" : "Unmute microphone";
     // Advertise push-to-talk on the muted-state tooltip so it's discoverable.
-    this.muteBtn.title = enabled ? label : `${label} (or hold Space to talk)`;
+    this.muteBtn.title = enabled ? `${label} (A)` : `${label} (A, or hold Space to talk)`;
     this.muteBtn.setAttribute("aria-label", label);
   }
 
@@ -1272,7 +1295,7 @@ export class Controls {
     this.cameraBtn.classList.toggle("active", !enabled);
     if (this.cameraArrow) this.cameraArrow.classList.toggle("active", !enabled);
     const label = enabled ? "Stop video" : "Start video";
-    this.cameraBtn.title = label;
+    this.cameraBtn.title = `${label} (V)`;
     this.cameraBtn.setAttribute("aria-label", label);
   }
 
