@@ -934,6 +934,15 @@ body.ui-idle .controls {
   font-size: 0.7rem;
   line-height: 1;
 }
+/* While sharing, the share button gains a "Change stream" caret: fuse the two into one
+   pill like the mic/camera split controls (.split is toggled by _setShareButton). */
+.controls .menu-wrap.split > .ctl.present {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.controls .menu-wrap.split > .ctl-arrow {
+  height: auto;
+}
 
 /* Device popover: anchored above the split control, wide enough for a labeled
    <select> of (often long) device names. */

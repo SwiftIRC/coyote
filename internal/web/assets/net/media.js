@@ -18,6 +18,8 @@
 //                                including the raw<->noise-suppressed swap
 //   "screen-start" {track}       screen share began
 //   "screen-stop"  {}            screen share ended (stopScreen or browser UI)
+//   "screen-change" {track, audioTrack}  an active share switched to a new
+//                                surface in place (changeScreen) — no stop/start
 //   "error"        {error, phase} a capture call failed; also rejected to caller
 //   "background-changed" {effectId, reverted, reason}  the background effect
 //                                changed; reason is "user" (an explicit user
@@ -44,6 +46,7 @@ export class Media extends EventTarget {
     super();
     this.stream = null; // owned camera+mic MediaStream (mutated in place)
     this.screenStream = null; // getDisplayMedia stream while sharing
+    this._screenAudioOnly = false; // the active share is audio-only (no video track)
     // Why each device last failed to open, by DOMException name, or null when it
     // opened. Read by the lobby to say WHICH device failed and what to do about it.
     this.deviceErrors = { audio: null, video: null };
@@ -457,20 +460,9 @@ export class Media extends EventTarget {
   // the share from the browser's own "Stop sharing" UI, which fires the track's
   // "ended" event; we route that through stopScreen() so state stays in sync.
   async startScreen() {
-    let stream;
-    try {
-      // audio:true makes the browser OFFER to share tab/system audio (a checkbox in
-      // its picker). If the user declines, the stream simply has no audio track, so
-      // audio stays optional and this degrades gracefully where it's unsupported.
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-    } catch (error) {
-      this._emitError(error, "getDisplayMedia");
-      throw error;
-    }
-    this._stopScreenStream();
-    this.screenStream = stream;
+    const stream = await this._captureDisplay(false);
+    this._adoptScreenStream(stream, false);
     const track = this.screenTrack;
-    if (track) track.addEventListener("ended", () => this.stopScreen(), { once: true });
     this.dispatchEvent(new CustomEvent("screen-start", { detail: { track, audioTrack: this.screenAudioTrack } }));
     return track;
   }
@@ -481,6 +473,41 @@ export class Media extends EventTarget {
   // if the user shared no audio (nothing to send). "screen-stop" ends it like a normal
   // share, since it reuses screenStream.
   async startScreenAudioOnly() {
+    const stream = await this._captureDisplay(true);
+    this._adoptScreenStream(stream, true);
+    const audio = this.screenAudioTrack;
+    this.dispatchEvent(new CustomEvent("screen-start", { detail: { track: null, audioTrack: audio } }));
+    return audio;
+  }
+
+  // Switch an ACTIVE share to a different window/tab/screen without ending it. Opens
+  // the browser picker again (same kind as the running share: screen, or audio-only),
+  // swaps the new capture in, and emits "screen-change" rather than stop+start — the
+  // caller replaceTrack()s the existing senders, so remotes keep the same screen tile
+  // (no "bloop") and see the new surface in place. Cancelling the picker (or an
+  // audio-only switch that shares no audio) rejects and leaves the old share running.
+  async changeScreen() {
+    if (!this.screenStream) throw new Error("no active share to change");
+    const audioOnly = this._screenAudioOnly;
+    const stream = await this._captureDisplay(audioOnly);
+    if (!this.screenStream) {
+      // The old share ended (browser "Stop sharing") while the picker was open: there
+      // is nothing to switch any more, so don't resurrect it behind the user's back.
+      for (const t of stream.getTracks()) t.stop();
+      throw new Error("share ended before the new stream was picked");
+    }
+    this._adoptScreenStream(stream, audioOnly);
+    const detail = { track: this.screenTrack, audioTrack: this.screenAudioTrack };
+    this.dispatchEvent(new CustomEvent("screen-change", { detail }));
+    return detail;
+  }
+
+  // Open the browser's display picker. audio:true makes the browser OFFER to share
+  // tab/system audio (a checkbox in its picker); if the user declines, the stream simply
+  // has no audio track, so audio stays optional and this degrades gracefully where it's
+  // unsupported. audioOnly drops the video track at once and rejects if no audio was
+  // shared (nothing to send). Errors are emitted and rethrown.
+  async _captureDisplay(audioOnly) {
     let stream;
     try {
       stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -488,22 +515,34 @@ export class Media extends EventTarget {
       this._emitError(error, "getDisplayMedia");
       throw error;
     }
+    if (!audioOnly) return stream;
     for (const t of stream.getVideoTracks()) {
       t.stop();
       stream.removeTrack(t); // audio only — release the captured surface's video
     }
-    const audio = stream.getAudioTracks()[0] || null;
-    if (!audio) {
+    if (!stream.getAudioTracks()[0]) {
       for (const t of stream.getTracks()) t.stop();
       const err = new Error("no audio was shared");
       this._emitError(err, "getDisplayMedia");
       throw err;
     }
+    return stream;
+  }
+
+  // Make `stream` the live share, releasing any previous one. The browser's own "Stop
+  // sharing" UI ends the primary track (video, or the audio of an audio-only share);
+  // route that through stopScreen() — but only while THIS stream is still the share, so
+  // a track from a stream that changeScreen() already replaced can never end the new one.
+  _adoptScreenStream(stream, audioOnly) {
     this._stopScreenStream();
     this.screenStream = stream;
-    audio.addEventListener("ended", () => this.stopScreen(), { once: true });
-    this.dispatchEvent(new CustomEvent("screen-start", { detail: { track: null, audioTrack: audio } }));
-    return audio;
+    this._screenAudioOnly = audioOnly;
+    const primary = audioOnly ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+    if (primary) {
+      primary.addEventListener("ended", () => {
+        if (this.screenStream === stream) this.stopScreen();
+      }, { once: true });
+    }
   }
 
   // Stop screen sharing and emit "screen-stop". Idempotent: a redundant call

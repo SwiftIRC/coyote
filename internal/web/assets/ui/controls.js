@@ -134,9 +134,11 @@ export class Controls {
     // SFU publication stay in sync no matter who ended the share.
     this._onScreenStart = (e) => this._onScreenStarted(e);
     this._onScreenStop = () => this._onScreenStopped();
+    this._onScreenChange = (e) => this._onScreenChanged(e);
     if (this.media) {
       this.media.addEventListener("screen-start", this._onScreenStart);
       this.media.addEventListener("screen-stop", this._onScreenStop);
+      this.media.addEventListener("screen-change", this._onScreenChange);
     }
 
     // Chat panel state (wired via attachChat).
@@ -189,6 +191,10 @@ export class Controls {
     this._onDocPointer = (e) => {
       if (this.shareMenu && !this.shareMenu.hidden && this.shareWrap && !this.shareWrap.contains(e.target)) {
         this.shareMenu.hidden = true;
+      }
+      if (this.shareLiveMenu && !this.shareLiveMenu.hidden && this.shareWrap && !this.shareWrap.contains(e.target)) {
+        this.shareLiveMenu.hidden = true;
+        this.shareArrow.setAttribute("aria-expanded", "false");
       }
       if (this.micMenu && !this.micMenu.hidden && this.micWrap && !this.micWrap.contains(e.target)) {
         this.micMenu.hidden = true;
@@ -327,6 +333,8 @@ export class Controls {
     this.cameraWrap = el("div", { class: "split-ctl" }, this.cameraBtn, this.cameraArrow, this.cameraMenu);
     // "Share" opens a small menu (Screen / Audio) when idle; while sharing it becomes
     // "Stop share" and a click stops it. One share at a time (one screenStream).
+    // While sharing, a caret beside it opens a second menu with "Change stream": pick a
+    // different window/tab in place, without the stop+start (and the room's "bloop").
     this.shareBtn = el("button", { type: "button", class: "ctl present", onClick: () => this._onShareClick() });
     this.shareMenu = el(
       "div",
@@ -334,7 +342,14 @@ export class Controls {
       el("button", { type: "button", class: "ctl-menu-item", onClick: () => this._share("screen") }, "Screen"),
       el("button", { type: "button", class: "ctl-menu-item", onClick: () => this._share("audio") }, "Audio"),
     );
-    this.shareWrap = el("div", { class: "menu-wrap" }, this.shareBtn, this.shareMenu);
+    this.shareArrow = this._deviceArrow("More sharing options", () => this._toggleShareLiveMenu());
+    this.shareArrow.hidden = true; // only while sharing
+    this.shareLiveMenu = el(
+      "div",
+      { class: "ctl-menu", hidden: true },
+      el("button", { type: "button", class: "ctl-menu-item", onClick: () => this._changeShare() }, "Change stream"),
+    );
+    this.shareWrap = el("div", { class: "menu-wrap" }, this.shareBtn, this.shareArrow, this.shareMenu, this.shareLiveMenu);
     // Noise suppression: opt-in (default OFF — it adds CPU/latency, so the user
     // enables it), and disabled while the large worklet loads on first enable.
     this.nsBtn = el("button", { type: "button", class: "ctl ns", title: "Microphone noise suppression", onClick: () => this._onNsToggle() });
@@ -628,6 +643,24 @@ export class Controls {
     else this.media.startScreen().catch(() => {});
   }
 
+  _toggleShareLiveMenu() {
+    const open = this.shareLiveMenu.hidden;
+    this._closeMenus();
+    if (open && this.sharing) {
+      this.shareLiveMenu.hidden = false;
+      this.shareArrow.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  // "Change stream": re-open the picker and swap the running share in place (Media
+  // emits "screen-change" -> _onScreenChanged). A cancelled picker is non-fatal — the
+  // old share keeps running untouched.
+  _changeShare() {
+    this._closeMenus();
+    if (!this.media || !this.sharing) return;
+    this.media.changeScreen().catch(() => {});
+  }
+
   // The caret button attached to a split control, and the little popover it opens.
   _deviceArrow(label, onClick) {
     return el(
@@ -651,6 +684,8 @@ export class Controls {
   // Close every popover (share, mic, camera) and reset the carets' expanded state.
   _closeMenus() {
     if (this.shareMenu) this.shareMenu.hidden = true;
+    if (this.shareLiveMenu) this.shareLiveMenu.hidden = true;
+    if (this.shareArrow) this.shareArrow.setAttribute("aria-expanded", "false");
     if (this.micMenu) this.micMenu.hidden = true;
     if (this.cameraMenu) this.cameraMenu.hidden = true;
     if (this.settingsMenu) this.settingsMenu.hidden = true;
@@ -903,6 +938,19 @@ export class Controls {
     if (this.peer && detail.audioTrack) this.peer.publish(detail.audioTrack, "screen-audio");
     this.sharing = true;
     this._setShareButton(true);
+  }
+
+  // The running share switched surfaces (changeScreen). Swap the media on the SAME
+  // senders — publish() on an already-published kind is a replaceTrack, so the video
+  // needs no renegotiation and remotes keep their screen tile (no second "bloop").
+  // The audio may come or go with the new surface (only some picks offer it): publish
+  // it when newly present, unpublish it when gone.
+  _onScreenChanged(e) {
+    const detail = (e && e.detail) || {};
+    if (!this.peer) return;
+    if (detail.track) this.peer.publish(detail.track, "screen");
+    if (detail.audioTrack) this.peer.publish(detail.audioTrack, "screen-audio");
+    else this.peer.unpublish("screen-audio"); // idempotent when no sender
   }
 
   _onScreenStopped() {
@@ -1303,6 +1351,14 @@ export class Controls {
     this.shareBtn.textContent = sharing ? "Stop share" : "Share";
     this.shareBtn.classList.toggle("active", sharing);
     if (sharing) this.shareMenu.hidden = true; // no menu while a share is active
+    // The "Change stream" caret exists only while sharing; fuse it to the button then.
+    this.shareArrow.hidden = !sharing;
+    this.shareArrow.classList.toggle("active", sharing);
+    this.shareWrap.classList.toggle("split", sharing);
+    if (!sharing) {
+      this.shareLiveMenu.hidden = true;
+      this.shareArrow.setAttribute("aria-expanded", "false");
+    }
   }
 
   _setLockButton(locked) {
@@ -1327,6 +1383,7 @@ export class Controls {
     if (this.media) {
       this.media.removeEventListener("screen-start", this._onScreenStart);
       this.media.removeEventListener("screen-stop", this._onScreenStop);
+      this.media.removeEventListener("screen-change", this._onScreenChange);
     }
     for (const ev of this._activityEvents) {
       window.removeEventListener(ev, this._onActivity);
