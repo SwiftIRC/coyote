@@ -151,11 +151,15 @@ export class Grid {
     };
     this._onScreenStart = () => this._addScreenTile(this.selfId, this.selfName, this.media && this.media.screenStream);
     this._onScreenStop = () => this._removeScreenTile(this.selfId);
+    // A share that switched surfaces in place: repoint the existing self tile at the new
+    // stream (_addScreenTile reuses the tile, so no second "bloop").
+    this._onScreenChange = () => this._addScreenTile(this.selfId, this.selfName, this.media && this.media.screenStream);
     if (this.media) {
       this.media.addEventListener("mic-track", this._onMicTrack);
       this.media.addEventListener("camera-track", this._onCameraTrack);
       this.media.addEventListener("screen-start", this._onScreenStart);
       this.media.addEventListener("screen-stop", this._onScreenStop);
+      this.media.addEventListener("screen-change", this._onScreenChange);
     }
 
     // Re-pick the column/row split whenever the grid's box changes (window resize,
@@ -1298,6 +1302,7 @@ export class Grid {
       this.media.removeEventListener("camera-track", this._onCameraTrack);
       this.media.removeEventListener("screen-start", this._onScreenStart);
       this.media.removeEventListener("screen-stop", this._onScreenStop);
+      this.media.removeEventListener("screen-change", this._onScreenChange);
     }
     for (const tile of this.tiles.values()) tile.cameraVideo.srcObject = null;
     for (const rec of this.screens.values()) rec.video.srcObject = null;
