@@ -21,7 +21,7 @@
     "js-sha256": "^0.11.1",
     "react": "19.2.3",
     "react-native": "0.87.1",
-    "react-native-callkeep": "^4.3.16",
+    "react-native-callkeep": "4.3.16",
     "react-native-incall-manager": "^4.3.0",
     "react-native-safe-area-context": "^5.10.1",
     "react-native-screens": "^4.28.0",
