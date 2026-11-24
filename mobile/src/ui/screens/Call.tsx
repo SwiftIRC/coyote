@@ -12,7 +12,6 @@ import { gridTiles, viewedFor, type Viewing } from "../../core/tiles";
 import { selectInput, selectOutput, startCallAudio, stopCallAudio, watchRoutes } from "../../native/audioRoute";
 import { setImmersive } from "../../native/immersive";
 import { setPip, watchPip, watchPipActions } from "../../native/pip";
-import { listCameras } from "../../native/webrtc";
 import { useCall } from "../CallContext";
 import { useAutoHide, useBackground, useChat, useModeration, usePoll, useScreenReader, useScreenShare, useVolumes } from "../hooks";
 import { Banner } from "../components/Banner";
@@ -142,6 +141,16 @@ export function Call() {
       if (audioStarted.current) stopCallAudio();
     };
   }, []);
+
+  // The devices sheet's camera list, kept fresh while it is open so a camera plugged
+  // in or out shows up without reopening.
+  const devicesOpen = sheet === "devices";
+  useEffect(() => {
+    const c = call();
+    if (!devicesOpen || !c) return;
+    c.watchCameras(setCameras);
+    return () => c.watchCameras(null);
+  }, [devicesOpen, call]);
 
   // Close the person sheet when that person leaves (or a rejoin changes ids).
   useEffect(() => {
@@ -334,7 +343,6 @@ export function Call() {
             onRoute={() => {
               const open = sheet !== "devices";
               setSheet(open ? "devices" : null);
-              if (open) listCameras().then(setCameras).catch(() => setCameras([]));
               call()?.chat.setOpen(false);
             }}
             onLeave={leave}

@@ -3,6 +3,7 @@ import type { PeerEvents } from "../src/core/peer";
 import { parseRoomInput } from "../src/core/link";
 import { Signaling } from "../src/core/signaling";
 import type { Kind, TrackLike } from "../src/core/types";
+import type { Camera } from "../src/core/cameras";
 import { FakeSocket, FakeStream, FakeTimers, FakeTrack, flush, silentLog } from "./fakes";
 
 class FakePeer {
@@ -60,7 +61,9 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
   const screens: FakeTrack[] = [];
   const camChoices: CameraChoice[] = [];
   const effects: string[] = [];
-  const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void>, missing: new Set<string>() };
+  // list: what listCameras reports (null: the platform couldn't say); listCalls counts calls.
+  const ctl = { deferMic: false, deferCam: false, micWaits: [] as Array<() => void>, camWaits: [] as Array<() => void>, missing: new Set<string>(),
+    list: null as Camera[] | null, listCalls: 0 };
   let ids = 0;
   const call = new Call({
     createSignaling: (url) => new Signaling(url, {
@@ -99,6 +102,10 @@ function setup(opts: { micDenied?: boolean; camDenied?: boolean } = {}) {
         return ctl.deferCam ? new Promise<boolean>((r) => ctl.camWaits.push(() => r(done()))) : Promise.resolve(done());
       },
       createStream: (t) => new FakeStream(t),
+      listCameras: async () => {
+        ctl.listCalls++;
+        return ctl.list;
+      },
     },
     system: {
       start: (id, room, video) => system.push(`start ${id} ${room} ${video}`),
@@ -1133,4 +1140,88 @@ test("flip after a pick goes by facing and forgets the pick", async () => {
   await call.setCamera(false);
   await call.setCamera(true);
   expect(camChoices.at(-1)?.deviceId).toBeUndefined();
+});
+
+// --- cameras that come and go (USB on Android, external on iPad) ---
+
+const FRONT: Camera = { id: "cam-front", facing: "front", name: "Front camera" };
+const BACK: Camera = { id: "cam-back", facing: "back", name: "Back camera" };
+const USB: Camera = { id: "usb-1", facing: "other", name: "USB camera" };
+
+test("cameras: an external camera unplugged mid-call turns the camera off and tells the room", async () => {
+  const t = await inCall();
+  t.ctl.list = [FRONT, BACK, USB];
+  await t.call.selectCamera("usb-1", "environment");
+  expect(t.call.getState().cameraId).toBe("usb-1");
+  t.timers.advance(3000);
+  await flush();
+  expect(t.call.getState().camera).toBe(true);
+  t.ctl.list = [FRONT, BACK];
+  t.timers.advance(3000);
+  await flush();
+  expect(t.call.getState().camera).toBe(false);
+  expect(t.notices).toContain("Camera disconnected.");
+  expect(t.peers[0].replaced).toContainEqual(["camera", null]);
+  expect(t.cams[0].stopped).toBe(true);
+  expect(framesOf("media-state").at(-1)).toMatchObject({ camera: false });
+  // Turning it back on falls back to that facing rather than the missing camera.
+  t.ctl.missing.add("usb-1");
+  await t.call.setCamera(true);
+  expect(t.call.getState().camera).toBe(true);
+  expect(t.camChoices.at(-1)).toEqual({ facing: "environment" });
+});
+
+test("cameras: a camera never seen in a list is not treated as gone", async () => {
+  const t = await inCall();
+  t.ctl.list = [{ id: "other-id-scheme", facing: "front", name: "Front camera" }];
+  t.timers.advance(10_000);
+  await flush();
+  expect(t.call.getState().camera).toBe(true);
+});
+
+test("cameras: no list (platform couldn't say) changes nothing", async () => {
+  const t = await inCall();
+  t.ctl.list = [FRONT];
+  t.timers.advance(3000);
+  await flush();
+  t.ctl.list = null;
+  t.timers.advance(10_000);
+  await flush();
+  expect(t.call.getState().camera).toBe(true);
+});
+
+test("cameras: no polling with the camera off and no one watching", async () => {
+  const t = await inCall({ camera: false });
+  t.ctl.list = [FRONT];
+  t.timers.advance(30_000);
+  await flush();
+  expect(t.ctl.listCalls).toBe(0);
+});
+
+test("cameras: a watcher gets the list now and then every couple of seconds, until it stops", async () => {
+  const t = await inCall({ camera: false });
+  t.ctl.list = [FRONT, BACK];
+  const seen: Camera[][] = [];
+  t.call.watchCameras((l) => seen.push(l));
+  await flush();
+  expect(seen).toEqual([[FRONT, BACK]]);
+  t.ctl.list = [FRONT, BACK, USB];
+  t.timers.advance(2000);
+  await flush();
+  expect(seen.at(-1)).toEqual([FRONT, BACK, USB]);
+  t.call.watchCameras(null);
+  const n = t.ctl.listCalls;
+  t.timers.advance(30_000);
+  await flush();
+  expect(t.ctl.listCalls).toBe(n);
+});
+
+test("cameras: polling stops when the call ends", async () => {
+  const t = await inCall();
+  t.ctl.list = [FRONT];
+  t.call.leave();
+  const n = t.ctl.listCalls;
+  t.timers.advance(30_000);
+  await flush();
+  expect(t.ctl.listCalls).toBe(n);
 });

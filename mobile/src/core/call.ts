@@ -19,6 +19,7 @@ import { Soundboard, type ClipPort } from "./soundboard";
 import { discard, ScreenShare, type ScreenCapturePort } from "./screenShare";
 import type { Frame, Kind, Logger, StreamLike, Timers, TrackLike } from "./types";
 import { Volumes } from "./volumes";
+import type { Camera } from "./cameras";
 
 export type Facing = "user" | "environment";
 // A camera by facing, or a specific one (devices sheet); deviceId wins when given.
@@ -36,6 +37,10 @@ export interface MediaPort {
   // Points the live camera track at another camera, in place; false if it can't.
   switchCamera(track: TrackLike, choice: CameraChoice): Promise<boolean>;
   createStream(tracks: TrackLike[]): StreamLike;
+  // The cameras there are right now; null when the platform couldn't say. Camera
+  // tracks never report "ended" here (react-native-webrtc only does for screen
+  // capture), so an unplugged camera is noticed by its absence from this list.
+  listCameras?(): Promise<Camera[] | null>;
 }
 
 export interface SystemCallPort {
@@ -110,6 +115,11 @@ export interface CallEvents {
 
 export const NAME_MAX = 24;
 
+// How often the camera list is re-read: while the camera is on (to notice it being
+// unplugged), and faster while the devices sheet shows the list.
+const CAMERA_LIST_MS = 3000;
+const CAMERA_LIST_WATCHED_MS = 2000;
+
 export class Call {
   private sig: SignalingLike | null = null;
   private peer: PeerLike | null = null;
@@ -155,6 +165,12 @@ export class Call {
   private quality = { camera: "auto", screen: "auto" };
   // The camera's outgoing height while an effect resizes it; null otherwise.
   private cameraHeightCap: number | null = null;
+  // Camera list polling: while the camera is on (to notice it being unplugged) and
+  // while someone watches the list (the devices sheet).
+  private camWatcher: ((list: Camera[]) => void) | null = null;
+  private camPoll: unknown = null;
+  private camPollGen = 0;
+  private camSeen = new Set<string>(); // ids some list has shown; only these can go missing
   private state: CallState = {
     phase: "idle", banner: "", slug: "", selfId: "", role: "", name: "", mic: false, camera: false,
     facing: "user", cameraId: null, dataSaver: false, localStream: null, participants: [],
@@ -664,6 +680,8 @@ export class Call {
 
   private finish(outcome: CallOutcome) {
     if (this.state.phase === "ended") return;
+    this.camWatcher = null;
+    this.stopCameraPoll();
     this.screenShare.stop("leave");
     this.sig?.stop();
     this.peer?.close();
@@ -679,5 +697,59 @@ export class Call {
   private update(patch: Partial<CallState>) {
     this.state = { ...this.state, ...patch };
     this.events.change(this.state);
+    this.syncCameraPoll();
+  }
+
+  // The devices sheet's camera list: fn gets it now and every couple of seconds while
+  // set, so a camera plugged in or out shows up without reopening. null stops.
+  watchCameras(fn: ((list: Camera[]) => void) | null): void {
+    this.camWatcher = fn;
+    this.stopCameraPoll();
+    if (fn) this.checkCameras().catch(() => {});
+    else this.syncCameraPoll();
+  }
+
+  private syncCameraPoll() {
+    if (!this.deps.media.listCameras) return;
+    const want = this.isLive() && (this.camWatcher !== null || this.state.camera);
+    if (!want) this.stopCameraPoll();
+    else if (this.camPoll === null) this.camPoll = this.deps.timers.setTimeout(() => {
+      this.camPoll = null;
+      this.checkCameras().catch(() => {});
+    }, this.camWatcher ? CAMERA_LIST_WATCHED_MS : CAMERA_LIST_MS);
+  }
+
+  private stopCameraPoll() {
+    if (this.camPoll !== null) this.deps.timers.clearTimeout(this.camPoll);
+    this.camPoll = null;
+    this.camPollGen++; // a list in flight is stale
+  }
+
+  private async checkCameras() {
+    const list = this.deps.media.listCameras;
+    if (!list || !this.isLive()) return;
+    const gen = this.camPollGen;
+    const activeId = this.state.camera ? this.state.cameraId : null;
+    let cams: Camera[] | null = null;
+    try {
+      cams = await list();
+    } catch {
+      cams = null;
+    }
+    if (gen !== this.camPollGen || !this.isLive()) return;
+    if (cams) {
+      this.camWatcher?.(cams);
+      const gone = activeId !== null && this.camSeen.has(activeId) && !cams.some((c) => c.id === activeId);
+      for (const c of cams) this.camSeen.add(c.id);
+      // Only if it is still the camera in use: a switch or turn-off meanwhile wins.
+      if (gone && this.state.camera && this.state.cameraId === activeId) {
+        this.deps.log.warn(`camera ${activeId} went away; turning the camera off`);
+        if (this.cameraPick === activeId) this.cameraPick = null;
+        this.events.notice("Camera disconnected.");
+        await this.setCamera(false);
+        return; // setCamera's update re-arms polling as needed
+      }
+    }
+    this.syncCameraPoll();
   }
 }

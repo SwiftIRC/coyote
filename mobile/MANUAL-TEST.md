@@ -421,3 +421,18 @@ browser in the call to watch the result.
 118. **After the call.** Leave a call, then share from Home: the report still has the
      call's sections (phase `ended`, the connection's last states and stream counts, and
      its offers and answers). The log has no `rn-webrtc … getStats` lines.
+
+## Devices plugged in and out (iOS and Android)
+
+119. **External camera unplugged.** On an Android phone with a USB camera (or an iPad on
+     iPadOS 17+ with one), join a call and pick the USB camera in the devices sheet.
+     Unplug it: within about 3 s "Camera disconnected." shows, your camera turns off, and
+     a browser in the room shows your avatar instead of a frozen or black tile. Turn the
+     camera back on: the phone's own camera opens. If nothing happens, note the platform
+     and send a debug report (this is the part that couldn't be checked off-device).
+120. **Camera list stays fresh.** With the devices sheet open, plug the USB camera in,
+     then out: it appears and disappears in the Camera list within about 2 s, without
+     closing the sheet.
+121. **Headset out mid-call.** Unplug a wired headset or turn off a Bluetooth one during a
+     call: the Output and Microphone lists drop it, nothing stays ticked that's gone, and
+     the call carries on through the phone (and stays muted if it was muted).

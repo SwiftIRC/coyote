@@ -60,12 +60,15 @@ export const media: MediaPort = {
     }
   },
   createStream,
+  listCameras: () => listCameras(),
 };
 
-export async function listCameras(): Promise<Camera[]> {
+// null when the platform couldn't say (an error), so the call never takes a failed
+// read for "every camera is gone".
+export async function listCameras(): Promise<Camera[] | null> {
   try {
     return parseCameras(await mediaDevices.enumerateDevices());
   } catch {
-    return [];
+    return null;
   }
 }
