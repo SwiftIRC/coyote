@@ -127,6 +127,17 @@ export class Prejoin {
   async mount() {
     if (this.invite && !this.nick) await this._resolveInviteName(); // fill the name before _build locks the field
     this._build();
+    // A camera/mic unplugged here flips its toggle; any plug/unplug refreshes the pickers.
+    this._onDeviceLost = () => {
+      if (!this.destroyed) this._syncMediaState();
+    };
+    this._onDevicesChanged = () => {
+      if (this.destroyed) return;
+      this._populateDevices();
+      this._syncMediaState();
+    };
+    this.media.addEventListener("device-lost", this._onDeviceLost);
+    this.media.addEventListener("devices-changed", this._onDevicesChanged);
     await this._startPreview();
     await this._populateDevices();
     await this._applyMediaPrefs(); // restore the mic/camera choice from last time
@@ -498,15 +509,29 @@ export class Prejoin {
     const cam = this.media.cameraTrack;
     const mic = this.media.micTrack;
     this._setCameraToggle(!!cam, this.media.cameraAvailable);
-    this._setMicToggle(mic ? mic.enabled : false, !!mic);
+    // A mic that exists but isn't open (the one in use was unplugged) shows muted and
+    // stays clickable: unmuting opens whichever mic is there now.
+    this._setMicToggle(mic ? mic.enabled : false, !!mic || this.media.micAvailable);
     const mirrored = this.media.selfMirrored; // front camera mirrored, rear not, unless flipped by hand
     this.video.classList.toggle("mirror", mirrored);
     this.mirrorBtn.hidden = !cam; // nothing to flip with the camera off
     this.mirrorBtn.setAttribute("aria-pressed", String(mirrored));
   }
 
-  _toggleMic() {
-    if (!this.media.micTrack) return; // button is disabled without a track; guard anyway
+  async _toggleMic() {
+    if (!this.media.micTrack) {
+      if (!this.media.micAvailable) return; // button is disabled; guard anyway
+      this.micToggle.disabled = true;
+      try {
+        await this.media.enableMic();
+      } catch {
+        /* no mic to open: media.js emits its own error */
+      }
+      if (this.destroyed) return;
+      this._syncMediaState();
+      if (this.media.micTrack) saveMediaPrefs({ mic: true });
+      return;
+    }
     const on = this.media.toggleMic();
     this._setMicToggle(on, true);
     saveMediaPrefs({ mic: on });
@@ -549,10 +574,10 @@ export class Prejoin {
     this.cameraToggle.setAttribute("aria-pressed", off ? "true" : "false");
     this.cameraGlyph.textContent = off ? "🚫" : "🎥";
     this.cameraLabel.textContent = off ? "Camera off" : "Camera on";
-    // Placeholder over the (now black/frozen) preview whenever a camera is available
-    // but currently off.
-    if (off) applyAvatar(this.cameraOffAvatar, this._avatarName(), this.gravatar);
-    this.cameraOffOverlay.hidden = !off;
+    // Placeholder over the (now black/frozen) preview whenever the camera isn't on —
+    // including when the last camera was unplugged, which leaves none available.
+    if (!on) applyAvatar(this.cameraOffAvatar, this._avatarName(), this.gravatar);
+    this.cameraOffOverlay.hidden = on;
   }
 
   // Recompute the Gravatar hash as the email changes and repaint the self-preview.
@@ -619,6 +644,8 @@ export class Prejoin {
   // reuses the same stream in-call; leaving the call is what releases it.
   destroy() {
     this.destroyed = true;
+    if (this._onDeviceLost) this.media.removeEventListener("device-lost", this._onDeviceLost);
+    if (this._onDevicesChanged) this.media.removeEventListener("devices-changed", this._onDevicesChanged);
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;

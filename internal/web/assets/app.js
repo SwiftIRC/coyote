@@ -481,9 +481,16 @@ function renderInCall(msg) {
   // Local mic track swapped (noise-suppression toggle): replace what we publish for
   // "mic" in place — replaceTrack needs no renegotiation for a same-kind track. The
   // `media` singleton is discarded on leave, so this listener dies with the call.
-  media.addEventListener("mic-track", (e) => {
+  // A null track is the mic going away (unplugged): stop sending on the sender. A mic
+  // opened later with no sender yet (joined with none) is published fresh.
+  media.addEventListener("mic-track", async (e) => {
     const track = e && e.detail ? e.detail.track : null;
-    if (peer && track) peer.replaceTrack("mic", track).catch((err) => log.error("mic replaceTrack failed", err));
+    if (!peer) return;
+    const replaced = await peer.replaceTrack("mic", track).catch((err) => {
+      log.error("mic replaceTrack failed", err);
+      return true; // a sender exists; don't add a second one
+    });
+    if (!replaced && track) peer.publish(track, "mic").catch((err) => log.error("mic publish failed", err));
   });
 
   // Local camera track released/re-acquired (camera off releases the device, on

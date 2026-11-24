@@ -135,10 +135,15 @@ export class Controls {
     this._onScreenStart = (e) => this._onScreenStarted(e);
     this._onScreenStop = () => this._onScreenStopped();
     this._onScreenChange = (e) => this._onScreenChanged(e);
+    // A camera/mic unplugged mid-call, and any plug/unplug at all (menus refresh).
+    this._onDeviceLostEv = (e) => this._onDeviceLost(e.detail && e.detail.kind);
+    this._onDevicesChangedEv = (e) => this._onDevicesChanged(e.detail);
     if (this.media) {
       this.media.addEventListener("screen-start", this._onScreenStart);
       this.media.addEventListener("screen-stop", this._onScreenStop);
       this.media.addEventListener("screen-change", this._onScreenChange);
+      this.media.addEventListener("device-lost", this._onDeviceLostEv);
+      this.media.addEventListener("devices-changed", this._onDevicesChangedEv);
     }
 
     // Chat panel state (wired via attachChat).
@@ -472,7 +477,9 @@ export class Controls {
 
     // A mic/camera button is meaningless with no such track; disable it up front.
     // Noise suppression likewise needs a mic to process.
-    if (!(this.media && this.media.micTrack)) this.muteBtn.disabled = true;
+    // A mic that EXISTS keeps it usable even with no track (the one in use was
+    // unplugged): unmuting then opens whichever mic is there now.
+    if (!this._micUsable()) this.muteBtn.disabled = true;
     // Enabled whenever a camera EXISTS (even if joined with it off, so it can be
     // turned back on), not only when a track is currently live.
     if (!(this.media && this.media.cameraAvailable)) this.cameraBtn.disabled = true;
@@ -496,8 +503,18 @@ export class Controls {
 
   // --- local controls ---
 
-  _toggleMic() {
+  _micUsable() {
+    return !!(this.media && (this.media.micTrack || this.media.micAvailable));
+  }
+
+  async _toggleMic() {
     if (!this.media) return;
+    // The mic in use went away: unmuting opens whichever mic is there now.
+    if (!this.media.micTrack) {
+      this.muteBtn.blur();
+      await this._reopenMic();
+      return;
+    }
     const enabled = this.media.toggleMic();
     this._setMicButton(enabled);
     if (this.grid) this.grid.refreshSelf();
@@ -567,12 +584,14 @@ export class Controls {
     // two getUserMedia captures.
     const turningOn = !this.media.cameraTrack;
     this.cameraBtn.disabled = true;
+    this._cameraBusy = true; // so a devices-changed meanwhile doesn't re-enable the button
     try {
       if (turningOn) await this.media.enableCamera();
       else this.media.disableCamera();
     } catch {
       /* re-acquire failed (permission/device busy): leave the camera off */
     }
+    this._cameraBusy = false;
     this.cameraBtn.disabled = !(this.media && this.media.cameraAvailable);
     this._setCameraButton(!!this.media.cameraTrack);
     if (this.grid) this.grid.refreshSelf();
@@ -826,6 +845,10 @@ export class Controls {
     } catch {
       return;
     }
+    this._fillDevices(kind, devices);
+  }
+
+  _fillDevices(kind, devices) {
     if (kind === "camera") {
       fillDeviceSelect(this.cameraSelect, devices.cameras, trackDeviceId(this.media.cameraTrack), "Camera");
     } else {
@@ -833,6 +856,64 @@ export class Controls {
       // No active track to read a sink from, so the persisted choice is what gets marked.
       if (this.speakerSelect) fillDeviceSelect(this.speakerSelect, devices.speakers || [], this._speakerId, "Speaker");
     }
+  }
+
+  // The camera or mic in use went away (Media has already released it). Same as the
+  // user turning it off: flip the button, update the self tile, tell the room. Not
+  // remembered as a preference — the user didn't choose it.
+  _onDeviceLost(kind) {
+    if (!this.media) return;
+    if (kind === "camera") {
+      this._setCameraButton(false);
+      if (!this._cameraBusy) this.cameraBtn.disabled = !this.media.cameraAvailable;
+    } else if (kind === "mic") {
+      this._pttHeld = false;
+      this._pttUnmuted = false;
+      this._setMicButton(false);
+      this.muteBtn.disabled = !this._micUsable();
+    } else {
+      return;
+    }
+    if (this.grid) this.grid.refreshSelf();
+    this.sendMediaState({ remember: false });
+  }
+
+  // A device was plugged in or removed. Refresh whichever device menu is open, keep
+  // the buttons' usability in step with the hardware, and drop a chosen speaker that
+  // is gone back to the browser default (for this call only — the saved choice
+  // stays, so it is picked again next time it is around).
+  _onDevicesChanged(devices) {
+    if (!this.media || !devices) return;
+    if (this.cameraMenu && !this.cameraMenu.hidden) this._fillDevices("camera", devices);
+    const speakers = devices.speakers || [];
+    // An empty list says nothing (Firefox can list no outputs at all), so only a
+    // non-empty list that lacks the choice counts as "gone".
+    if (this._speakerId && speakers.length > 0 && !speakers.some((d) => d.deviceId === this._speakerId)) {
+      log.info(`[audio output] chosen speaker went away; using the browser default`);
+      this._speakerId = "";
+      if (this.grid) this.grid.setAudioOutput("");
+    }
+    if (this.micMenu && !this.micMenu.hidden) this._fillDevices("mic", devices);
+    if (!this._cameraBusy) this.cameraBtn.disabled = !this.media.cameraAvailable;
+    if (!this._micBusy) this.muteBtn.disabled = !this._micUsable();
+  }
+
+  // Open a mic again after the one in use went away; it comes up live.
+  async _reopenMic() {
+    this.muteBtn.disabled = true;
+    this._micBusy = true;
+    try {
+      await this.media.enableMic();
+    } catch {
+      /* no mic to open; media.js emitted the error */
+    }
+    this._micBusy = false;
+    if (!this.media) return;
+    this.muteBtn.disabled = !this._micUsable();
+    const t = this.media.micTrack;
+    this._setMicButton(!!(t && t.enabled));
+    if (this.grid) this.grid.refreshSelf();
+    this.sendMediaState();
   }
 
   // Route all remote audio to the chosen output device (persisted for next time).
@@ -883,6 +964,12 @@ export class Controls {
     } catch {
       /* media.js emits its own error event */
     }
+    // Picking a mic after the last one went away opens it live, so the button and
+    // the room need to hear about it (idempotent otherwise).
+    const t = this.media.micTrack;
+    this.muteBtn.disabled = !this._micUsable();
+    this._setMicButton(!!(t && t.enabled));
+    this.sendMediaState();
     if (this.grid) this.grid.refreshSelf();
     this._closeMenus(); // selection made — dismiss the popover
   }
@@ -1384,6 +1471,8 @@ export class Controls {
       this.media.removeEventListener("screen-start", this._onScreenStart);
       this.media.removeEventListener("screen-stop", this._onScreenStop);
       this.media.removeEventListener("screen-change", this._onScreenChange);
+      this.media.removeEventListener("device-lost", this._onDeviceLostEv);
+      this.media.removeEventListener("devices-changed", this._onDevicesChangedEv);
     }
     for (const ev of this._activityEvents) {
       window.removeEventListener(ev, this._onActivity);

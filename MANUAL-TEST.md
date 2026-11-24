@@ -535,3 +535,33 @@ To reproduce the no-WebGL state, launch Chrome with `--disable-gpu`, or turn off
 - [ ] Re-enable acceleration, restart the browser, reload, and pick a background.
       **Verdict:** it works normally, and a previously saved preference is still
       there — the unsupported state must never have been persisted over it.
+
+## Devices plugged in and out mid-call
+
+Needs a USB (or other removable) camera and a removable mic: a USB or Bluetooth
+headset. A second browser in the room watches what the others see.
+
+- [ ] In a call with the USB camera on, unplug it.
+      **Verdict:** your camera button flips to off, your self tile and the other
+      browser's tile for you both show your avatar (not a black or frozen frame),
+      and the console shows `[video capture] camera "…" went away`. Fail if
+      anyone sees a black tile.
+- [ ] Do the same with a background effect on.
+      **Verdict:** same as above; the camera light goes out.
+- [ ] With the camera menu (▾) already open, plug the camera back in.
+      **Verdict:** it appears in the open menu within a second or two, without
+      reopening it. Press "Start video": a camera comes on.
+- [ ] Unplug the last camera so none is left.
+      **Verdict:** the camera button greys out; plugging one in re-enables it.
+- [ ] Unmuted, with the headset as the mic, unplug it (or turn the Bluetooth off).
+      **Verdict:** your mic button shows muted and the other browser's mic
+      indicator for you shows muted. Click unmute: the remaining mic opens live,
+      and the other browser hears you. With noise suppression on before, it is
+      on again afterwards.
+- [ ] With the headset chosen as the speaker, unplug it.
+      **Verdict:** sound continues from the computer's default output, and the
+      headset is gone from the speaker list. Plug it back in: it reappears in the
+      list but sound stays where it is until you pick it.
+- [ ] In the lobby (before joining), unplug and plug the camera and the headset.
+      **Verdict:** the pickers update without reloading, an unplugged camera
+      shows your avatar, and an unplugged mic shows muted but can be unmuted.

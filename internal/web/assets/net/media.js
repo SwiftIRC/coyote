@@ -20,6 +20,13 @@
 //   "screen-stop"  {}            screen share ended (stopScreen or browser UI)
 //   "screen-change" {track, audioTrack}  an active share switched to a new
 //                                surface in place (changeScreen) — no stop/start
+//   "device-lost"  {kind}        the camera ("camera") or mic ("mic") in use went
+//                                away on its own (unplugged, Bluetooth dropped).
+//                                The track is already released and camera-track /
+//                                mic-track has announced null; the UI flips its
+//                                button and tells the room
+//   "devices-changed" {cameras, mics, speakers}  a device was plugged in or
+//                                removed; fresh enumerate() lists for the menus
 //   "error"        {error, phase} a capture call failed; also rejected to caller
 //   "background-changed" {effectId, reverted, reason}  the background effect
 //                                changed; reason is "user" (an explicit user
@@ -54,6 +61,15 @@ export class Media extends EventTarget {
     // releases the device (no track), so the UI needs a separate signal to keep the
     // camera toggle usable while off — this is it.
     this.cameraAvailable = false;
+    // The same for the mic: a mic EXISTS, so the mute button can re-open one after
+    // the one in use was unplugged (which leaves no mic track).
+    this.micAvailable = false;
+    // Noise suppression was on when the mic went away; enableMic turns it back on.
+    this._nsWanted = false;
+    // devicechange handler (removed in stop) and a counter so only the newest of
+    // overlapping re-enumerations is reported.
+    this._onDeviceChange = null;
+    this._deviceChangeSeq = 0;
     // deviceId of the camera currently/last in use, so re-enabling after an off
     // re-acquires the SAME camera rather than the browser's default (multi-camera
     // users would otherwise silently switch cameras on an in-call off→on).
@@ -99,6 +115,70 @@ export class Media extends EventTarget {
     // the final word for the build that set it, or remote peers are pinned to
     // {track:null} forever even though a live device track is being sent
     // nowhere. See _releaseHeldVideo.
+    this._watchDevices();
+  }
+
+  // --- hot-plug ---
+
+  // Re-enumerate on every plug/unplug and announce the fresh lists, so menus that
+  // are already open (and the lobby's pickers) update without being reopened.
+  // Availability follows the hardware both ways here: the last camera leaving
+  // greys the camera button until one comes back.
+  _watchDevices() {
+    const md = typeof navigator !== "undefined" ? navigator.mediaDevices : null;
+    if (!md || typeof md.addEventListener !== "function") return;
+    this._onDeviceChange = async () => {
+      const seq = ++this._deviceChangeSeq;
+      let lists;
+      try {
+        lists = await this.enumerate();
+      } catch {
+        return;
+      }
+      if (seq !== this._deviceChangeSeq || !this._onDeviceChange) return; // superseded, or stopped
+      this.cameraAvailable = lists.cameras.length > 0 || !!this.cameraTrack;
+      this.micAvailable = lists.mics.length > 0 || !!this.micTrack;
+      log.info(`[devices] changed: cameras=${lists.cameras.length} mics=${lists.mics.length} speakers=${lists.speakers.length}`);
+      this.dispatchEvent(new CustomEvent("devices-changed", { detail: lists }));
+    };
+    md.addEventListener("devicechange", this._onDeviceChange);
+  }
+
+  _unwatchDevices() {
+    const md = typeof navigator !== "undefined" ? navigator.mediaDevices : null;
+    if (md && this._onDeviceChange && typeof md.removeEventListener === "function") {
+      md.removeEventListener("devicechange", this._onDeviceChange);
+    }
+    this._onDeviceChange = null;
+  }
+
+  // Listen for the browser ending a DEVICE track on its own. Our own stop() never
+  // fires "ended", so this only sees a device that went away.
+  _watchEnded(track, kind) {
+    if (!track || typeof track.addEventListener !== "function") return;
+    track.addEventListener("ended", () => this._onDeviceEnded(track, kind), { once: true });
+  }
+
+  // Treat a vanished device exactly like the user turning it off. A track that was
+  // already replaced (a device switch) is not ours any more and is ignored.
+  _onDeviceEnded(track, kind) {
+    if (!this.stream) return;
+    if (kind === "camera") {
+      if (track !== this.cameraTrack && track !== this._rawCameraTrack) return;
+      log.warn(`[video capture] camera "${track.label || ""}" went away; turning the camera off`);
+      this._heldVideo = false; // disableCamera announces null, which settles any hold
+      this.disableCamera();
+    } else {
+      if (track !== this.stream.getAudioTracks()[0]) return;
+      log.warn(`[audio capture] mic "${track.label || ""}" went away; muting`);
+      this._nsWanted = this._nsOn;
+      this._teardownNoiseGraph();
+      this._nsOn = false;
+      this.stream.removeTrack(track);
+      track.stop();
+      this.dispatchEvent(new CustomEvent("mic-track", { detail: { track: null } }));
+    }
+    this.dispatchEvent(new CustomEvent("device-lost", { detail: { kind } }));
   }
 
   // Current local tracks, or null when not captured / removed. Getters read the
@@ -269,6 +349,7 @@ export class Media extends EventTarget {
     // default would disable the toggle and leave the user unable to pick a working
     // camera from the list. Only "no camera hardware at all" leaves this false.
     if (cameras.length > 0) this.cameraAvailable = true;
+    if (mics.length > 0) this.micAvailable = true;
     return { cameras, mics, speakers };
   }
 
@@ -363,6 +444,16 @@ export class Media extends EventTarget {
     // that cancels, a virtual/loopback device that does not — so report the switch
     // as well as the initial capture.
     if (micId) this._logMicProcessing("switch");
+    // Picking a mic after the last one went away: put noise suppression back the way
+    // it was, as enableMic does.
+    if (micId && this._nsWanted && !this._nsOn) {
+      this._nsWanted = false;
+      try {
+        await this.setNoiseSuppression(true);
+      } catch {
+        /* raw mic stays published; the error was emitted */
+      }
+    }
     return this.stream;
   }
 
@@ -370,6 +461,28 @@ export class Media extends EventTarget {
   // Returns the new enabled state; false when there is no mic track.
   toggleMic() {
     return this._toggle(this.micTrack);
+  }
+
+  // Open a mic again after the one in use went away (device-lost). Takes whatever
+  // mic the browser offers now, comes up LIVE (this is the user unmuting), and
+  // restores noise suppression if it was on. A no-op returning the current track
+  // when a mic is already open. Rejects (and emits "error") when there is none.
+  async enableMic() {
+    if (this.micTrack) return this.micTrack;
+    const fresh = await this._getUserMedia({ audio: micConstraints() });
+    this._adopt(fresh);
+    const raw = this.stream.getAudioTracks()[0];
+    if (raw) raw.enabled = true;
+    this._logMicProcessing("reacquire");
+    if (this._nsWanted) {
+      this._nsWanted = false;
+      try {
+        await this.setNoiseSuppression(true);
+      } catch {
+        /* the raw mic stays published; setNoiseSuppression emitted the error */
+      }
+    }
+    return this.micTrack;
   }
 
   // Set the mic to a specific muted/live state (used by push-to-talk). Returns the
@@ -558,6 +671,7 @@ export class Media extends EventTarget {
   // suppression audio graph. Use on teardown, e.g. when leaving the room, so no
   // device stays lit and no AudioContext/worklet is leaked.
   stop() {
+    this._unwatchDevices();
     this.stopScreen();
     this._teardownBackground();
     this._bgEffect = "none";
@@ -1037,11 +1151,15 @@ export class Media extends EventTarget {
       this.stream.removeTrack(prev);
       prev.stop();
     }
-    if (next) this.stream.addTrack(next);
+    if (next) {
+      this.stream.addTrack(next);
+      this._watchEnded(next, isVideo ? "camera" : "mic");
+    }
     if (isVideo && next) {
       this.cameraAvailable = true;
       this._cameraId = next.getSettings().deviceId || this._cameraId; // remember for re-enable
     }
+    if (!isVideo && next) this.micAvailable = true;
     // While NS is on the published audio is the PROCESSED track; a raw-device swap
     // (mic change) must not publish the raw track. useDevices rebuilds the graph and
     // emits the processed mic-track instead. (NS is off at start()/enableCamera time,
